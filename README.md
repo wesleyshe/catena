@@ -4,7 +4,7 @@ CATENA is a chain of 12 spherical modules that folds itself into shapes: the MIT
 (Mutis et al., ACM SCF 2025). This repo also holds the microgravity experiments we're designing for it, for MIT
 16.88J / Columbia AERO E4450 in Fall 2026.
 
-![one module](simulation/renders/module.png)
+![one module](docs/images/module.png)
 
 ## What's where
 | Folder | What's in it | Start here |

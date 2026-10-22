@@ -40,7 +40,7 @@ Default paths are relative to this folder, so the scripts also work when run fro
 | `export_meshes.py` | 3dm → `meshes/`: one STL per rigid body, module frame, metres, under 20k triangles. |
 | `inspect_3dm.py` | 3dm summary: units, layers, objects, tight mesh bounding boxes. |
 | `meshes/` | `base_first.stl` (module 1), `base_mid.stl` (2–11), `base_last.stl` (12), `arm.stl` (1–11). Generated, but committed. `SOURCE.txt` records the CAD file name and SHA-256 they came from. |
-| `renders/` | PNGs from `verify.py`. |
+| `renders/` | PNGs written by `verify.py` (git-ignored: they differ slightly between computers). |
 | `logs/`, `screenshots/` | Run output (git-ignored). The shell default log is `logs/run_log.csv`; the panel writes `logs/run_<stamp>.csv`. |
 | `.venv/` | This folder's Python 3.11 environment (uv, git-ignored). |
 

@@ -3,6 +3,10 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-10-22 · Wesley (Claude Code)
+- `renders/` is no longer in git: `verify.py` rewrites it, and the PNGs differ between computers, which caused binary
+  merge conflicts in a team rehearsal. The README image is now `../docs/images/module.png`.
+
+## 2026-10-22 · Wesley (Claude Code)
 - **original14 now comes from `../hardware/spec.toml`:** `make_chain.py` reads it for servo, pitch, masses, shell
   radius, ranges and module count. The panel's module default comes from it too.
 - **Stale-mesh check:** `export_meshes.py` writes `meshes/SOURCE.txt` (CAD file name + SHA-256), and `verify.py`

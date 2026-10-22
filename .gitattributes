@@ -1,0 +1,3 @@
+# Each LOG.md is a list of separate entries: when two branches both add one, keep both (local merges only;
+# GitHub's merge button ignores this, so run `git pull origin main` on your branch and push).
+LOG.md merge=union

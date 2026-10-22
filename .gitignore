@@ -12,3 +12,5 @@ MUJOCO_LOG.TXT
 *.rhl
 # Generated from make_chain.py + hardware/spec.toml every time the control window starts
 simulation/chain.xml
+# Written by verify.py on every run; they differ slightly between computers
+simulation/renders/

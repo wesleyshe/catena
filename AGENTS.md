@@ -26,12 +26,8 @@ Read this file first, then the `AGENTS.md` in the folder you're working in.
 
 Each area has its own setup, its own checks, its own `AGENTS.md` and its own `LOG.md`.
 
-## Status (2026-10-22; keep this current)
-- **hardware:** The 12-module chain exists and has been published. Per the proposal, flight still needs the soft
-  damping membrane, an IMU and onboard data logging.
-- **software:** Nothing in this repo yet.
-- **simulation:** Working. `verify.py` passes. Used to answer the professor's physics questions
-  (`experiments/findings.md`).
+Each area's status is at the top of its own `AGENTS.md`. There's deliberately none here, because areas editing
+neighbouring lines of one file get merge conflicts.
 
 ## Facts every area shares
 These are confirmed by the team. Change one only together with the other areas, and log it in the root `LOG.md`.
@@ -98,4 +94,24 @@ When you finish a task:
 - Use real dates (2026-10-22), not "today".
 - Name the person you're working with and which tool you are.
 - Commit the `LOG.md` and `AGENTS.md` updates together with the change they describe.
-- Don't commit what `.gitignore` excludes: environments, run logs, screenshots, caches.
+- Don't commit what `.gitignore` excludes: environments, run logs, screenshots, sim renders, caches.
+
+## Working together (git)
+A rehearsal with four people (hardware, two software, simulation) working at once shaped these rules.
+- **One branch per task, and a pull request into `main`.** Never push to `main` directly.
+  - Start each task from fresh main: `git switch main && git pull`, then `git switch -c sw/imu-logger`. Prefix the
+    branch with `hw/`, `sw/` or `sim/`.
+- **Work inside your own area's folder.**
+  - Changes in different folders merge cleanly.
+  - Conflicts come from shared files: two people's `LOG.md` entries, or neighbouring lines of the same `AGENTS.md`.
+- **When GitHub says a pull request has conflicts:**
+  1. Run `git pull origin main` on your branch.
+  2. `LOG.md` conflicts resolve themselves, because `.gitattributes` sets `merge=union`. GitHub's merge button
+     doesn't do this, which is why the pull is needed.
+  3. For other text files, keep what both sides meant, then push.
+- **Binary files can't be merged.** That covers `.3dm`, `.stl` and images.
+  - Only one person changes the CAD or the meshes at a time, and says so first.
+  - If they do clash, keep one version and redo the step that made the other (e.g. re-export the meshes).
+- **Before merging anything that touches `hardware/` or `simulation/`, run `simulation/verify.py`.** It catches meshes
+  that are out of date with the CAD.
+- **Prefer "Squash and merge"** so `main` gets one commit per pull request.

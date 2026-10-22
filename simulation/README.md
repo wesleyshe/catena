@@ -5,7 +5,7 @@ By default there is no gravity and no tether. You can drive it with sliders and 
 sequences, and log how its centre of mass and angular momentum behave. The chain floats horizontally about 1 m above
 a floor; turn gravity on and it drops onto the floor.
 
-![one module](renders/module.png)
+![one module](../docs/images/module.png)
 
 ## Setup (once)
 
@@ -125,7 +125,7 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
 | `logs/` | Run logs: `run_log.csv` from the shell, `run_<date>_<time>.csv` from the control window. |
 | `screenshots/` | Written by the control window's **Screenshot** button. |
 | `verify.py` | Checks plus PNG renders in `renders/`. |
-| `renders/` | `module.png`, `module_pitch60.png`, `chain12.png`, `fold_L.png`, `fold_zigzag.png`, `gravity_drop.png`. |
+| `renders/` | Written by `verify.py`, not in git: `module.png`, `module_pitch60.png`, `chain12.png`, `fold_L.png`, `fold_zigzag.png`, `gravity_drop.png`. |
 | `AGENTS.md`, `LOG.md` | Decisions behind the model (for coding agents), and the history of changes. Measurements are in `../hardware/AGENTS.md`. |
 
 ## The model in brief
