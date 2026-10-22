@@ -1,0 +1,13 @@
+# Turning about the chain's own long axis with no push: a 3D 'falling cat'. Each loop: m4 pitch out, m8 twists
+# (yaw), m4 back, m8 untwists. The chain ends straight every loop but has rolled ~32 deg about its long axis;
+# 2 loops ~ 64 deg. Reverse the order of the steps to roll the other way. L stays 0.
+m1_yaw,m1_pitch,m2_yaw,m2_pitch,m3_yaw,m3_pitch,m4_yaw,m4_pitch,m5_yaw,m5_pitch,m6_yaw,m6_pitch,m7_yaw,m7_pitch,m8_yaw,m8_pitch,m9_yaw,m9_pitch,m10_yaw,m10_pitch,m11_yaw,m11_pitch,m12_yaw,m12_pitch
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+0,0,0,0,0,0,0,90,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+0,0,0,0,0,0,0,90,0,0,0,0,0,0,90,0,0,0,0,0,0,0,0,0
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,90,0,0,0,0,0,0,0,0,0
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+0,0,0,0,0,0,0,90,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+0,0,0,0,0,0,0,90,0,0,0,0,0,0,90,0,0,0,0,0,0,0,0,0
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,90,0,0,0,0,0,0,0,0,0
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0

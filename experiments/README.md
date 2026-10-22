@@ -31,7 +31,9 @@ Measured sim results so far are in `findings.md`.
   - The IMU's view: its module's 3D attitude and rotation rate in the log (`imu_*` columns) and the `IMU turn` readout.
   - Cabin air drag (`--air`), the net cage (`--cage`), and a flag when a sequence is longer than one parabola
     (`--speed` to fit).
-  - `reorient_loop.csv` turns the chain about 7.4° per loop with zero angular momentum.
+  - `reorient_loop.csv` turns the chain about 7.4° per loop with zero angular momentum, about the vertical only.
+  - `roll_loop.csv` turns it about its long axis, about 32° per loop. Turning in 3D needs a twist as well as pitch
+    folds.
   - What moves that prediction, and by how much, is in `findings.md` under "Is the sim good enough for flight?".
 - **Not in the sim yet:**
   - **A held end, to find the stall length under gravity.** Today the chain floats free or lies on the floor. Pitch

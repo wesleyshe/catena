@@ -4,6 +4,18 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-10-22 · Wesley (Claude Code)
+- **Answered a team question in the sim:** one fold vs. loops of folds, in 3D.
+  - One fold leaves no lasting turn (0.02°).
+  - Pitch-only loops turn the chain about the vertical only (7.4° per loop).
+  - A pitch fold plus a twist turns it about its long axis (31.8° per loop).
+  - The CG stayed fixed (0.0000 mm) throughout.
+  - Added to `experiments/findings.md`.
+- **Added `sequences/roll_loop.csv`:** 2 pitch-plus-twist loops, about 64°. Fits one parabola at `--speed 2`.
+- **`.gitignore` now ignores `.gstack/`.** The gstack browser keeps logs and a local access token there, which must
+  never be pushed to this public repo.
+- **Checked:** `roll_loop.csv` at three speeds: 0 contacts, peak servo torque at most 0.99 of 1.5 N·m, CG fixed.
+
+## 2026-10-22 · Wesley (Claude Code)
 - **Published as a private GitHub repo:** https://github.com/wesleyshe/catena.
 - **Squash-merge only.**
 - **New `verify` check** (`.github/workflows/verify.yml`): runs `simulation/verify.py` on Ubuntu, with software OpenGL

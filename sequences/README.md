@@ -7,6 +7,7 @@ the robot software should read the same format, so one file runs in both.
 |---|---|
 | `fold_sequence.csv` | Straight → L → straight → zig-zag → straight. `verify.py` uses it, so don't change it without re-running the checks. |
 | `reorient_loop.csv` | Turns the whole chain about 30° with no push: 4 shape loops that each end straight, keeping angular momentum at 0 (the "falling cat"). At default timing this takes 65 s. At `--speed 4` it takes 16 s, fitting one parabola: it turns about 31°, with servos peaking at 1.28 of 1.5 N·m. |
+| `roll_loop.csv` | Rolls the whole chain about its own long axis with no push: 2 loops of an m4 pitch fold plus an m8 twist (a 3D "falling cat"), about 64° in total. Default timing takes 33 s; `--speed 2` fits one parabola (16.5 s, 63.4°). Reverse the steps to roll the other way. |
 
 Add your own here. The control window lists every `.csv` in this folder.
 
