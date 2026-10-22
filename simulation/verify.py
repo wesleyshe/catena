@@ -8,8 +8,9 @@
 3. zero gravity + smooth random joint motion: COM stays still, total angular momentum stays ~0
 4. no contacts with the chain straight, and none during ../sequences/fold_sequence.csv
 5. gravity on: the chain drops onto the floor and settles there
-6. spin: the Spin command, the spin-up when folded (skater effect), Stop spin, and the tip-turn readout
-7. offscreen renders: one module, the straight 12-module chain, the L and zig-zag folds, the dropped chain
+6. spin: the Spin command (one axis at a time), the spin-up when folded (skater effect), Stop spin, the tip-turn readout
+7. flight options: the IMU output, weighed modules, air drag and the net cage
+8. offscreen renders: one module, the straight 12-module chain, the L and zig-zag folds, the dropped chain
 """
 import math
 import os
@@ -34,8 +35,8 @@ def check(ok, msg):
         failures.append(msg)
 
 
-def load(preset="original14", n=12, slip_ring=False):
-    xml = build(preset, n, slip_ring).replace('meshdir="meshes"', f'meshdir="{HERE}/meshes"')
+def load(preset="original14", n=12, slip_ring=False, **opts):
+    xml = build(preset, n, slip_ring, **opts).replace('meshdir="meshes"', f'meshdir="{HERE}/meshes"')
     m = mujoco.MjModel.from_xml_string(xml)
     return m, mujoco.MjData(m)
 
@@ -193,13 +194,52 @@ def check_spin():
           f"Spin 20 deg/s: spins at {straight:.1f} deg/s and turns {turned:.1f} deg in 2 s")
     check(folded > 25 and abs(back - 20) < 0.3 and np.allclose(L0, L1, atol=1e-6),
           f"folding into an L spins it up to {folded:.1f} deg/s, unfolding brings it back to {back:.1f} (L unchanged)")
-    s.command({"cmd": "spin", "rate": 0})
+    s.command({"cmd": "spin", "rate": 0, "axis": "all"})
     run(s, sec=1)
     check(np.linalg.norm(s.d.sensor("angmom").data) < 1e-6 and abs(s.spin_rate()) < 0.01, "Stop spin: angular momentum back to 0")
+    s = Session(m, mujoco.MjData(m))
+    s.spin(10, "x")
+    s.spin(20, "z")
+    w = np.degrees(np.linalg.solve(s.inertia(), s.d.sensor("angmom").data))
+    check(np.allclose(w, (10, 0, 20), atol=0.01), f"Spin about z keeps the spin about x: ({w[0]:.1f}, {w[1]:.1f}, {w[2]:.1f}) deg/s")
     s = Session(m, mujoco.MjData(m))
     run(s, "m11_pitch", 90)
     check(1 < abs(s.turned) < 4 and abs(s.spin_rate()) < 0.01,
           f"from rest, swinging the tip (m11_pitch 90 deg) turns the rest of the chain {s.turned:+.1f} deg, then it stops")
+
+
+def check_flight():
+    print("7. flight options: IMU output, weighed modules, air drag, net cage")
+    m, d = load()
+    s = Session(m, d)
+    s.spin(10, "x")
+    while d.time < 2 - 1e-9:
+        s.advance()
+    rate = math.degrees(np.linalg.norm(d.sensor("imu_gyro").data))
+    check(abs(rate - 10) < 0.05 and abs(s.imu_turn() - 20) < 0.2,
+          f"IMU: spinning at 10 deg/s for 2 s, its gyro reads {rate:.2f} deg/s and it has turned {s.imu_turn():.2f} deg")
+    PRESETS["weighed"] = {**PRESETS["original14"], "module_masses": [0.25] * 12}
+    m, _ = load("weighed")
+    del PRESETS["weighed"]
+    check(abs(sum(m.body_mass) - 3.0) < 1e-9, f"12 weighed modules of 250 g make a {sum(m.body_mass):.3f} kg chain")
+    after = []
+    for air in (False, True):
+        m, d = load(air=air)
+        s = Session(m, d)
+        s.spin(20, "z")
+        while d.time < 10 - 1e-9:
+            s.advance()
+        after.append(s.spin_rate())
+    check(abs(after[0] - 20) < 0.01 and 15 < after[1] < 19.8,
+          f"air drag: spinning at 20 deg/s, after 10 s it's {after[1]:.2f} deg/s with cabin air, {after[0]:.2f} without")
+    m, d = load(cage=True)
+    s, hit = Session(m, d), None
+    m.opt.gravity[:] = (0, 0, -0.0981)
+    while hit is None and d.time < 6:
+        s.advance()
+        hit = d.time if d.ncon else None
+    check(hit is not None and 2 < hit < 4,
+          f"net cage: nothing touches at the start; with 0.01 g left over, the chain reaches the cage after {f'{hit:.2f} s' if hit else 'never'}")
 
 
 def render(m, d, path, views, lookat, dist, size=(800, 800)):
@@ -217,7 +257,7 @@ def render(m, d, path, views, lookat, dist, size=(800, 800)):
 
 
 def renders():
-    print("7. renders")
+    print("8. renders")
     os.makedirs(f"{HERE}/renders", exist_ok=True)
     ax = "".join(f'<geom type="cylinder" fromto="{a}" size="0.0008" rgba="{c}" contype="0" conaffinity="0"/>'
                  for a, c in (("-0.09 0 0 0.09 0 0", "1 0.1 0.1 1"), ("0 0 -0.09 0 0 0.12", "0.1 0.8 0.1 1")))
@@ -258,6 +298,7 @@ if __name__ == "__main__":
     check_contacts()
     check_gravity()
     check_spin()
+    check_flight()
     renders()
     print("\nALL CHECKS PASSED" if not failures else f"\n{len(failures)} CHECK(S) FAILED")
     raise SystemExit(bool(failures))

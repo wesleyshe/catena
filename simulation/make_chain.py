@@ -21,14 +21,16 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SPEC_FILE = os.path.join(os.path.dirname(HERE), "hardware", "spec.toml")
 with open(SPEC_FILE, "rb") as fh:
     SPEC = tomllib.load(fh)  # the chain as built; hardware owns it, and the robot software reads it too
-HW, SERVO, MASS = SPEC["chain"], SPEC["servo"], SPEC["mass"]
+HW, SERVO, MASS, FLIGHT = SPEC["chain"], SPEC["servo"], SPEC["mass"], SPEC["flight"]
+WEIGHED = [g / 1000 for g in MASS.get("module_g", [])]  # whole modules (base + arm, kg), once they've been weighed
 
 # original14 is the real chain: its servo, pitch and masses come from the spec. The 7 cm presets are what-ifs.
 # Lengths of the meshes and primitives are for the 140 mm AX-12A module; other pitches scale them.
 PRESETS = {
     "original14": dict(servo=SERVO["model"], torque=SERVO["stall_torque_Nm"], speed=SERVO["no_load_speed_rad_s"],
                        pitch=HW["pitch_mm"] / 1000, timestep=0.0005, base_mass=MASS["base_g"] / 1000,
-                       end_mass=MASS["end_g"] / 1000, arm_mass=MASS["arm_g"] / 1000, shell_frac=0.33, armature=0.002, kv=1.0),
+                       end_mass=MASS["end_g"] / 1000, arm_mass=MASS["arm_g"] / 1000, module_masses=WEIGHED,
+                       shell_frac=0.33, armature=0.002, kv=1.0),
     "dyna7": dict(servo="XL330-M288", torque=0.52, speed=10.8, pitch=0.070, timestep=0.0001,
                   base_mass=0.047, end_mass=0.047, arm_mass=0.004, shell_frac=0.18, armature=0.0002, kv=0.25),
     "feetech7": dict(servo="STS3032", torque=0.44, speed=11.6, pitch=0.070, timestep=0.0001,
@@ -65,17 +67,25 @@ def v(*xs):
     return " ".join(f"{x:.6g}" for x in xs)
 
 
-def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0):
+def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=False, cage=False):
+    """air: cabin air drag on the shells. cage: the net cage around the chain's start position (sizes in the spec)."""
     p = PRESETS[preset]
     s = p["pitch"] / 0.140                       # geometric scale
     kp = p["torque"] / math.radians(KP_SATURATE)
     damping = p["torque"] / p["speed"]           # servo slows to its no-load speed at stall torque
     height = n * p["pitch"] / 2 + 2 * R_SHELL * s  # float height: more than half the chain plus a shell
     roll = math.radians(CHAIN_ROLL)
+    weighed = p.get("module_masses") or []
+    if weighed and len(weighed) != n:
+        print(f"note: spec.toml lists {len(weighed)} module weights for a {n}-module chain; using base_g / end_g instead")
+        weighed = []
 
     root = ET.Element("mujoco", model=f"chain_{preset}_{n}")
     ET.SubElement(root, "compiler", angle="radian", meshdir="meshes", autolimits="true")
-    ET.SubElement(root, "option", gravity=v(0, 0, -gravity), timestep=v(p["timestep"]), integrator="RK4")
+    # MuJoCo's ellipsoid fluid model on each shell. For a spinning chain it gives about twice the spin loss of a simple
+    # hand estimate (quadratic drag, Cd ~0.45), so read it as an upper bound.
+    fluid = dict(density=v(FLIGHT["cabin_air_kg_m3"]), viscosity=v(1.8e-5)) if air else {}
+    ET.SubElement(root, "option", gravity=v(0, 0, -gravity), timestep=v(p["timestep"]), integrator="RK4", **fluid)
     ET.SubElement(root, "statistic", center=v(0, 0, height), extent=v(n * p["pitch"]))  # viewer frames the whole chain
     vis = ET.SubElement(root, "visual")
     ET.SubElement(vis, "global", offwidth="1600", offheight="1200", azimuth="0", elevation="-25")  # viewer starts side-on
@@ -83,10 +93,15 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0):
 
     default = ET.SubElement(root, "default")
     ET.SubElement(default, "joint", damping=v(damping), armature=v(p["armature"]), frictionloss=v(GEAR_FRICTION * p["torque"]))
-    ET.SubElement(default, "position", kp=v(kp), kv=v(p["kv"]), forcerange=v(-p["torque"], p["torque"]), timeconst=v(SERVO_LAG))
+    # the motor also has to overcome the gear friction, so the net torque at the output at stall is the rated stall torque
+    reach = p["torque"] * (1 + GEAR_FRICTION)
+    ET.SubElement(default, "position", kp=v(kp), kv=v(p["kv"]), forcerange=v(-reach, reach), timeconst=v(SERVO_LAG))
+    in_air = dict(fluidshape="ellipsoid") if air else {}                        # only the shells meet the air
+    sheltered = dict(fluidshape="ellipsoid", fluidcoef="0 0 0 0 0") if air else {}  # boxes inside the shells
     for cls, attrs in {"visual": dict(type="mesh", contype="0", conaffinity="0", group="2", mass="0"),
-                       "collision": dict(type="sphere", size=v(R_SHELL * s), group="3", shellinertia="true", rgba="1 0.5 0 0.3"),
-                       "mass": dict(type="box", contype="0", conaffinity="0", group="4", rgba="1 0 0 0.3")}.items():
+                       "collision": dict(type="sphere", size=v(R_SHELL * s), group="3", shellinertia="true", rgba="1 0.5 0 0.3",
+                                         **in_air),
+                       "mass": dict(type="box", contype="0", conaffinity="0", group="4", rgba="1 0 0 0.3", **sheltered)}.items():
         ET.SubElement(ET.SubElement(default, "default", {"class": cls}), "geom", attrs)
 
     asset = ET.SubElement(root, "asset")
@@ -100,9 +115,22 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0):
     ET.SubElement(world, "light", directional="true", pos="0 0 3", dir="0 0 -1", diffuse="0.5 0.5 0.5")
     ET.SubElement(world, "geom", name="floor", type="plane", size="0 0 0.05", material="grid", condim="6",  # 20 cm squares
                   friction=v(1, 0.005, ROLLING_RESISTANCE * R_SHELL * s))
+    if cage:  # six thin walls around the chain's start position; a net gives more than a wall, hence the soft solref
+        half, t = [x / 2000 for x in (FLIGHT["cage_mm"][1], FLIGHT["cage_mm"][0], FLIGHT["cage_mm"][2])], 0.005
+        for k in range(3):
+            for sign in (-1, 1):
+                pos, size = [0, 0, height], list(half)
+                pos[k] += sign * (half[k] + t)
+                size[k] = t
+                ET.SubElement(world, "geom", name=f"cage{k}{'-+'[sign > 0]}", type="box", pos=v(*pos), size=v(*size),
+                              rgba="0.5 0.6 0.7 0.12", solref="0.05 1")
+    imu = min(SPEC["imu"]["module"], n)
     parent = world
     for i in range(1, n + 1):
-        base_mass = p["end_mass"] if i in (1, n) else p["base_mass"]
+        if weighed:  # a weighed module includes its arm (module N has none)
+            base_mass = weighed[i - 1] - (p["arm_mass"] if i < n else 0)
+        else:
+            base_mass = p["end_mass"] if i in (1, n) else p["base_mass"]
         if i == 1:  # module frame: x = pitch axis, z = along the chain -> world +Y, rolled by CHAIN_ROLL
             body = ET.SubElement(parent, "body", name="m1", pos=v(0, -(n - 1) * p["pitch"] / 2, height),
                                  xyaxes=v(math.sin(roll), 0, math.cos(roll), math.cos(roll), 0, -math.sin(roll)))
@@ -118,6 +146,8 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0):
         ET.SubElement(body, "geom", {"class": "collision", "name": f"m{i}_sphere", "mass": v(base_mass * p["shell_frac"])})
         ET.SubElement(body, "geom", {"class": "mass", "pos": v(*(c * s for c in CORE_BOX[0])),
                                      "size": v(*(h * s for h in CORE_BOX[1])), "mass": v(base_mass * (1 - p["shell_frac"]))})
+        if i == imu:
+            ET.SubElement(body, "site", name="imu", size=v(0.01 * s))  # at the module centre, axes = the module frame
         if i == n:
             break
         arm = ET.SubElement(body, "body", name=f"m{i}_arm")
@@ -143,6 +173,8 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0):
     ET.SubElement(sensor, "subtreecom", name="com", body="m1")
     ET.SubElement(sensor, "subtreelinvel", name="com_vel", body="m1")
     ET.SubElement(sensor, "subtreeangmom", name="angmom", body="m1")
+    ET.SubElement(sensor, "framequat", name="imu_quat", objtype="site", objname="imu")  # what the flight IMU will report:
+    ET.SubElement(sensor, "gyro", name="imu_gyro", site="imu")                          # attitude, and rate in its own frame
 
     ET.indent(root)
     return ET.tostring(root, encoding="unicode")
@@ -154,11 +186,13 @@ if __name__ == "__main__":
     ap.add_argument("-n", "--modules", type=int, default=N_MODULES)
     ap.add_argument("--slip-ring", action="store_true", help="remove the yaw joint limits")
     ap.add_argument("--gravity", type=float, default=0.0, help="m/s^2 downward, towards the floor (Earth: 9.81)")
+    ap.add_argument("--air", action="store_true", help="cabin air drag on the shells")
+    ap.add_argument("--cage", action="store_true", help="the net cage around the chain (size in hardware/spec.toml)")
     ap.add_argument("-o", "--out", default=os.path.join(HERE, "chain.xml"))
     a = ap.parse_args()
     assert a.modules >= 2, "need at least 2 modules"
     with open(a.out, "w") as f:
-        f.write(build(a.preset, a.modules, a.slip_ring, a.gravity) + "\n")
+        f.write(build(a.preset, a.modules, a.slip_ring, a.gravity, a.air, a.cage) + "\n")
     p = PRESETS[a.preset]
     print(f"wrote {a.out}: {a.modules} x {a.preset} ({p['servo']}, {p['torque']} N·m, {p['pitch'] * 100:g} cm pitch)"
           f"{', slip ring' if a.slip_ring else ''}{f', gravity {a.gravity:g} m/s^2' if a.gravity else ''}")

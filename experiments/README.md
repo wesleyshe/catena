@@ -26,14 +26,23 @@ Measured sim results so far are in `findings.md`.
   3. Two fold orders reach the same shape at measurably different orientations.
 - **What the sim does now:**
   - Any gravity level: the **Gravity** box or `--gravity`.
-  - Zero-g folds with the centre of mass fixed to 0.005 mm.
-  - A `turned` readout for reorientation.
-  - `reorient_loop.csv` turns the chain about 7.4° per loop with zero angular momentum (`findings.md`).
+  - Zero-g folds that conserve momentum (a numerical check: the centre of mass stays put to 0.005 mm).
+  - The leftover spin at release: **Spin** with an axis, or `--spin X Y Z`.
+  - The IMU's view: its module's 3D attitude and rotation rate in the log (`imu_*` columns) and the `IMU turn` readout.
+  - Cabin air drag (`--air`), the net cage (`--cage`), and a flag when a sequence is longer than one parabola
+    (`--speed` to fit).
+  - `reorient_loop.csv` turns the chain about 7.4° per loop with zero angular momentum.
+  - What moves that prediction, and by how much, is in `findings.md` under "Is the sim good enough for flight?".
 - **Not in the sim yet:**
   - **A held end, to find the stall length under gravity.** Today the chain floats free or lies on the floor. Pitch
     folds lie flat unless `CHAIN_ROLL = 90`.
-  - **An IMU-style output** in the log: the orientation of a chosen module over time.
-  - **The parabola time limit:** about 20 s of microgravity each; check the provider's Payload User Guide.
+  - **Prediction ranges.** Repeated runs over release spin, masses and servo settings, so success tier 2 has a
+    tolerance.
+  - **The aircraft's own motion:** its ~90° pitch-over (for video) and the 1.8 g phases before and after.
+- **Flight plan must cover:**
+  - Recording the IMU's rate at release. Even 1°/s cancels the whole 30° turn.
+  - Stowing the chain before the 1.8 g pull-out. Two modules held out sideways already exceed the servo torque.
+  - Sequences inside one parabola, about 20 s.
 
 ## B. Manipulation
 - **Question:** with one end anchored, can the chain act as an arm?

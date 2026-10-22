@@ -4,6 +4,20 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-10-22 · Wesley (Claude Code)
+- **Outside physics review of the sim,** plus sim runs of flight conditions. Results are in `experiments/findings.md`
+  under "Is the sim good enough for flight?":
+  - The core is sound.
+  - Spin at release dominates: 1°/s cancels a 30° turn.
+  - Battery placement shifts the turn by 9%.
+  - Air drag shifts it by 5%.
+  - The servo settings shift it by 4% or less.
+- **Corrected findings that claimed too much:** they're predictions, the turn depends on speed once the servos lag, and
+  the −0.15° per cycle is real.
+- **`experiments/README.md`:** experiment A now lists what the sim covers and what the flight plan must handle (IMU rate
+  at release, stowing before the 1.8 g pull-out, about 20 s per parabola).
+- **`sequences/README.md`:** timing for flight; `reorient_loop.csv` fits a parabola at `--speed 4`.
+
+## 2026-10-22 · Wesley (Claude Code)
 - **Rehearsed a day of team work** with hardware, 2 × software and simulation members opening pull requests into
   main. GitHub's merge button was simulated as ignoring merge drivers.
 - **Before:** 3 of 4 pull requests hit conflicts, all from:

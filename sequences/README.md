@@ -6,7 +6,7 @@ the robot software should read the same format, so one file runs in both.
 | File | What it does |
 |---|---|
 | `fold_sequence.csv` | Straight → L → straight → zig-zag → straight. `verify.py` uses it, so don't change it without re-running the checks. |
-| `reorient_loop.csv` | Turns the whole chain about 30° with no push: 4 shape loops that each end straight, keeping angular momentum at 0 (the "falling cat"). |
+| `reorient_loop.csv` | Turns the whole chain about 30° with no push: 4 shape loops that each end straight, keeping angular momentum at 0 (the "falling cat"). At default timing this takes 65 s. At `--speed 4` it takes 16 s, fitting one parabola: it turns about 31°, with servos peaking at 1.28 of 1.5 N·m. |
 
 Add your own here. The control window lists every `.csv` in this folder.
 
@@ -20,6 +20,10 @@ Add your own here. The control window lists every `.csv` in this folder.
 - **Playback:** the sim holds each row for `hold` seconds, then eases to the next over `move` seconds with a cosine
   profile. The defaults are `move` 3 s and `hold` 1 s, set by `--move` and `--hold` or in the control window. Targets
   update every 10 ms, like commands on a servo bus.
+- **Speed:** `--speed 4` (or **Speed x** in the control window) plays the whole sequence 4× faster.
+- **Flight sequences** must fit one parabola, about 20 s (`parabola_s` in `../hardware/spec.toml`). The sim flags
+  longer ones. Faster than about 3 s per loop the servos can't keep up, and the result changes; see
+  `../experiments/findings.md`.
 
 ## Try one
 ```bash

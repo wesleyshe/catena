@@ -11,7 +11,13 @@ This folder is a MuJoCo model of the chain:
 History is in `LOG.md`.
 
 ## Status (2026-10-22)
-- **Everything works.** `verify.py` passes all 7 sections.
+- **Internally consistent, not yet checked against the real chain.**
+  - `verify.py` passes all 8 sections.
+  - Predictions hold for the numbers in `../hardware/spec.toml`, and some of those are placeholders.
+  - An outside review found the core sound but not yet a flight prediction; see "Is the sim good enough for flight?"
+    in `../experiments/findings.md`.
+- **It models the AX-12A chain in the current Rhino file.** The STS3032 flight build's Rhino model is due in the coming
+  weeks, and comes in through "Incorporating a new design" in `../hardware/AGENTS.md`.
 - **Owner: Wesley.** Wesley double-clicks `Chain Sim.command` rather than using the shell, and uses the sim to answer
   the professor's physics questions (`../experiments/findings.md`).
 
@@ -21,6 +27,7 @@ uv venv --python 3.11 .venv && uv pip install --python .venv/bin/python -r requi
 .venv/bin/python verify.py                                   # all checks + renders/, ~60 s, opens no windows
 .venv/bin/python make_chain.py [--preset dyna7] [-n 12] [--slip-ring] [--gravity 9.81]   # writes chain.xml
 .venv/bin/python play.py --seq ../sequences/fold_sequence.csv --headless                 # logs/run_log.csv
+.venv/bin/python play.py --seq ../sequences/reorient_loop.csv --headless --speed 4 --spin 0 0 1 --air --cage  # flight-like
 .venv/bin/mjpython play.py                                   # viewer only (macOS needs mjpython)
 .venv/bin/python panel.py                                    # control window + viewer (= double-click Chain Sim.command)
 .venv/bin/python export_meshes.py                            # rebuild meshes/ from ../hardware/cad/complete chain.3dm
@@ -75,6 +82,8 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
     - Spin 20 → 20.0 deg/s.
     - An L fold → 31.9 deg/s.
     - m11_pitch 90° from rest → turned −2.2°.
+  - **Log columns:** `time, com_x/y/z, L_x/y/z, L_norm, max_torque, contacts, imu_qw/qx/qy/qz, imu_wx/wy/wz`.
+    Software and experiments read these, so add columns at the end rather than reordering.
   - For a pure refactor, the headless run (`play.py --seq ../sequences/fold_sequence.csv --headless --log FILE`) must
     give a byte-identical log before and after.
 - **Names in the model** (`make_chain.build`):
@@ -84,15 +93,20 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
   - Geoms: `m{i}_visual`, which `play.py` recolours for keyboard selection, and `m{i}_sphere`, whose radius `verify.py`
     reads.
   - Sensors `com`, `com_vel` and `angmom` sit on body `m1`.
+  - Sensors `imu_quat` (`framequat`) and `imu_gyro` sit on site `imu`, at the centre of the module named in `[imu]` in
+    the spec. The `Logger` and `Session.imu_turn` read them.
   - `m1` must stay body id 1, with the free joint: `Session` uses `d.xpos[1]`, `subtree_com[1]` and `qvel[:6]`.
 - **`play.py` API used elsewhere:**
-  - `verify.py` uses `Session` (`advance`, `command`, `readouts`, `spin_rate`, `inertia`, `turned`, `d`), plus
-    `read_sequence` and `target`.
+  - `verify.py` uses `Session` (`advance`, `command`, `readouts`, `spin`, `spin_rate`, `imu_turn`, `inertia`, `turned`,
+    `d`), plus `read_sequence` and `target`.
+  - `make_chain.build(preset, n, slip_ring, gravity, air, cage)`. `air` and `cage` take their numbers from `[flight]` in
+    the spec.
   - `Session.mid` is module (n+2)//4, which is m6 of 12. `turned` tracks its heading.
 - **Panel ↔ viewer protocol:**
   - The panel is the socket server, on a port the OS picks. It passes `--panel PORT --log ""` to `play.py`.
   - Commands are JSON lines `{"cmd": ...}`: play {file, move, hold}, pause, resume, restart, stop, speed {value},
-    gravity {g}, straighten, reset, log {on}, screenshot, physics {run}, spin {rate}, quit.
+    gravity {g}, straighten, reset, log {on}, screenshot, physics {run}, spin {rate, axis: "x" | "y" | "z" | "all"},
+    quit.
   - Readouts are JSON lines of display strings, sent 5 times a second. The panel shows them all and reads
     `info["physics"]` to label its pause button.
 - **Keep `make_chain.py` and `panel.py` stdlib-only.** `panel.py` imports only the stdlib plus `make_chain`, which
@@ -111,35 +125,42 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
 
 ## Open issues / next steps
 1. **Key-reset report (unresolved).**
-   - On 2026-10-17 Wesley said "fn and left right [arrows] now reset everything" and asked for it to be removed.
-   - Fn+Left is Home, which was "straighten"; that binding was removed on 2026-10-18.
-   - Fn+Right is End, which was never bound. Not reproduced yet.
-   - **Hypothesis:** MuJoCo's viewer has built-in keys: Space = Play/Pause, Left/Right = step through history when
-     paused, and others. Our Space (physics pause) probably also toggles the viewer's own pause, so our Left/Right yaw
-     nudges then scrub its history and load an old state, which looks like a reset.
-   - **To reproduce:** start a separate viewer (`.venv/bin/mjpython play.py --log ""`), click that window, press Space,
-     then Right, and watch `time`.
-   - **Likely fix:** move the physics pause off Space (keep the panel button) and/or move the yaw nudges off
-     Left/Right. Ask Wesley which keys to use.
+   - On 2026-10-17 Wesley reported that Fn + Left/Right "reset everything". Home (straighten) was unbound on 2026-10-18;
+     End was never bound.
+   - **Hypothesis:** our Space (physics pause) also pauses MuJoCo's viewer, whose Left/Right then step through its
+     history, which looks like a reset.
+   - **To reproduce:** in your own viewer (`.venv/bin/mjpython play.py --log ""`), press Space, then Right, and watch
+     `time`.
+   - **Likely fix:** move pause off Space and/or the yaw nudges off Left/Right; ask Wesley which keys.
 2. **Dock app (offered, never answered).** A "Chain Sim.app" with no Terminal window: a bundle running
    `.venv/bin/python panel.py`, or an `osacompile` AppleScript applet that starts it in the background, logging to
    `logs/`.
 3. **Placeholder parameters** (`../hardware/AGENTS.md` lists what to measure):
    - In `../hardware/spec.toml`: masses of 200 g per base and 30 g per arm, with the end modules equal to the middle
-     ones.
+     ones. Once the modules are weighed, `module_g` takes each module's weight.
+   - Also in the spec: the IMU module (`[imu]`), the cage size and the cabin air density (`[flight]`).
    - In `make_chain.py`: the 7 cm preset masses are rough.
    - `armature`, `kv` and `GEAR_FRICTION` are tuned estimates.
    - `ROLLING_RESISTANCE = 0.03` is tuned for settling, not measured. `KP_SATURATE = 10°`.
 4. **Sliders and drift.** Slider drags are instant target jumps. One 200 s session drifted 0.68 mm, against 0.005 mm in
    `verify.py`. That's acceptable.
 5. **Window placement.** The control window is always on top and covers part of the viewer's left panel.
-6. **Spin and turned are about the world vertical only.** That's the axis pitch folds turn about, because
-   `CHAIN_ROLL = 0` makes the pitch axes vertical. There's no Spin about other axes, and `turned` ignores twists about
-   the chain's own axis.
-7. **Rotor momentum isn't modelled.** MuJoCo's `armature` adds the motors' inertia but not their spin momentum, which
-   is about (armature/254)·q̇, roughly 0.006% of the chain's. Negligible; mention it if internal rotors come up again.
-8. **Experiment support.** `../experiments/README.md` lists what the flight experiments need that the sim can't do yet
-   (an anchored end, an IMU-style output, partial-g stall tests).
+6. **`turned` and `spin` are about the world vertical only.**
+   - That's the axis pitch folds turn about, because `CHAIN_ROLL = 0` makes the pitch axes vertical.
+   - For 3D, use `IMU turn` and the `imu_*` log columns.
+7. **Rotor momentum isn't modelled.**
+   - MuJoCo's `armature` adds the motors' inertia but not their spin momentum, about (armature/254)·q̇.
+   - Over a closed shape loop it cancels.
+   - For the slip-ring reaction-wheel finding it's about 3% of module 12's own momentum, so treat that result as ±3%.
+8. **Experiment support.** `../experiments/README.md` lists what the flight experiments still need from the sim: an
+   anchored end, partial-g stall tests, prediction ranges over release errors, and the aircraft's own rotation.
+9. **The servo model is tuned, not identified.**
+   - `kv` has no counterpart in the AX-12A (its firmware is proportional-only), and it makes joints lag their targets:
+     7.6° at default timing, against 2.2° without it.
+   - Net turns barely depend on it (±50% on any servo setting moves a 4-loop turn by ≤ 1.2°). Joint timing and peak
+     torque do.
+   - **Fix:** step-response and speed-under-load tests of one joint on the bench, then fit `kp`, `kv`, `armature` and
+     friction.
 
 ## Physics choices
 - **Meshes and collision:** meshes are visual only (`mass=0`, no contacts). Each base collides as one sphere;
@@ -147,13 +168,16 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
 - **Mass:** the sphere carries `shell_frac × base_mass` with `shellinertia`. The rest of the base's mass sits on a core
   box, and the arm has its own box. Sizes are in `make_chain.py`.
 - **Servo model:**
-  - `kp = stall / 10°` and `forcerange = ±stall`.
+  - `kp = stall / 10°`. This roughly matches the AX-12A's default compliance slope (32 steps ≈ 9.4°).
+  - `forcerange = ±stall × (1 + GEAR_FRICTION)`. The motor also has to overcome the gear friction, so the net torque at
+    the output at stall is the rated stall torque. Before 2026-10-22 it was ±stall, so the output was 7% low.
   - Damping = stall torque / no-load speed, so the no-load speed emerges when the servo saturates.
   - `timeconst` = 5 ms lag on targets.
   - **Anti-wobble (2026-10-20):**
     - Three additions: `frictionloss` = `GEAR_FRICTION` (7%) × stall torque, a per-preset `armature` (0.002 / 0.0002
       kg·m²), and actuator `kv` (1.0 / 0.25).
-    - `kv` sits inside the force clamp, so it only brakes near the target.
+    - `kv` acts whenever the servo isn't saturated, which in smooth moves is nearly all the time. It's a stand-in for
+      damping the model doesn't otherwise capture, not something the AX-12A does; see open issue 9.
     - Effect on a 60° step at m6: before, 9.5° overshoot, 15 swings, 3.5 s to settle, 8° flex. After, 1°, 2 swings,
       0.5 s, 2.7°.
     - **`armature` is what makes `kv` possible** at a 0.5 ms timestep; without it the light twist mode goes unstable.
@@ -171,28 +195,34 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
   - `CHAIN_ROLL = 0` makes the pitch axes vertical, so pitch folds lie flat on the floor.
   - Gravity defaults to 0.
 - **Ranges:** pitch ±124°, yaw ±150°. `--slip-ring` frees yaw only, with targets spanning ±360°.
+- **Flight options** (`--air`, `--cage`, panel tick boxes; numbers in `[flight]` in the spec):
+  - **Air drag** is MuJoCo's ellipsoid fluid model on the shells only; the boxes inside get zero coefficients. For a
+    spinning chain it gives about twice the loss of a hand estimate, so treat it as an upper bound.
+  - **The net cage** is six thin static boxes around the start pose, with a soft `solref` (0.05 s) standing in for a
+    net. Its size is a placeholder.
+  - **Leftover gravity in the cabin** is just the gravity setting. A uniform pull doesn't change the turn (checked to
+    0.01°); it only moves the chain into the cage.
 
 ## Interface details
 - `physics` freezes the whole sim through `Session.running`; `pause` only holds the fold sequence.
 - **`spin`** adds a rigid rotation about the centre of mass to the free joint.
-  - Root linear velocity += Δω × (p_root − c), and root angular velocity += Δω.
-  - That sets (I⁻¹L)_z to the rate while leaving the shape and joint velocities alone.
-  - It's an outside push, so it changes L.
+  - Root linear velocity += Δω × (p_root − c), and root angular velocity += Δω, with Δω along one world axis.
+  - That sets that axis's component of I⁻¹L to the rate, while leaving the other components, the shape and the joint
+    velocities alone. `axis="all"` (Stop spin) sets all three.
+  - It's an outside push, so it changes L. It also stands in for the leftover spin at release (`--spin X Y Z`).
+  - Before 2026-10-22 it reset the x and y components too.
 - **Readouts:**
   - `spin` = (I_total⁻¹ L)_z, the whole chain's rate if its shape froze.
   - `turned` = the heading change of m6's chain axis about the vertical since the last reset. The module-1-to-12 line
     was rejected because a tip swing alone moves it about 5°.
+  - `IMU turn` = the 3D angle the IMU's module has turned since the last reset: what the flight IMU will report.
+  - The `sequence` line shows the sequence's length at the current speed, and flags it if it's longer than one
+    parabola (`parabola_s` in the spec).
 - **Timing:** `Session` keeps a sequence clock separate from sim time (for speed, pause and restart). Targets update
   and the log writes every 10 ms (`mj_step(nstep=…)`).
 - **Screenshots** use an offscreen `mujoco.Renderer` with the viewer's camera.
 - **Viewer keys:** PageUp/PageDown select a module, Up/Down nudge pitch, Right/Left nudge yaw, Space pauses physics.
 - **Tested in the real GUI:** Play (2026-10-17), layout screenshots, and Spin → Play → Stop spin (2026-10-21).
-
-## Meshes
-- **Grouping:** by layer (`Link::*` → arm, everything else → base). The module comes from the height of each object's
-  centre (rounded for the base; floored with a +20 mm bias for the arm).
-- **Decimation is vertex clustering, not quadric.** Quadric decimation failed on the open, 165-piece servo meshes and
-  moved parts by up to 9.6 mm. Shells keep full resolution; the grid is chosen by bisection (about 1.6–2.0 mm).
 
 ## Gotchas for agents
 - **macOS viewer:** it needs `mjpython`. Tk can't run inside mjpython because both need the main thread; that's why
@@ -214,13 +244,14 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
   - Remove `__pycache__/` after test runs.
 
 ## Verification
-`verify.py` has 7 sections:
+`verify.py` has 8 sections:
 1. Compile, and meshes match the current CAD.
 2. Joint axes and arm mesh.
 3. Zero-g momentum.
 4. Contacts.
 5. Gravity drop.
-6. Spin.
-7. Renders.
+6. Spin, including one axis at a time.
+7. Flight options: IMU output, weighed modules, air drag, net cage.
+8. Renders.
 
 Its docstring says what each checks, and the key numbers are under Contracts.

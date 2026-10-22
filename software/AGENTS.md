@@ -8,12 +8,18 @@ Read the root `AGENTS.md` first. This folder is for the code that runs the real 
   - the logging and telemetry stack
   - reading an IMU
   - playing fold sequences on the hardware
+  - recording the IMU's rotation rate at the moment of release. The sim's predictions depend on it: 1°/s of leftover
+    spin cancels a whole 30° turn.
 - The folding algorithm already exists, outside this repo.
 - **Owner:** (add your name).
 - **When code lands, replace this section** with what exists, how to set it up, and how to test it.
 
 ## The hardware, as software sees it
-- **Servos:** 22 Dynamixel AX-12A servos, which speak Dynamixel Protocol 1.0, driven through a U2D2 in an end module.
+- **Servos today:** 22 Dynamixel AX-12A servos, which speak Dynamixel Protocol 1.0, driven through a U2D2 in an end
+  module. That's the existing prototype.
+- **Servos in flight:** Feetech STS3032 servos (12-bit, 360°), at 6 V from a buck converter in each module. Each servo
+  has a single lead to a junction board, not a daisy chain. They use Feetech's own serial protocol; check its manual.
+  See `../hardware/AGENTS.md`.
 - **Joint names and CSV column order:** see the root `AGENTS.md`.
 - **Numbers:** read them from `../hardware/spec.toml` (in Python, `tomllib.load`). Don't copy them into code; then a
   hardware change reaches your code on the next pull.
@@ -30,10 +36,11 @@ Read the root `AGENTS.md` first. This folder is for the code that runs the real 
 - **Fold sequences (`../sequences/`):** a format both the sim and the robot can read; see `../sequences/README.md`. If
   your code writes or plays sequences, use this format so one file runs in both.
 - **Logs:**
-  - The sim logs every 10 ms: time, centre of mass, angular momentum, max servo torque and contacts. The columns are in
-    `../simulation/README.md`.
-  - Suggestion, not decided: if the chain's own log records time and joint angles at a similar rate, flight data can be
-    compared directly with the sim's prediction.
+  - The sim logs every 10 ms: time, centre of mass, angular momentum, max servo torque, contacts, and the IMU's
+    attitude (quaternion) and rate (rad/s, in its own frame). The columns are in `../simulation/README.md`.
+  - The IMU's module is set in `../hardware/spec.toml` (`[imu]`).
+  - Suggestion, not decided: if the chain's own log records time, IMU quaternion, gyro and joint angles at a similar
+    rate, flight data can be laid directly over the sim's prediction.
 
 ## Try a sequence in the sim before running it on the chain
 Set up the sim once; the steps are in `../simulation/README.md`. Then:

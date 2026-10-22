@@ -6,7 +6,15 @@ BOM decisions. History is in `LOG.md`.
 ## Status (2026-10-22)
 - The 12-module chain with AX-12A servos exists and has been published (Mutis et al., SCF 2025).
 - Per the proposal, flight still needs the soft damping membrane, an IMU and onboard data logging.
-- A smaller module (longer chain, lower mass) is being considered; see "Miniaturisation".
+- **The flight build will use STS3032 servos** (decided 2026-10-22). From the BOM:
+  - Shell Ø~80 mm, so the chain is about 0.96 m long.
+  - Pitch servo: STS3032-C036 (double shaft, 32 × 12 × 27.5 mm). Yaw servo: STS3032-C001 (23.2 × 12.1 × 28.5 mm).
+  - Stall torque 0.44 N·m, stall current 1.2 A, 12-bit encoder over 360°, yaw ±180°.
+  - Per module: a 12 → 6 V buck converter, a junction board and a 100–220 µF capacitor. Each servo has a single lead,
+    so there's no daisy chain like the AX-12A's.
+  - The battery isn't chosen yet.
+  - Its Rhino model is due in the coming weeks. Until then the spec and the sim stay on the AX-12A chain; when it
+    arrives, follow "Incorporating a new design".
 - Owner: (add your name)
 
 ## Files
@@ -15,7 +23,7 @@ BOM decisions. History is in `LOG.md`.
 | `cad/complete chain.3dm` | The current design: the whole 12-module chain (Rhino 8, mm). The source for every sim mesh. **Never modify.** |
 | `cad/Single module existing.3dm` | One module of the current design. **Never modify.** |
 | `cad/archive/` | Designs that have been replaced, kept for reference (create it when the first one is retired). |
-| `spec.toml` | The chain's numbers: module count, spacing, shell, ranges, servo, masses. **The sim and the robot software read this file**, so it's the one place to change a number. |
+| `spec.toml` | The chain's numbers (module count, spacing, shell, ranges, servo, masses), plus the IMU's module and the flight environment (parabola length, cage size, cabin air). **The sim and the robot software read this file**, so it's the one place to change a number. |
 
 - The single-module file matches module 2 of the chain to within 0.000 mm.
 - It adds a Ø8.4 × 3 mm plug in the hub hole; ignore the plug.
@@ -79,8 +87,14 @@ All in the module frame: the origin is where the yaw and pitch axes cross, which
   - Both carry the U2D2 and power hub.
 
 ## Numbers the sim still guesses (please measure)
-- **Masses** (in `spec.toml`): the spec says 200 g per base and 30 g per arm, while the CAD suggests about 280 g and
-  24 g. End modules are assumed to weigh the same as middle ones. Weigh a module and put the real values in the spec.
+- **Masses** (in `spec.toml`):
+  - The spec says 200 g per base and 30 g per arm, while the CAD suggests about 280 g and 24 g. End modules are assumed
+    to weigh the same as middle ones.
+  - Weigh each whole module in flight configuration, battery included, and list them in `module_g`. Weigh one arm on
+    its own for `arm_g`.
+  - It's where the weight sits that changes the predicted turn (a battery at the ends: 9%), not the total.
+- **Placeholders for the flight** (in `spec.toml`): which module carries the IMU (`[imu]`), and the net cage's size
+  (`[flight]`).
 - **Gearbox behaviour** (in `simulation/make_chain.py`): friction (7% of stall torque), motor inertia and braking are
   tuned estimates. There are no measured AX-12A values.
 
@@ -94,6 +108,7 @@ All in the module frame: the origin is where the yaw and pitch axes cross, which
 - **Estimated smallest shells:** SCS0009 about 73 mm, STS3032 about 79 mm, XL330/XC330 about 96 mm.
   - So 5.5 cm modules can't fit two servos, and the 7 cm sim presets (`dyna7`, `feetech7`) are optimistic what-ifs.
   - These estimates come from reseller dimensions plus assumed shaft offsets. No STEP files were checked.
+- **Outcome (2026-10-22):** the STS3032 build at about 80 mm, matching the 79 mm estimate above.
 - **Before sizing a mini module:**
   - Confirm the servo choice, and whether about 7.3–8 cm is acceptable.
   - Going smaller needs a layout change, so ask first.

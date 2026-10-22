@@ -3,6 +3,14 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-10-22 · Wesley (Claude Code)
+- **Recorded the flight build decision:** STS3032 servos, ~80 mm shells, ~0.96 m chain, with the BOM details in
+  `AGENTS.md`. Its Rhino model is due in the coming weeks; the spec stays on the AX-12A chain until then.
+- **`spec.toml` gained:**
+  - `module_g`, for weighed modules (commented out until they're weighed)
+  - `[imu] module` (placeholder: 1)
+  - `[flight]`: parabola length, cage size (placeholder: 2000 × 1000 × 1000 mm) and cabin air density
+
+## 2026-10-22 · Wesley (Claude Code)
 - **Added `spec.toml`:** module count, spacing, shell, ranges, servo and masses, with the same values the sim used
   before. The sim reads it, and the software should too.
 - Changing a number there now reaches both; no code edits needed.

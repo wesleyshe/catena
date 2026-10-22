@@ -4,6 +4,8 @@
   mjpython play.py --seq ../sequences/fold_sequence.csv       viewer, playing the sequence
   .venv/bin/python play.py --seq ../sequences/fold_sequence.csv --headless    no viewer, run and log only
   mjpython play.py --gravity 9.81                   start with Earth gravity: the chain drops onto the floor
+  .venv/bin/python play.py --seq ../sequences/reorient_loop.csv --headless --speed 4 --spin 0 0 1 --air --cage
+      flight-like: the sequence 4x faster (to fit a parabola), let go with 1 deg/s of spin, cabin air, net cage
 The control window (panel.py, or double-click 'Chain Sim.command') starts this with --panel and sends it commands.
 
 Keyboard (viewer): PageUp / PageDown select module, Up / Down nudge its pitch,
@@ -24,7 +26,11 @@ import time
 import mujoco
 import numpy as np
 
+from make_chain import FLIGHT, build
+
 HERE = os.path.dirname(os.path.abspath(__file__))
+AXES = dict(x=(1, 0, 0), y=(0, 1, 0), z=(0, 0, 1))  # world axes: x across the start pose, y along it, z vertical
+PARABOLA_S = FLIGHT["parabola_s"]                  # seconds of microgravity per parabola
 STEP_DEG = 5.0      # keyboard nudge per press
 LOG_DT = 0.01       # seconds between log rows and between sequence target updates
 KEYS = dict(next=266, prev=267, pitch_up=265, pitch_down=264, yaw_up=262, yaw_down=263, pause=32)  # GLFW codes
@@ -74,19 +80,23 @@ def target(keys, t, move, hold):
 
 
 class Logger:
-    """Writes time, chain COM, total angular momentum about the COM, max |actuator torque|, contacts."""
+    """Writes time, chain COM, total angular momentum about the COM, max |actuator torque|, contacts, and what the
+    flight IMU will report: its module's attitude (quaternion, world frame) and rotation rate (rad/s, its own frame)."""
 
     def __init__(self, path):
         self.path = path
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         self.f = open(path, "w", newline="")
         self.w = csv.writer(self.f)
-        self.w.writerow(["time", "com_x", "com_y", "com_z", "L_x", "L_y", "L_z", "L_norm", "max_torque", "contacts"])
+        self.w.writerow(["time", "com_x", "com_y", "com_z", "L_x", "L_y", "L_z", "L_norm", "max_torque", "contacts",
+                         "imu_qw", "imu_qx", "imu_qy", "imu_qz", "imu_wx", "imu_wy", "imu_wz"])
 
     def __call__(self, data):
         com, L = data.sensor("com").data, data.sensor("angmom").data
         self.w.writerow([f"{data.time:.3f}", *(f"{x:.7g}" for x in com), *(f"{x:.4g}" for x in L),
-                         f"{np.linalg.norm(L):.4g}", f"{np.abs(data.actuator_force).max():.4g}", data.ncon])
+                         f"{np.linalg.norm(L):.4g}", f"{np.abs(data.actuator_force).max():.4g}", data.ncon,
+                         *(f"{x:.6g}" for x in data.sensor("imu_quat").data),
+                         *(f"{x:.4g}" for x in data.sensor("imu_gyro").data)])
 
     def close(self):
         self.f.close()
@@ -109,7 +119,7 @@ class Session:
         mujoco.mj_resetData(self.m, self.d)
         mujoco.mj_forward(self.m, self.d)
         self.keys, self.playing = None, False
-        self.com0 = self.d.subtree_com[1].copy()
+        self.com0, self.q0 = self.d.subtree_com[1].copy(), self.d.sensor("imu_quat").data.copy()
         self.turned, self.heading_was = 0.0, self.heading()
         if self.log:
             self.log(self.d)
@@ -126,15 +136,22 @@ class Session:
         """Whole-chain spin about the vertical (deg/s): angular momentum / inertia, i.e. the rate if the shape froze."""
         return math.degrees(np.linalg.solve(self.inertia(), self.d.sensor("angmom").data)[2])
 
-    def spin(self, rate):
-        """Set the whole chain spinning at `rate` deg/s about the vertical through its centre of mass, keeping its
-        shape and joint motions (a push from outside: it changes the angular momentum). rate=0 stops the spin."""
+    def spin(self, rate, axis="z"):
+        """Set the whole chain's spin about world axis x, y or z (through its centre of mass) to `rate` deg/s, keeping
+        its shape, its joint motions and its spin about the other two axes. axis="all" sets all three (rate 0 = Stop
+        spin). A push from outside: it changes the angular momentum. Also models leftover spin when the chain is let go."""
         d = self.d
+        for a in ("x", "y", "z") if axis == "all" else (axis,):
+            mujoco.mj_forward(self.m, d)
+            n = np.array(AXES[a], float)
+            dw = n * (math.radians(rate) - n @ np.linalg.solve(self.inertia(), d.sensor("angmom").data))
+            d.qvel[:3] += np.cross(dw, d.xpos[1] - d.subtree_com[1])  # add a rigid rotation about the centre of mass
+            d.qvel[3:6] += d.xmat[1].reshape(3, 3).T @ dw
         mujoco.mj_forward(self.m, d)
-        dw = np.array([0, 0, math.radians(rate)]) - np.linalg.solve(self.inertia(), d.sensor("angmom").data)
-        d.qvel[:3] += np.cross(dw, d.xpos[1] - d.subtree_com[1])  # add a rigid rotation about the centre of mass
-        d.qvel[3:6] += d.xmat[1].reshape(3, 3).T @ dw
-        mujoco.mj_forward(self.m, d)
+
+    def imu_turn(self):
+        """How far the IMU's module has turned since the last reset, in 3D (deg), as the flight IMU will see it."""
+        return math.degrees(2 * math.acos(min(1.0, abs(float(self.q0 @ self.d.sensor("imu_quat").data)))))
 
     def heading(self):
         """Compass direction (rad) the middle module points along the chain, seen from above; None if near vertical."""
@@ -195,7 +212,7 @@ class Session:
         elif cmd == "physics":
             self.running = bool(c["run"])
         elif cmd == "spin":
-            self.spin(float(c["rate"]))
+            self.spin(float(c["rate"]), c.get("axis", "z"))
         elif cmd == "reset":
             self.reset()
         elif cmd == "log":
@@ -207,9 +224,12 @@ class Session:
         if self.keys is not None:
             done = min(100, 100 * self.seq_t / self.duration())
             seq = f"{self.seq_name} {done:.0f}% ({'playing' if self.playing and done < 100 else 'paused' if not self.playing else 'done'})"
+            secs = self.duration() / self.speed
+            seq += f", {secs:.0f} s" + ("" if secs <= PARABOLA_S else f": longer than a {PARABOLA_S:g} s parabola")
         return {"time": f"{d.time:.1f} s", "physics": "running" if self.running else "PAUSED", "sequence": seq,
                 "gravity": f"{-self.m.opt.gravity[2]:g} m/s^2",
                 "spin": f"{self.spin_rate():+.1f} deg/s", "turned": f"{self.turned:+.1f} deg",
+                "IMU turn": f"{self.imu_turn():.1f} deg",
                 "COM drift": f"{np.linalg.norm(d.subtree_com[1] - self.com0) * 1000:.3f} mm",
                 "|L|": f"{L:.1e} kg m^2/s", "max torque": f"{np.abs(d.actuator_force).max():.2f} N m",
                 "contacts": str(d.ncon), "log": os.path.relpath(self.log.path, HERE) if self.log else "off"}
@@ -323,18 +343,25 @@ if __name__ == "__main__":
     ap.add_argument("--log", default=os.path.join(HERE, "logs", "run_log.csv"), help='log file; "" for no log')
     ap.add_argument("--headless", action="store_true", help="no viewer; needs --seq")
     ap.add_argument("--gravity", type=float, help="m/s^2 downward, overriding the model (Earth: 9.81)")
+    ap.add_argument("--speed", type=float, default=1.0, help="play the sequence this many times faster (e.g. 4)")
+    ap.add_argument("--spin", type=float, nargs=3, metavar=("X", "Y", "Z"),
+                    help="start spinning at this rate (deg/s) about world x, y, z: the leftover spin when it's let go")
+    ap.add_argument("--air", action="store_true", help="cabin air drag on the shells (when building the model)")
+    ap.add_argument("--cage", action="store_true", help="the net cage from hardware/spec.toml (when building the model)")
     ap.add_argument("--panel", type=int, help=argparse.SUPPRESS)  # port of the control window
     a = ap.parse_args()
 
     if a.model:
         model = mujoco.MjModel.from_xml_path(a.model)
     else:  # always the current hardware spec, never a stale chain.xml
-        from make_chain import build
-
-        model = mujoco.MjModel.from_xml_string(build().replace('meshdir="meshes"', f'meshdir="{HERE}/meshes"'))
+        xml = build(air=a.air, cage=a.cage).replace('meshdir="meshes"', f'meshdir="{HERE}/meshes"')
+        model = mujoco.MjModel.from_xml_string(xml)
     if a.gravity is not None:
         model.opt.gravity[:] = (0, 0, -a.gravity)
     session = Session(model, mujoco.MjData(model), a.log or None)
+    session.speed = a.speed
+    for axis, rate in zip("xyz", a.spin or ()):
+        session.spin(rate, axis)
     if a.seq:
         session.play(a.seq, a.move, a.hold)
     try:
@@ -342,7 +369,8 @@ if __name__ == "__main__":
             assert a.seq, "--headless needs --seq"
             while session.seq_t < session.duration() - 1e-9:
                 session.advance()
-            print(f"ran {session.duration():g} s")
+            secs = session.duration() / session.speed
+            print(f"ran {secs:g} s" + (f" (longer than a {PARABOLA_S:g} s parabola)" if secs > PARABOLA_S else ""))
         else:
             run_viewer(session, a.panel)
     finally:

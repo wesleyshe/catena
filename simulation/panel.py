@@ -18,6 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 MJPYTHON = os.path.join(HERE, ".venv", "bin", "mjpython")
 MODEL = os.path.join(HERE, "chain.xml")
 SEQ_DIR = os.path.join(os.path.dirname(HERE), "sequences")  # at the repo root, shared with the robot software
+SPIN_AXES = ["vertical (z)", "along chain (y)", "across (x)"]  # the letter before ")" is what the viewer gets
 
 
 class Panel:
@@ -36,7 +37,8 @@ class Panel:
         self.seq, self.move, self.hold = tk.StringVar(), tk.DoubleVar(value=3.0), tk.DoubleVar(value=1.0)
         self.speed, self.gravity, self.g = tk.DoubleVar(value=1.0), tk.BooleanVar(), tk.DoubleVar(value=9.81)
         self.logging, self.status = tk.BooleanVar(), tk.StringVar(value="starting the viewer...")
-        self.spin_rate = tk.DoubleVar(value=20.0)
+        self.spin_rate, self.spin_axis = tk.DoubleVar(value=20.0), tk.StringVar(value=SPIN_AXES[0])
+        self.air, self.cage = tk.BooleanVar(), tk.BooleanVar()
 
         def frame(title):
             f = ttk.LabelFrame(root, text=title, padding=6)
@@ -49,7 +51,9 @@ class Panel:
         ttk.Label(f, text="Modules").grid(row=0, column=2, padx=(8, 0))
         ttk.Spinbox(f, from_=2, to=40, textvariable=self.modules, width=4).grid(row=0, column=3)
         ttk.Checkbutton(f, text="Slip ring", variable=self.slip).grid(row=0, column=4, padx=8, sticky="w")
-        ttk.Button(f, text="Rebuild + open viewer", command=self.open_viewer).grid(row=1, column=0, columnspan=5, sticky="we", pady=(6, 0))
+        ttk.Checkbutton(f, text="Air drag (cabin air)", variable=self.air).grid(row=1, column=0, columnspan=2, sticky="w")
+        ttk.Checkbutton(f, text="Net cage (size in spec.toml)", variable=self.cage).grid(row=1, column=2, columnspan=3, sticky="w")
+        ttk.Button(f, text="Rebuild + open viewer", command=self.open_viewer).grid(row=2, column=0, columnspan=5, sticky="we", pady=(6, 0))
         f.columnconfigure(4, weight=1)  # let the button span the whole box
 
         f = frame("Fold sequence")
@@ -81,11 +85,13 @@ class Panel:
         self.physics_btn.grid(row=1, column=0, columnspan=5, sticky="we", pady=(6, 0))
         f.columnconfigure(4, weight=1)
 
-        f = frame("Spin (about the vertical, through the centre of mass)")
-        ttk.Spinbox(f, from_=-360, to=360, increment=5, textvariable=self.spin_rate, width=6).grid(row=0, column=0)
-        ttk.Label(f, text="deg/s").grid(row=0, column=1, padx=(4, 8))
-        ttk.Button(f, text="Spin", command=lambda: self.send("spin", rate=self.spin_rate.get())).grid(row=0, column=2)
-        ttk.Button(f, text="Stop spin", command=lambda: self.send("spin", rate=0.0)).grid(row=0, column=3, padx=6)
+        f = frame("Spin (through the centre of mass; also: leftover spin when it's let go)")
+        ttk.Spinbox(f, from_=-360, to=360, increment=0.5, textvariable=self.spin_rate, width=6).grid(row=0, column=0)
+        ttk.Label(f, text="deg/s about").grid(row=0, column=1, padx=(4, 4))
+        ttk.Combobox(f, textvariable=self.spin_axis, values=SPIN_AXES, state="readonly", width=15).grid(row=0, column=2)
+        ttk.Button(f, text="Spin", command=lambda: self.send("spin", rate=self.spin_rate.get(),
+                                                             axis=self.spin_axis.get()[-2])).grid(row=0, column=3, padx=(6, 0))
+        ttk.Button(f, text="Stop spin", command=lambda: self.send("spin", rate=0.0, axis="all")).grid(row=0, column=4, padx=6)
 
         f = frame("Record")
         ttk.Checkbutton(f, text="Log to logs/", variable=self.logging, command=lambda: self.send("log", on=self.logging.get())).grid(row=0, column=0)
@@ -111,7 +117,7 @@ class Panel:
         self.close_viewer()
         g = self.g.get() if self.gravity.get() else 0.0
         with open(MODEL, "w") as fh:
-            fh.write(build(self.preset.get(), int(self.modules.get()), self.slip.get(), g) + "\n")
+            fh.write(build(self.preset.get(), int(self.modules.get()), self.slip.get(), g, self.air.get(), self.cage.get()) + "\n")
         self.logging.set(False)
         self.proc = subprocess.Popen([MJPYTHON, os.path.join(HERE, "play.py"), "--model", MODEL, "--log", "",
                                       "--panel", str(self.server.getsockname()[1])], cwd=HERE)

@@ -20,5 +20,16 @@ no_load_speed_rad_s = 6.18    # 59 rpm at 12 V
 base_g = 200                  # a middle module without its arm: shell, bracket, both servos
 end_g = 200                   # modules 1 and 12: one servo fewer, plus the U2D2 and power hub
 arm_g = 30                    # yoke + hub
+# Once the modules are weighed, list each whole module here (base + arm, everything inside it, battery included),
+# m1 first; module 12 has no arm. With all 12 filled in, these replace base_g / end_g, and arm_g splits each one.
+# module_g = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+[imu]
+module = 1                    # which module carries the IMU (placeholder until decided); the sim logs its attitude
+
+[flight]                      # the environment on the parabolic flight
+parabola_s = 20               # microgravity per parabola (check the provider's Payload User Guide)
+cage_mm = [2000, 1000, 1000]  # inside of the net cage: along the chain, across, height (placeholder until designed)
+cabin_air_kg_m3 = 1.0         # cabin air density (pressurised cabin, ~0.8 bar); used when air drag is on
 
 # Software: add servo IDs, turning directions and zero offsets here once they're measured on the chain.

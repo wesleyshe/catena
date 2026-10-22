@@ -3,6 +3,25 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-10-22 · Wesley (Claude Code)
+- **Fixes from the outside review:**
+  - Spin now changes one axis at a time; it used to reset the other two. Stop spin zeroes all three.
+  - The servo force limit now includes the gear friction, so the net output at stall is the rated stall torque. It was
+    7% low. The key numbers in `verify.py` didn't move.
+  - Docs: `kv` brakes during all unsaturated motion, not only near the target. Rotor momentum is about 3% for the
+    reaction-wheel finding.
+- **New flight options:**
+  - **IMU output:** sensors `imu_quat` and `imu_gyro` on the module in `[imu]`, 7 new log columns, and an `IMU turn`
+    readout.
+  - **Spin about x, y or z:** the panel's axis choice, or `--spin X Y Z`, for leftover spin at release.
+  - **Air drag and the net cage:** `--air` and `--cage`, or the panel tick boxes. Their numbers are in `[flight]`.
+  - **`--speed`:** the sequence readout shows the sequence's length and flags anything longer than one parabola.
+  - **`module_g`** in the spec, for weighed modules.
+- **Checked:**
+  - `verify.py` ALL CHECKS PASSED (now 8 sections).
+  - Real launch through the real buttons: ticked Air drag and Net cage, Rebuild, Play, Spin about the across axis. 3 of
+    4 runs completed every step; one early run stopped after Rebuild with no error and didn't happen again.
+
+## 2026-10-22 · Wesley (Claude Code)
 - `renders/` is no longer in git: `verify.py` rewrites it, and the PNGs differ between computers, which caused binary
   merge conflicts in a team rehearsal. The README image is now `../docs/images/module.png`.
 

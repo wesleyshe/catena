@@ -34,12 +34,12 @@ control window and the MuJoCo viewer open side by side.
 
 | Section | What it does |
 |---|---|
-| Model | Pick the preset, number of modules and slip ring, then **Rebuild + open viewer**. This rewrites `chain.xml` and restarts the viewer. |
+| Model | Pick the preset, number of modules and slip ring, and tick **Air drag** (cabin air on the shells) or **Net cage** (the cage from `../hardware/spec.toml`) for flight-like runs. Then click **Rebuild + open viewer**, which rewrites `chain.xml` and restarts the viewer. |
 | Fold sequence | Pick a CSV from `../sequences/` (or **Browse...**), set move/hold seconds and speed, then **Play / Pause / Resume / Restart / Stop**. |
 | World | **Gravity** on/off and its strength, **Straighten** (all joints to 0), **Reset pose** (floating start, at rest), and **Pause physics / Resume physics**, which freezes the whole simulation (time, motion, sequence, log) so you can look around. |
-| Spin | Set a rate in deg/s and press **Spin** to start the whole chain spinning about the vertical through its centre of mass, keeping its shape. **Stop spin** brings it to rest. This is a push from outside: it gives the chain angular momentum, which then stays constant. Fold while spinning and it speeds up, like a skater pulling their arms in. |
+| Spin | Set a rate in deg/s, pick an axis (vertical, along the chain, across) and press **Spin**. The whole chain starts spinning about that axis through its centre of mass, keeping its shape and any spin about the other axes. **Stop spin** brings it to rest. A small rate (0.5–5 deg/s) stands in for the leftover spin when the chain is let go in flight. This is a push from outside: it gives the chain angular momentum, which then stays constant. Fold while spinning and it speeds up, like a skater pulling their arms in. |
 | Record | **Log to logs/** writes `logs/run_<date>_<time>.csv` while ticked. **Screenshot** saves the viewer's view to `screenshots/`. **Open folder** opens this folder in Finder. |
-| Readouts | Time, sequence progress, gravity, **spin** (the whole chain's spin rate about the vertical: angular momentum ÷ inertia), **turned** (how far the middle module has turned about the vertical since the last reset; twists about the chain's own axis don't count), centre-of-mass drift, total angular momentum, max servo torque, contacts and log file. These are also drawn in the top-left of the viewer. |
+| Readouts | Time, sequence progress and length (flagged if it's longer than one ~20 s parabola), gravity, **spin** (the whole chain's spin rate about the vertical: angular momentum ÷ inertia), **turned** (how far the middle module has turned about the vertical since the last reset; twists about the chain's own axis don't count), **IMU turn** (how far the IMU's module has turned in 3D since the last reset, as the flight IMU will see it), centre-of-mass drift, total angular momentum, max servo torque, contacts and log file. These are also drawn in the top-left of the viewer. |
 
 The viewer's own sliders and keys still work alongside it. Closing the control window also closes the viewer.
 
@@ -54,11 +54,13 @@ The viewer's own sliders and keys still work alongside it. Closing the control w
 | Viewer: play the fold sequence | `.venv/bin/mjpython play.py --seq ../sequences/fold_sequence.csv` |
 | No viewer: run the sequence and log | `.venv/bin/python play.py --seq ../sequences/fold_sequence.csv --headless` |
 | Viewer with Earth gravity (drops to the floor) | `.venv/bin/mjpython play.py --gravity 9.81` |
+| Flight-like: 4× faster, let go with 1 deg/s of spin, air, cage | `.venv/bin/python play.py --seq ../sequences/reorient_loop.csv --headless --speed 4 --spin 0 0 1 --air --cage` |
 | Run all checks and renders | `.venv/bin/python verify.py` |
 | Control window (same as double-clicking `Chain Sim.command`) | `.venv/bin/python panel.py` |
 
 `play.py` options: `--model FILE.xml` (without it, the model is built fresh from `../hardware/spec.toml`), `--seq FILE`, `--move 3` (seconds between rows), `--hold 1` (seconds per row),
-`--log logs/run_log.csv`, `--headless`, `--gravity 9.81` (m/s² towards the floor, overriding the model).
+`--log logs/run_log.csv`, `--headless`, `--gravity 9.81` (m/s² towards the floor, overriding the model), `--speed 4`
+(play the sequence 4× faster), `--spin X Y Z` (start spinning at these deg/s about world x, y, z), `--air` and `--cage`.
 
 ### Keyboard (viewer)
 
@@ -153,11 +155,13 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
   no pitch servo or arm. Both of these come from `complete chain.3dm`.
 - **Visuals vs physics.** Meshes are visual only. Each module collides as one sphere (Ø139 mm). Mass sits on simple
   primitives: a hollow sphere for the shells, plus a box for the core and a box for the arm.
-- **Servos** are position actuators with a force limit equal to stall torque. Stall torque is reached at 10° of
-  position error. Damping is stall torque divided by no-load speed, so a saturated servo moves at its rated speed.
+- **Servos** are position actuators. Their force limit is the stall torque plus the gear friction, so the net output at
+  stall is the rated stall torque. Stall torque is reached at 10° of position error. Damping is stall torque divided by no-load speed, so a saturated servo moves at its rated speed.
   A 5 ms lag smooths each target.
 - **No springy wobble.** Each joint also has gearbox friction (7% of stall torque), the motor's inertia through the
-  gearbox (`armature`), and braking as it nears its target (`kv`).
+  gearbox (`armature`), and velocity braking whenever the servo isn't saturated (`kv`). The AX-12A has no such
+  braking of its own; `kv` stands in for damping the model doesn't otherwise capture, until a joint is measured on
+  the bench.
   - A 60° jump at m6 now overshoots about 1° and settles in 0.5 s. Before, it overshot 9.5° and swung 15 times.
   - These values are estimates. Raise `kv` in `PRESETS` for stiffer, slower stops, or lower it for snappier ones.
 - **Integrator.** It uses RK4, because the default integrator let the centre of mass wander tens of millimetres during
@@ -175,8 +179,15 @@ seconds, and each row is held for `--hold` seconds. Targets update every 10 ms, 
 ### Log files (`logs/`)
 
 Columns: `time`, `com_x/y/z` (chain centre of mass, m), `L_x/y/z` and `L_norm` (total angular momentum about the
-centre of mass, kg·m²/s), `max_torque` (largest |actuator torque|, N·m) and `contacts` (number of contacts).
-One row is written every 10 ms.
+centre of mass, kg·m²/s), `max_torque` (largest |actuator torque|, N·m), `contacts` (number of contacts), then what the
+flight IMU will report: `imu_qw/qx/qy/qz` (its module's attitude, world frame) and `imu_wx/wy/wz` (its rotation rate,
+rad/s, in its own frame). The IMU's module is set in `../hardware/spec.toml`. One row is written every 10 ms.
+
+## How the meshes are made
+- **Grouping:** by layer (`Link::*` → arm, everything else → base). The module comes from the height of each object's
+  centre (rounded for the base; floored with a +20 mm bias for the arm).
+- **Decimation is vertex clustering, not quadric.** Quadric decimation failed on the open, 165-piece servo meshes and
+  moved parts by up to 9.6 mm. Shells keep full resolution; the grid is chosen by bisection (about 1.6–2.0 mm).
 
 ## Verified (`verify.py`)
 
@@ -189,3 +200,9 @@ One row is written every 10 ms.
 - No contacts with the chain straight (neighbouring spheres are 1 mm apart), and none during the fold sequence.
 - With gravity at 9.81 m/s², every preset drops onto the floor and settles within 15 s, with all 12 shells resting
   on it.
+- Spin about one axis leaves the spin about the others alone.
+- The IMU output reads 10.00 deg/s and 20.00° after 2 s of a 10 deg/s spin.
+- Weighed module masses add up.
+- Air drag slows a 20 deg/s spin to 18.6 deg/s in 10 s.
+- With 0.01 g left over, the chain reaches the net cage after about 3 s.
+- **What it doesn't check:** anything against the real chain. These are consistency checks, not validation.
