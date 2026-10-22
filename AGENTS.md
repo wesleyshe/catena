@@ -25,7 +25,7 @@ Read this file first, then the `AGENTS.md` in the folder you're working in.
 | `docs/` | Proposal, course syllabus, images | |
 
 Each area has its own setup, its own checks, its own `AGENTS.md` and its own `LOG.md`. The repo is
-https://github.com/wesleyshe/catena (private).
+https://github.com/wesleyshe/catena (public).
 
 Each area's status is at the top of its own `AGENTS.md`. There's deliberately none here, because areas editing
 neighbouring lines of one file get merge conflicts.
@@ -56,6 +56,8 @@ These are confirmed by the team. Change one only together with the other areas, 
 - Stay inside your area. If a change affects another area (joint names, the sequence format, a shared fact above),
   log it in the root `LOG.md` and tell the person you're working with.
 - Look at anything before deleting or overwriting it.
+- **The repo is public.** Never commit passwords, API keys, tokens, personal data, or files that aren't the team's to
+  share. Git keeps everything in its history, so deleting a file later doesn't un-publish it.
 
 ## When a change crosses areas
 The sim and the robot software both depend on the hardware.
