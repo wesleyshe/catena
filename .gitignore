@@ -1,0 +1,12 @@
+# Python environments and caches
+.venv/
+__pycache__/
+# Sim run output and crash logs
+logs/
+screenshots/
+MUJOCO_LOG.TXT
+# macOS, Office lock files, Rhino backups
+.DS_Store
+~$*
+*.3dmbak
+*.rhl

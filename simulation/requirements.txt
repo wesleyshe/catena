@@ -1,0 +1,5 @@
+mujoco==3.16.0
+rhino3dm==8.35.0
+numpy==2.4.6
+trimesh==5.1.1
+pillow==13.0.0
