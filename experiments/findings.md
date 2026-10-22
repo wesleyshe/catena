@@ -52,6 +52,33 @@ To add one, write the question, the run (sequence, joint and angle, or command),
     takes 16 s and still turns about 31°.
 - **This is the basis of experiment A's "two fold orders, two orientations" test.**
 
+## One fold vs. loops of folds, in 3D (2026-10-22)
+A team question (Sergio): does one fold reorient the chain, or does it take more? Measured from rest with the sim's IMU
+output (module 1's 3D attitude), at move 1.5 s, hold 0.5 s.
+
+| Move | Lasting turn of the whole chain | About |
+|---|---|---|
+| One fold (m6 pitch to 90°), held | 51.3°, only while folded | vertical |
+| One fold, out and back | 0.02° | |
+| Loop of two pitch folds (m4, m8 out, then back) | 7.4° per loop | vertical only |
+| Loop of a pitch fold and a twist (m4 pitch, m8 yaw) | 31.8° per loop | the chain's long axis |
+| The same loop in reverse order | −31.8° | long axis, the other way |
+| Pitch + twist loop, 4 times | 127° | long axis |
+
+- **One fold can't reorient the chain.** It turns only while the fold is held, and undoing the fold undoes the turn.
+- **A lasting turn needs a loop through at least two joints,** because a loop doesn't retrace its own path.
+- **Turning in 3D needs joints that point different ways.**
+  - With the chain lying flat (`CHAIN_ROLL = 0`), all the pitch axes are parallel, so pitch-only loops can only turn it
+    about the vertical.
+  - Adding a twist (yaw) turns it about the long axis.
+  - Loops about different axes should be able to reach any orientation.
+- **The CG moved 0.0000 mm in every case,** and angular momentum stayed around 1e-10. Zero momentum keeps the CG fixed
+  and rules out a lasting spin, but it doesn't fix the orientation.
+- **Caveat:** the twist loop's 31.8° depends on how the mass is spread around the chain's long axis. That spread is
+  small, and it's the least certain number in the sim until the modules are weighed.
+- **`../sequences/roll_loop.csv`** runs 2 pitch-plus-twist loops: 63.6° at default timing (33 s), and 63.4° at
+  `--speed 2` (16.5 s, which fits one parabola).
+
 ## An internal rotor turns the body the opposite way for as long as it spins
 - **Module 12 spun at 82°/s with `--slip-ring`:** modules 1–11 turn steadily at −7.3°/s.
 - **Overall spin stays 0,** and both stop when the rotor stops.

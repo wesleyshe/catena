@@ -14,3 +14,4 @@ MUJOCO_LOG.TXT
 simulation/chain.xml
 # Written by verify.py on every run; they differ slightly between computers
 simulation/renders/
+.gstack/
