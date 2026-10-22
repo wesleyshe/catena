@@ -24,7 +24,8 @@ Read this file first, then the `AGENTS.md` in the folder you're working in.
 | `experiments/` | The flight experiments, what the sim predicts for each, measured findings | `experiments/README.md` |
 | `docs/` | Proposal, course syllabus, images | |
 
-Each area has its own setup, its own checks, its own `AGENTS.md` and its own `LOG.md`.
+Each area has its own setup, its own checks, its own `AGENTS.md` and its own `LOG.md`. The repo is
+https://github.com/wesleyshe/catena (private).
 
 Each area's status is at the top of its own `AGENTS.md`. There's deliberately none here, because areas editing
 neighbouring lines of one file get merge conflicts.
@@ -112,6 +113,7 @@ A rehearsal with four people (hardware, two software, simulation) working at onc
 - **Binary files can't be merged.** That covers `.3dm`, `.stl` and images.
   - Only one person changes the CAD or the meshes at a time, and says so first.
   - If they do clash, keep one version and redo the step that made the other (e.g. re-export the meshes).
-- **Before merging anything that touches `hardware/` or `simulation/`, run `simulation/verify.py`.** It catches meshes
-  that are out of date with the CAD.
-- **Prefer "Squash and merge"** so `main` gets one commit per pull request.
+- **GitHub runs `simulation/verify.py` on every pull request** (the `verify` check, `.github/workflows/verify.yml`).
+  - Don't merge on a red ✗. It catches a broken sim, and CAD pushed without re-exported meshes.
+  - Running it locally first saves a round trip.
+- **Pull requests merge with "Squash and merge" only** (set on GitHub), so `main` gets one commit per pull request.

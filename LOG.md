@@ -4,6 +4,12 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-10-22 · Wesley (Claude Code)
+- **Published as a private GitHub repo:** https://github.com/wesleyshe/catena.
+- **Squash-merge only.**
+- **New `verify` check** (`.github/workflows/verify.yml`): runs `simulation/verify.py` on Ubuntu, with software OpenGL
+  for the renders, on every pull request and on pushes to main.
+
+## 2026-10-22 · Wesley (Claude Code)
 - **Outside physics review of the sim,** plus sim runs of flight conditions. Results are in `experiments/findings.md`
   under "Is the sim good enough for flight?":
   - The core is sound.
