@@ -3,6 +3,19 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-10-22 · Wesley (Claude Code)
+- **original14 now comes from `../hardware/spec.toml`:** `make_chain.py` reads it for servo, pitch, masses, shell
+  radius, ranges and module count. The panel's module default comes from it too.
+- **Stale-mesh check:** `export_meshes.py` writes `meshes/SOURCE.txt` (CAD file name + SHA-256), and `verify.py`
+  section 1 fails if the CAD has changed since.
+- **`play.py` without `--model` builds the model fresh from the spec.** `chain.xml` is now git-ignored; the panel
+  still writes it.
+- Checked:
+  - `verify.py` ALL CHECKS PASSED.
+  - The XML for all 3 presets × slip ring is byte-identical to before, and so is the headless log.
+  - Re-exported STLs unchanged.
+  - Real launch: Play, 0 contacts.
+
+## 2026-10-22 · Wesley (Claude Code)
 - **Moved the sim into `simulation/`, with its own `.venv`.**
   - Sequences now come from `../sequences/` and the CAD from `../hardware/cad/`.
   - The defaults for `play.py --model/--log`, `make_chain.py -o` and `export_meshes.py` now resolve from this folder.

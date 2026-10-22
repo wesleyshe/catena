@@ -15,6 +15,7 @@ BOM decisions. History is in `LOG.md`.
 | `cad/complete chain.3dm` | The current design: the whole 12-module chain (Rhino 8, mm). The source for every sim mesh. **Never modify.** |
 | `cad/Single module existing.3dm` | One module of the current design. **Never modify.** |
 | `cad/archive/` | Designs that have been replaced, kept for reference (create it when the first one is retired). |
+| `spec.toml` | The chain's numbers: module count, spacing, shell, ranges, servo, masses. **The sim and the robot software read this file**, so it's the one place to change a number. |
 
 - The single-module file matches module 2 of the chain to within 0.000 mm.
 - It adds a Ø8.4 × 3 mm plug in the hub hole; ignore the plug.
@@ -32,8 +33,8 @@ New designs usually arrive as a Rhino file that someone has already made, with a
 4. **Archive the old design.** Move it to `cad/archive/`, prefixed with the date it was retired (e.g.
    `archive/2026-11-03 complete chain.3dm`). Never delete or edit it.
 5. **Re-export the meshes.** Point `SRC` in `simulation/export_meshes.py` at the new file, then re-export `meshes/`.
-6. **Update the numbers.** Update the measurements and kinematics below, and the matching numbers in
-   `simulation/make_chain.py` (pitch, `R_SHELL`, mass boxes, ranges, masses).
+6. **Update the numbers.** Update `spec.toml` and the measurements and kinematics below. If the inside of the module
+   changed, also update the sim's mass boxes (`CORE_BOX`, `ARM_BOX` in `simulation/make_chain.py`).
 7. **Verify.** Run `simulation/verify.py`, and do a real launch of the control window.
 8. **Mark the findings.** Findings in `experiments/findings.md` were measured on the old design. Say so next to them,
    or re-run them.
@@ -78,11 +79,10 @@ All in the module frame: the origin is where the yaw and pitch axes cross, which
   - Both carry the U2D2 and power hub.
 
 ## Numbers the sim still guesses (please measure)
-These are placeholders in `simulation/make_chain.py`. Measure them and log the values here and in `simulation/LOG.md`.
-- **Masses:** the model uses 0.20 kg per base and 0.03 kg per arm; the CAD suggests about 0.28 kg and 24 g. End
-  modules are assumed to weigh the same as middle ones.
-- **Gearbox behaviour:** friction (7% of stall torque), motor inertia and braking are tuned estimates. There are no
-  measured AX-12A values.
+- **Masses** (in `spec.toml`): the spec says 200 g per base and 30 g per arm, while the CAD suggests about 280 g and
+  24 g. End modules are assumed to weigh the same as middle ones. Weigh a module and put the real values in the spec.
+- **Gearbox behaviour** (in `simulation/make_chain.py`): friction (7% of stall torque), motor inertia and braking are
+  tuned estimates. There are no measured AX-12A values.
 
 ## Miniaturisation (decided 2026-10-17)
 - **Goals:**

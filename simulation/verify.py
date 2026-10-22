@@ -2,7 +2,7 @@
 
   .venv/bin/python verify.py
 
-1. every preset (with and without --slip-ring) compiles
+1. meshes/ were exported from the current CAD (../hardware/cad), and every preset (with and without --slip-ring) compiles
 2. each joint turns about the intended axis: anchors/axes, a 30 deg test turn, and the arm mesh
    (yoke discs centred on the pitch axis, hub centred on the yaw axis, hub top at +88 mm)
 3. zero gravity + smooth random joint motion: COM stays still, total angular momentum stays ~0
@@ -19,7 +19,8 @@ import numpy as np
 import trimesh
 from PIL import Image
 
-from make_chain import PRESETS, build
+from export_meshes import SRC, STAMP, fingerprint
+from make_chain import PRESETS, SPEC_FILE, build
 from play import Session, read_sequence, target
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -60,7 +61,13 @@ def gross_momentum(m, d):
 
 
 def check_compile():
-    print("1. model compiles")
+    print("1. model compiles, from the current hardware")
+    cad, cur = os.path.basename(SRC), fingerprint(SRC)
+    made = open(STAMP).read().splitlines()[:2] if os.path.exists(STAMP) else ["nothing recorded", ""]
+    ok = made == [cad, cur]
+    check(ok, f"meshes/ match the current CAD ({cad}, sha256 {cur[:8]})" if ok else
+          f"meshes/ came from {made[0]} ({made[1][:8]}), not the current {cad} ({cur[:8]}): run export_meshes.py")
+    print(f"  info  masses, sizes, ranges and servo for original14 come from {os.path.relpath(SPEC_FILE, HERE)}")
     for preset in PRESETS:
         for slip in (False, True):
             m, _ = load(preset, slip_ring=slip)

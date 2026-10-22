@@ -57,7 +57,7 @@ The viewer's own sliders and keys still work alongside it. Closing the control w
 | Run all checks and renders | `.venv/bin/python verify.py` |
 | Control window (same as double-clicking `Chain Sim.command`) | `.venv/bin/python panel.py` |
 
-`play.py` options: `--model chain.xml`, `--seq FILE`, `--move 3` (seconds between rows), `--hold 1` (seconds per row),
+`play.py` options: `--model FILE.xml` (without it, the model is built fresh from `../hardware/spec.toml`), `--seq FILE`, `--move 3` (seconds between rows), `--hold 1` (seconds per row),
 `--log logs/run_log.csv`, `--headless`, `--gravity 9.81` (m/s² towards the floor, overriding the model).
 
 ### Keyboard (viewer)
@@ -102,8 +102,9 @@ overrides both the keys and the sliders. If a key clashes with a viewer shortcut
 | `feetech7` | Feetech STS3032 | 0.44 N·m (peak) | 7 cm | 0.5 | 0.1 ms |
 
 Other flags: `-n 8` sets the number of modules (minimum 2), and `--slip-ring` removes the yaw limits. Yaw targets then span ±360°, which
-keeps the sliders usable. Pitch stays at ±124° because the shell, not the cable, limits it. Edit masses, torques and ranges in the `PRESETS` table and the
-constants at the top of `make_chain.py`, then run `verify.py` again.
+keeps the sliders usable. Pitch stays at ±124° because the shell, not the cable, limits it. The real chain's numbers (masses, sizes, ranges,
+servo) are in `../hardware/spec.toml`. The what-if presets and the sim's own tuning are in `PRESETS` and the constants at
+the top of `make_chain.py`. Run `verify.py` again after changing either.
 
 ## Files
 
@@ -113,8 +114,10 @@ constants at the top of `make_chain.py`, then run `verify.py` again.
 | `inspect_3dm.py` | Prints units, layers, objects, colours, types and tight mesh bounding boxes. |
 | `export_meshes.py` | Writes `meshes/*.stl`, one per rigid body, in the module frame, in metres, under 20k triangles. |
 | `meshes/` | `base_first.stl` (module 1), `base_mid.stl` (2–11), `base_last.stl` (12), `arm.stl` (1–11). |
+| `../hardware/spec.toml` | The real chain's numbers, shared with the robot software. `make_chain.py` reads them. |
 | `make_chain.py` | Parametric generator for `chain.xml`. |
-| `chain.xml` | Generated model: 12 × original14. |
+| `chain.xml` | Generated model, written by the control window and `make_chain.py`. Not in git. |
+| `meshes/SOURCE.txt` | Which CAD file the meshes were exported from; `verify.py` fails if the CAD has changed since. |
 | `Chain Sim.command` | Double-click launcher for the control window. |
 | `panel.py` | Control window: buttons that build the model and drive the viewer. |
 | `play.py` | Viewer, keyboard, sequence playback, logging, live readouts; takes commands from `panel.py`. |

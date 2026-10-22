@@ -17,7 +17,7 @@ Read this file first, then the `AGENTS.md` in the folder you're working in.
 ## Map
 | Folder | What's in it | Read first |
 |---|---|---|
-| `hardware/` | CAD (`cad/*.3dm`), measurements, kinematics, BOM decisions | `hardware/AGENTS.md` |
+| `hardware/` | CAD (`cad/*.3dm`); `spec.toml`, the chain's numbers that the sim and software read; measurements, BOM decisions | `hardware/AGENTS.md` |
 | `software/` | Code for the real chain (servo control, logging, telemetry). Empty so far. | `software/AGENTS.md` |
 | `simulation/` | MuJoCo model of the chain, control window, regression checks | `simulation/AGENTS.md` |
 | `sequences/` | Fold sequences: scripted joint moves (CSV) that the sim plays and the real chain will play | `sequences/README.md` |
@@ -45,9 +45,9 @@ These are confirmed by the team. Change one only together with the other areas, 
   - Both end modules carry the U2D2 and power hub.
 - **Sequence columns:** a fold sequence has 24 columns in the order `m1_yaw, m1_pitch, …, m12_yaw, m12_pitch`.
   `m1_yaw` and `m12_pitch` are always 0.
-- **Ranges:** pitch ±124° (where the hub meets the end of the shell slot) and yaw ±150° (servo range).
-- **Size:** 140 mm between module centres; shell Ø139 mm.
-- **Units:** degrees in sequence CSVs; SI (m, kg, s, N·m) in code; mm in CAD.
+- **Numbers live in `hardware/spec.toml`:** module count, spacing (140 mm), shell (Ø139 mm), ranges (pitch ±124°,
+  yaw ±150°), servo and masses. Code reads them from there; never copy them into code.
+- **Units:** degrees in sequence CSVs; SI (m, kg, s, N·m) in code; mm and g in CAD and the spec.
 
 ## Rules
 - Never modify the `.3dm` files in `hardware/cad/`. Work on exports. A new design goes in as a new file.
@@ -61,13 +61,17 @@ These are confirmed by the team. Change one only together with the other areas, 
 - Look at anything before deleting or overwriting it.
 
 ## When a change crosses areas
-The sim and the robot software both depend on the hardware, and nothing updates them automatically yet. So when you
-change something on the left, do the rest of its row in the same piece of work, or log what's left undone.
+The sim and the robot software both depend on the hardware.
+- **What's automatic:**
+  - Both read `hardware/spec.toml`, so a changed number reaches both on the next pull.
+  - `simulation/verify.py` fails if the sim meshes weren't exported from the current CAD.
+- **What isn't:** everything else. When you change something on the left, do the rest of its row in the same piece of
+  work, or log what's left undone.
 
 | If you change… | Also do this | Areas affected |
 |---|---|---|
-| The CAD (a new Rhino design) | Follow "Incorporating a new design" in `hardware/AGENTS.md`: archive the old file, re-export the meshes, update the numbers, run `verify.py`. | hardware, simulation; software if joints or ranges moved |
-| A measured number (mass, size, range, servo) | Update `hardware/AGENTS.md`, `simulation/make_chain.py`, and the software's config once it exists. Run `verify.py`. | hardware, simulation, software |
+| The CAD (a new Rhino design) | Follow "Incorporating a new design" in `hardware/AGENTS.md`: archive the old file, re-export the meshes, update `spec.toml`, run `verify.py`. | hardware, simulation; software if joints or ranges moved |
+| A measured number (mass, size, range, servo) | Edit `hardware/spec.toml` only; the sim and software pick it up. Run `verify.py`: if its key numbers move, update them and re-check `experiments/findings.md`. | hardware, simulation, software |
 | A shared fact above (joint names, order, ranges, sequence format) | Update this file and `sequences/README.md`, plus both the sim and the software. | everyone |
 | The sim's physics (servo model, presets, integrator, timestep) | Run `verify.py`, and re-check any `experiments/findings.md` numbers that depend on it. | simulation, experiments |
 | A sequence that `verify.py` or an experiment uses | Re-run `verify.py`, or regenerate that experiment's prediction. | simulation, experiments |

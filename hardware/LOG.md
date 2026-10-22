@@ -3,6 +3,11 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-10-22 · Wesley (Claude Code)
+- **Added `spec.toml`:** module count, spacing, shell, ranges, servo and masses, with the same values the sim used
+  before. The sim reads it, and the software should too.
+- Changing a number there now reaches both; no code edits needed.
+
+## 2026-10-22 · Wesley (Claude Code)
 - Moved the two `.3dm` files into `hardware/cad/`. Their contents are unchanged.
 - Moved the measurements, kinematics and miniaturisation notes here from the old `CLAUDE.md`.
 - Added the "Incorporating a new design" procedure. Replaced designs go to `cad/archive/`.

@@ -10,3 +10,5 @@ MUJOCO_LOG.TXT
 ~$*
 *.3dmbak
 *.rhl
+# Generated from make_chain.py + hardware/spec.toml every time the control window starts
+simulation/chain.xml

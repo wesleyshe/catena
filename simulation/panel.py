@@ -12,7 +12,7 @@ import subprocess
 import tkinter as tk
 from tkinter import filedialog, ttk
 
-from make_chain import PRESETS, build
+from make_chain import N_MODULES, PRESETS, build
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MJPYTHON = os.path.join(HERE, ".venv", "bin", "mjpython")
@@ -32,7 +32,7 @@ class Panel:
         self.server.setblocking(False)
         self.conn, self.buf, self.proc, self.sim_running = None, b"", None, True
 
-        self.preset, self.modules, self.slip = tk.StringVar(value="original14"), tk.IntVar(value=12), tk.BooleanVar()
+        self.preset, self.modules, self.slip = tk.StringVar(value="original14"), tk.IntVar(value=N_MODULES), tk.BooleanVar()
         self.seq, self.move, self.hold = tk.StringVar(), tk.DoubleVar(value=3.0), tk.DoubleVar(value=1.0)
         self.speed, self.gravity, self.g = tk.DoubleVar(value=1.0), tk.BooleanVar(), tk.DoubleVar(value=9.81)
         self.logging, self.status = tk.BooleanVar(), tk.StringVar(value="starting the viewer...")

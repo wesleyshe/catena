@@ -32,19 +32,25 @@ Default paths are relative to this folder, so the scripts also work when run fro
 | Path | What it is |
 |---|---|
 | `make_chain.py` | Parametric generator. The `PRESETS` table and constants at the top are what people edit. `build()` returns the XML. |
-| `chain.xml` | Generated. **`panel.py` rewrites it from its Model settings every time it starts or rebuilds.** |
+| `chain.xml` | Generated and git-ignored. **`panel.py` rewrites it from its Model settings every time it starts or rebuilds.** `play.py` without `--model` doesn't use it: it builds the model fresh from the spec. |
 | `play.py` | Runtime: `Session` (state, commands, spin, readouts), viewer loop, keyboard, `Logger`, headless mode. |
 | `panel.py` | Tk control window: a separate process that drives `play.py` over a localhost socket. |
 | `Chain Sim.command` | Finder double-click launcher for `panel.py`. A Terminal window stays open while it runs. |
 | `verify.py` | Regression checks and renders; see "Verification". |
 | `export_meshes.py` | 3dm → `meshes/`: one STL per rigid body, module frame, metres, under 20k triangles. |
 | `inspect_3dm.py` | 3dm summary: units, layers, objects, tight mesh bounding boxes. |
-| `meshes/` | `base_first.stl` (module 1), `base_mid.stl` (2–11), `base_last.stl` (12), `arm.stl` (1–11). Generated, but committed. |
+| `meshes/` | `base_first.stl` (module 1), `base_mid.stl` (2–11), `base_last.stl` (12), `arm.stl` (1–11). Generated, but committed. `SOURCE.txt` records the CAD file name and SHA-256 they came from. |
 | `renders/` | PNGs from `verify.py`. |
 | `logs/`, `screenshots/` | Run output (git-ignored). The shell default log is `logs/run_log.csv`; the panel writes `logs/run_<stamp>.csv`. |
 | `.venv/` | This folder's Python 3.11 environment (uv, git-ignored). |
 
 Fold sequences live in `../sequences/` because the robot software shares them. The CAD is in `../hardware/cad/`.
+
+**Staying on the latest hardware:**
+- `make_chain.py` reads the real chain's numbers from `../hardware/spec.toml`: module count, pitch, shell size,
+  ranges, servo and masses. `original14` *is* that spec. Don't copy those numbers into code.
+- `verify.py` fails if `meshes/` weren't exported from the current CAD file.
+- The meshes are visual only, so stale meshes give a wrong picture but the same physics. The physics follows the spec.
 
 ## How the pieces connect
 ```
@@ -93,7 +99,9 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
   is what lets it run under the throwaway-bundle screenshot trick (see Gotchas).
 - **Paths:**
   - Everything resolves from the script folder (`HERE`): `meshes/`, `logs/`, `screenshots/`, `chain.xml`.
-  - Sequences come from `../sequences/`, and `export_meshes.py` reads `../hardware/cad/`.
+  - Sequences come from `../sequences/`, `export_meshes.py` reads `../hardware/cad/`, and `make_chain.py` reads
+    `../hardware/spec.toml` when it's imported. The spec is read with `tomllib`, which is stdlib, so the stdlib-only
+    rule still holds.
   - `Chain Sim.command` expects `panel.py` and `.venv/` next to it.
 - **Coupled physics settings; change them together.**
   - The RK4 timestep, `armature`, `kv` and the masses: see Physics for the stability rule.
@@ -116,8 +124,10 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
 2. **Dock app (offered, never answered).** A "Chain Sim.app" with no Terminal window: a bundle running
    `.venv/bin/python panel.py`, or an `osacompile` AppleScript applet that starts it in the background, logging to
    `logs/`.
-3. **Placeholder parameters** (in `make_chain.py`; `../hardware/AGENTS.md` lists what to measure):
-   - Masses: 0.20 kg base and 0.03 kg arm. `end_mass` equals `base_mass`. The 7 cm preset masses are rough.
+3. **Placeholder parameters** (`../hardware/AGENTS.md` lists what to measure):
+   - In `../hardware/spec.toml`: masses of 200 g per base and 30 g per arm, with the end modules equal to the middle
+     ones.
+   - In `make_chain.py`: the 7 cm preset masses are rough.
    - `armature`, `kv` and `GEAR_FRICTION` are tuned estimates.
    - `ROLLING_RESISTANCE = 0.03` is tuned for settling, not measured. `KP_SATURATE = 10°`.
 4. **Sliders and drift.** Slider drags are instant target jumps. One 200 s session drifted 0.68 mm, against 0.005 mm in
@@ -205,7 +215,7 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
 
 ## Verification
 `verify.py` has 7 sections:
-1. Compile.
+1. Compile, and meshes match the current CAD.
 2. Joint axes and arm mesh.
 3. Zero-g momentum.
 4. Contacts.

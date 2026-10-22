@@ -8,6 +8,7 @@ joints at zero, chain along +Z, metres. Bodies:
   arm         U-yoke + hub (modules 1-11), pivots about +X at the module centre
 Usage: .venv/bin/python export_meshes.py
 """
+import hashlib
 import os
 import numpy as np
 import rhino3dm as r3
@@ -16,9 +17,16 @@ import trimesh
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(os.path.dirname(HERE), "hardware", "cad", "complete chain.3dm")  # never modified
 OUT = os.path.join(HERE, "meshes")
+STAMP = os.path.join(OUT, "SOURCE.txt")  # which CAD file the meshes came from; verify.py checks it still matches
 C0 = np.array([-400.70, -399.53, 52.0])  # module 1 centre in the file (mm)
 PITCH = 140.0                            # module centre-to-centre (mm), chain runs along +Z
 MAX_TRIS = 20000                         # per body; shells are kept at full resolution
+
+
+def fingerprint(path):
+    """SHA-256 of a file: tells whether the CAD has changed since the meshes were exported."""
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
 
 
 def render_mesh(g):
@@ -104,6 +112,8 @@ def main():
         t.export(f"{OUT}/{fname}.stl")
         lo, hi = t.bounds * 1000
         print(f"{fname:10} {n0:6d} -> {len(t.faces):5d} tris  bounds mm {lo.round(1)} .. {hi.round(1)}")
+    with open(STAMP, "w") as f:
+        f.write(f"{os.path.basename(SRC)}\n{fingerprint(SRC)}\n")
 
 
 if __name__ == "__main__":

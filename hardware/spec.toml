@@ -1,0 +1,24 @@
+# The chain as built. The simulation (simulation/make_chain.py) and the robot software both read this file, so change
+# a number here and both pick it up. Hardware owns it. After a change, run simulation/verify.py and log it
+# (see "When a change crosses areas" in the root AGENTS.md). Units are in the key names.
+
+[chain]
+modules = 12                  # m1 ... m12
+pitch_mm = 140                # module centre to centre: 88 mm to the hub top + 52 mm to the next yaw horn face
+shell_diameter_mm = 139       # outer; neighbouring shells are 1 mm apart
+
+[joints]
+pitch_range_deg = 124         # ±; the hub hits the end of the shell slot at about 124°
+yaw_range_deg = 150           # ±; servo range (the AX-12A turns 300° in total)
+
+[servo]
+model = "AX-12A"
+stall_torque_Nm = 1.5
+no_load_speed_rad_s = 6.18    # 59 rpm at 12 V
+
+[mass]                        # placeholders until a module is weighed; the CAD suggests base ~280 g, arm 24 g
+base_g = 200                  # a middle module without its arm: shell, bracket, both servos
+end_g = 200                   # modules 1 and 12: one servo fewer, plus the U2D2 and power hub
+arm_g = 30                    # yoke + hub
+
+# Software: add servo IDs, turning directions and zero offsets here once they're measured on the chain.

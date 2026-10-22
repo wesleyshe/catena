@@ -15,14 +15,16 @@ Read the root `AGENTS.md` first. This folder is for the code that runs the real 
 ## The hardware, as software sees it
 - **Servos:** 22 Dynamixel AX-12A servos, which speak Dynamixel Protocol 1.0, driven through a U2D2 in an end module.
 - **Joint names and CSV column order:** see the root `AGENTS.md`.
-- **Ranges:** pitch ±124°, yaw ±150°.
+- **Numbers:** read them from `../hardware/spec.toml` (in Python, `tomllib.load`). Don't copy them into code; then a
+  hardware change reaches your code on the next pull.
+- **Ranges:** pitch ±124°, yaw ±150° (`[joints]` in the spec).
   - Past ±124° the hub hits the end of the shell slot, so commanding beyond it would push the servo against the shell.
   - The sim clamps targets to these ranges. The real servos won't, unless you set their angle limits.
 - **Not recorded anywhere yet:**
   - the servo IDs
   - which way each servo turns
   - how the straight pose (all joints 0°) maps to servo position units
-  Measure them on the chain and write them here.
+  Measure them on the chain and add them to `../hardware/spec.toml`, so the sim can use them too.
 
 ## Interfaces with the rest of the repo
 - **Fold sequences (`../sequences/`):** a format both the sim and the robot can read; see `../sequences/README.md`. If

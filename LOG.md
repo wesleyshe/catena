@@ -4,6 +4,12 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-10-22 · Wesley (Claude Code)
+- **Sync checks:** `hardware/spec.toml` now holds the chain's numbers, which the sim reads and the software should
+  read. The sim refuses stale meshes (see `simulation/LOG.md`).
+- Updated "Facts every area shares" and the cross-area table to point at the spec.
+- Checked: `verify.py` ALL CHECKS PASSED; headless log byte-identical.
+
+## 2026-10-22 · Wesley (Claude Code)
 - Reorganised the flat `chain_sim` folder into `hardware/`, `software/`, `simulation/`, `sequences/`, `experiments/`
   and `docs/`, ready to share with the team on GitHub.
 - Replaced the single `CLAUDE.md` with `AGENTS.md` files (root + one per area), so any coding agent can read them.

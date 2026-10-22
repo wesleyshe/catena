@@ -316,7 +316,7 @@ def run_viewer(s, panel_port=None):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--model", default=os.path.join(HERE, "chain.xml"))
+    ap.add_argument("--model", help="model XML (default: built fresh from make_chain.py and ../hardware/spec.toml)")
     ap.add_argument("--seq", help="fold sequence CSV (degrees)")
     ap.add_argument("--move", type=float, default=3.0, help="seconds to move between rows")
     ap.add_argument("--hold", type=float, default=1.0, help="seconds to hold each row")
@@ -326,7 +326,12 @@ if __name__ == "__main__":
     ap.add_argument("--panel", type=int, help=argparse.SUPPRESS)  # port of the control window
     a = ap.parse_args()
 
-    model = mujoco.MjModel.from_xml_path(a.model)
+    if a.model:
+        model = mujoco.MjModel.from_xml_path(a.model)
+    else:  # always the current hardware spec, never a stale chain.xml
+        from make_chain import build
+
+        model = mujoco.MjModel.from_xml_string(build().replace('meshdir="meshes"', f'meshdir="{HERE}/meshes"'))
     if a.gravity is not None:
         model.opt.gravity[:] = (0, 0, -a.gravity)
     session = Session(model, mujoco.MjData(model), a.log or None)

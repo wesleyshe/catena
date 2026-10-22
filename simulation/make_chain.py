@@ -14,12 +14,21 @@ Module 1 has no yaw servo and the last module has no pitch servo or arm, so N mo
 import argparse
 import math
 import os
+import tomllib
 import xml.etree.ElementTree as ET
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+SPEC_FILE = os.path.join(os.path.dirname(HERE), "hardware", "spec.toml")
+with open(SPEC_FILE, "rb") as fh:
+    SPEC = tomllib.load(fh)  # the chain as built; hardware owns it, and the robot software reads it too
+HW, SERVO, MASS = SPEC["chain"], SPEC["servo"], SPEC["mass"]
+
+# original14 is the real chain: its servo, pitch and masses come from the spec. The 7 cm presets are what-ifs.
 # Lengths of the meshes and primitives are for the 140 mm AX-12A module; other pitches scale them.
 PRESETS = {
-    "original14": dict(servo="AX-12A", torque=1.50, speed=6.18, pitch=0.140, timestep=0.0005,
-                       base_mass=0.200, end_mass=0.200, arm_mass=0.030, shell_frac=0.33, armature=0.002, kv=1.0),
+    "original14": dict(servo=SERVO["model"], torque=SERVO["stall_torque_Nm"], speed=SERVO["no_load_speed_rad_s"],
+                       pitch=HW["pitch_mm"] / 1000, timestep=0.0005, base_mass=MASS["base_g"] / 1000,
+                       end_mass=MASS["end_g"] / 1000, arm_mass=MASS["arm_g"] / 1000, shell_frac=0.33, armature=0.002, kv=1.0),
     "dyna7": dict(servo="XL330-M288", torque=0.52, speed=10.8, pitch=0.070, timestep=0.0001,
                   base_mass=0.047, end_mass=0.047, arm_mass=0.004, shell_frac=0.18, armature=0.0002, kv=0.25),
     "feetech7": dict(servo="STS3032", torque=0.44, speed=11.6, pitch=0.070, timestep=0.0001,
@@ -35,8 +44,8 @@ PRESETS = {
 #   but it is only stable for timestep < ~2.8 * (I_twist + armature) / (4 * (damping + kv)), I_twist = one base's
 #   inertia about the chain axis. Lighter modules or more kv need a smaller timestep; run verify.py after changes.
 
-PITCH_RANGE = 124       # deg, the hub hits the end of the shell slot at about 124 deg
-YAW_RANGE = 150         # deg, servo range (AX-12A: 300 deg total); --slip-ring removes the joint limit
+PITCH_RANGE = SPEC["joints"]["pitch_range_deg"]  # deg, from the spec: the hub hits the end of the shell slot
+YAW_RANGE = SPEC["joints"]["yaw_range_deg"]      # deg, from the spec: servo range; --slip-ring removes the joint limit
 SLIP_RING_TARGETS = 360 # deg, yaw target range with --slip-ring (sets the slider range; the joint itself is free)
 KP_SATURATE = 10        # deg of position error at which the actuator reaches stall torque
 SERVO_LAG = 0.005       # s, first-order lag on servo targets; smooths 10 ms command steps so RK4 stays accurate
@@ -45,7 +54,8 @@ CHAIN_ROLL = 0          # deg about the chain's long axis; 0 = pitch axes vertic
 ROLLING_RESISTANCE = 0.03  # floor rolling-resistance coefficient (torque = this x shell radius x normal force).
                            # Chosen so a dropped chain settles in ~10 s; below ~0.01 the off-centre modules keep rocking.
 
-R_SHELL = 0.0695                                     # shell outer radius (m)
+R_SHELL = HW["shell_diameter_mm"] / 2000             # shell outer radius (m), from the spec
+N_MODULES = HW["modules"]                            # default chain length, from the spec
 CORE_BOX = ((0, -0.00975, -0.00575), (0.019, 0.02875, 0.04425))  # bracket + servos: centre, half-size
 ARM_BOX = ((0, 0, 0.038), (0.032, 0.012, 0.050))                 # yoke + hub: centre, half-size
 BASE_RGBA, ARM_RGBA = "0.78 0.78 0.80 1", "0.20 0.45 0.95 1"
@@ -55,7 +65,7 @@ def v(*xs):
     return " ".join(f"{x:.6g}" for x in xs)
 
 
-def build(preset="original14", n=12, slip_ring=False, gravity=0.0):
+def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0):
     p = PRESETS[preset]
     s = p["pitch"] / 0.140                       # geometric scale
     kp = p["torque"] / math.radians(KP_SATURATE)
@@ -141,10 +151,10 @@ def build(preset="original14", n=12, slip_ring=False, gravity=0.0):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--preset", default="original14", choices=PRESETS)
-    ap.add_argument("-n", "--modules", type=int, default=12)
+    ap.add_argument("-n", "--modules", type=int, default=N_MODULES)
     ap.add_argument("--slip-ring", action="store_true", help="remove the yaw joint limits")
     ap.add_argument("--gravity", type=float, default=0.0, help="m/s^2 downward, towards the floor (Earth: 9.81)")
-    ap.add_argument("-o", "--out", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "chain.xml"))
+    ap.add_argument("-o", "--out", default=os.path.join(HERE, "chain.xml"))
     a = ap.parse_args()
     assert a.modules >= 2, "need at least 2 modules"
     with open(a.out, "w") as f:
