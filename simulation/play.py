@@ -42,6 +42,7 @@ CAPTURE = 0.015     # m: an anchor told to hold grabs when its grip face comes t
 PULL_IN = 0.2       # s: having grabbed short of the surface, the clamp pulls the face onto it gently for this long
 SOFT_SOLREF = (0.05, 1.0)  # the clamp's weld while it pulls in; then it's back to the stiff make_chain.CLAMP_SOLREF
 LOAD_TAU = 0.1      # s: end-effector loads are smoothed over this; the stiff clamp's raw force is spiky
+CUP_TOUCH = 0.003   # m: a cup this close to a fixed surface counts as on it
 EE_COLUMN = re.compile(r"(ee\d+)_(grip|n[0-4])$")  # end-effector columns in a sequence CSV
 
 
@@ -138,6 +139,9 @@ class End:
         self.tip = find(mujoco.mjtObj.mjOBJ_GEOM, f"{name}_tip")
         self.mocap = model.body_mocapid[model.body(f"{name}_hold").id] if self.clamp >= 0 else -1
         self.stiff = model.eq_solref[self.clamp].copy() if self.clamp >= 0 else None
+        self.cup = find(mujoco.mjtObj.mjOBJ_GEOM, f"{name}_cup")
+        self.limit = float(model.actuator_gainprm[self.suck][0]) if self.suck >= 0 else 0.0  # a cup's pull limit (N)
+        self.geoms = {g for g in range(model.ngeom) if model.geom_bodyid[g] in (self.body, model.geom_bodyid[self.cup])}
         self.reset()
 
     def reset(self):
@@ -294,6 +298,19 @@ class Session:
                     rows = (d.efc_type == mujoco.mjtConstraint.mjCNSTR_EQUALITY) & (d.efc_id == e.clamp)
                     f = d.efc_force[rows]
                     force, torque = np.linalg.norm(f[:3]), np.linalg.norm(f[3:6])
+            elif e.kind == "suction":  # on = the cup is on a surface while sucking; pull = suction - what the surface pushes
+                on, push, f6 = False, 0.0, np.zeros(6)
+                for i in range(d.ncon):
+                    g1, g2 = d.contact.geom1[i], d.contact.geom2[i]
+                    if (g1 in e.geoms and m.geom_bodyid[g2] == 0) or (g2 in e.geoms and m.geom_bodyid[g1] == 0):
+                        on |= e.cup in (g1, g2) and d.contact.dist[i] < CUP_TOUCH
+                        if d.contact.efc_address[i] >= 0:
+                            mujoco.mj_contactForce(m, d, i, f6)
+                            push += f6[0]
+                held = e.armed and on
+                e.pops += e.held and not held and e.armed  # it came off while still sucking: a pop or a peel
+                e.held = held
+                force = max(0.0, float(d.actuator_force[e.suck]) - push) if held else 0.0
             e.load += a * (force - e.load)
             e.torque += a * (torque - e.torque)
             e.peak = max(e.peak, e.load)
@@ -460,7 +477,7 @@ class Session:
                 "|L|": f"{L:.1e} kg m^2/s", "max torque": f"{np.abs(d.actuator_force[:self.nj]).max():.2f} N m",
                 "contacts": str(d.ncon), "log": os.path.relpath(self.log.path, HERE) if self.log else "off",
                 **{e.name: f"{e.kind}, {e.state()}" + (f", {e.load:.1f} N, {e.torque:.2f} N m" if e.kind == "anchor" else
-                                                       f", pull {e.load:.1f} N" if e.kind == "suction" else
+                                                       f", pull {e.load:.1f} of {e.limit:g} N, {e.pops} pops" if e.kind == "suction" else
                                                        f", {self.thrust(e):.2f} N" if e.kind == "thruster" else "")
                    for e in self.ends.values()}}
 

@@ -4,6 +4,11 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-10-29 · Wesley (Claude Code)
+- **New sequences** for the suction-cup clips: `inchworm_walk.csv` (an inchworm walk, one foot always holding) and
+  `walk_let_go.csv` (the same, letting go too early). They use the `ee1_grip` / `ee12_grip` columns.
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED; details in `simulation/LOG.md`.
+
+## 2026-10-29 · Wesley (Claude Code)
 - **Shared format: sequences can now carry end-effector columns** after the 24 joint columns: `ee{k}_grip` (1 hold,
   0 let go) and `ee{k}_n0` … `n4` (thruster throttle 0–1). They apply from the start of a row's hold. Documented in
   `sequences/README.md` and the root `AGENTS.md`. **Software needs to:** read them as end-effector commands once the

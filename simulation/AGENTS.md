@@ -12,15 +12,16 @@ History is in `LOG.md`.
 
 ## Status (2026-10-29)
 - **Internally consistent, not yet checked against the real chain.**
-  - `verify.py` passes all 10 sections.
+  - `verify.py` passes all 11 sections.
   - Predictions hold for the numbers in `../hardware/spec.toml`, and some of those are placeholders.
   - An outside review found the core sound but not yet a flight prediction; see "Is the sim good enough for flight?"
     in `../experiments/findings.md`.
 - **It models the AX-12A chain in the current Rhino file.** The STS3032 flight build's Rhino model is due in the coming
   weeks, and comes in through "Incorporating a new design" in `../hardware/AGENTS.md`.
-- **End effectors and setups, phase 2 of 6** (design and plans: `../docs/design/2026-10-2*-end-effectors*.md`).
+- **End effectors and setups, phase 3 of 6** (design and plans: `../docs/design/2026-10-2*-end-effectors*.md`).
   End-effector modules; setups that start the chain attached (placement); the anchor (clamp, grab on touch, let go);
-  grip columns in sequences; the stall sweep. Setups 1a–1c, 2a–2c, 6. Next: suction (3), thrusters (4), rod crawl (5).
+  suction cups; grip columns in sequences; the stall sweep. Setups 1a–1c, 2a–2c, 4a–4b, 6. Next: thrusters (4), rod
+  crawl (5).
 - **Owner: Wesley.** Wesley double-clicks `Chain Sim.command` rather than using the shell, and uses the sim to answer
   the professor's physics questions (`../experiments/findings.md`).
 
@@ -106,8 +107,9 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
     `ee{N}` (rigid child of m{N}), with geoms `ee{k}_visual` and `ee{k}_sphere`. They're added after the chain, so the
     chain's body ids don't move. Both none → `build()` is byte-identical to before they existed.
   - An anchor adds geom `ee{k}_tip` (the grip face; collides with nothing), mocap body `ee{k}_hold` and weld
-    `ee{k}_clamp` (to the hold, inactive). `play.End` tells the types apart by these names. World geoms: `plate` (an
-    attach point off the floor) and `rod`.
+    `ee{k}_clamp` (to the hold, inactive). A suction cup adds body and geom `ee{k}_cup` (collides with nothing by
+    itself; explicit contact pairs with every world geom) and adhesion actuator `ee{k}_suck`. `play.End` tells the
+    types apart by these names. World geoms: `plate` (an attach point off the floor) and `rod`.
   - Geoms: `m{i}_visual`, which `play.py` recolours for keyboard selection, and `m{i}_sphere`, whose radius `verify.py`
     reads.
   - Sensors `com`, `com_vel` and `angmom` sit on body `m1`.
@@ -220,6 +222,9 @@ How `spin`, the readouts, timing, screenshots and the viewer keys work is in "In
 - **End-effector actuators must override the servo defaults.** `<default><position kp kv forcerange timeconst>` sets
   every actuator's defaults, so a bare `<general>` (a nozzle) gets a 5 ms filter and a kp/kv bias that acts as a
   damper. Give them `biastype="none" dyntype="none"` (and their own `forcerange`).
+- **Suction cups and MuJoCo's contact gap.** In MuJoCo 3.16 a contact's `includemargin` is its margin even with
+  `gap` set, so a cup with a 10 mm margin hovered 9 mm up and pushed itself off when not sucking. Cups therefore have
+  a 1 mm margin (`CUP_MARGIN`) and must be pressed on to stick: gaits aim a landing foot ~15 mm into the surface.
 - **Clean up after experiments:**
   - `MUJOCO_LOG.TXT` appears when a run goes unstable; delete it afterwards.
   - Remove `__pycache__/` after test runs.
@@ -239,5 +244,6 @@ How `spin`, the readouts, timing, screenshots and the viewer keys work is in "In
    `setups/` builds.
 10. Anchors: placement on the floor and a wall, the clamp holds while the chain folds, grab on touch (not on a side
    brush), let go keeps the momentum, the grip column and its warning.
+11. Suction cups: a 20 N cup holds a 15 N pull and reads it, pops at 25 N, grabs on touch, can't touch the chain.
 
 Its docstring says what each checks, and the key numbers are under Contracts.

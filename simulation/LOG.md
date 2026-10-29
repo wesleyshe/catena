@@ -3,6 +3,18 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-10-29 · Wesley (Claude Code)
+- **End effectors, phase 3: suction cups.** A cup body at the end's tip with an adhesion actuator (the pull limit),
+  touching only fixed things through explicit contact pairs; held = sucking and on a surface; pull = suction minus the
+  surface's push; pops counted. Setups 4a (inchworm walk, `inchworm_walk.csv`) and 4b (lets go too early,
+  `walk_let_go.csv`).
+  - Finding: the default 40 mm, 20 N cup peels under the stepping moment and the chain pivots off; 80 mm, 60 N walks
+    (1.10 m in two steps, 19 s). The pull it feels is only ~1 N: what sizes the cup is the tipping moment, about
+    pull × radius ≈ 2.4 N·m.
+  - MuJoCo 3.16 doesn't let `gap` switch off a contact's push inside its margin, so cups have a 1 mm margin and gaits
+    press each landing foot ~15 mm into the floor (see Gotchas in `AGENTS.md`).
+- **Checked:** `verify.py` ALL CHECKS PASSED, 11 sections; 4a walks two steps with no pops, 4b floats away.
+
+## 2026-10-29 · Wesley (Claude Code)
 - **End effectors, phase 2: placement and the anchor** (plan `../docs/design/2026-10-29-end-effectors-phases2-6-plan.md`):
   - Setups can start an end attached (`attach`: a point and facing, or along the rod), and start the chain in its
     sequence's first row. `[rod]` adds a fixed rod.

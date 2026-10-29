@@ -74,6 +74,9 @@ EE_RGBA = dict(anchor="0.80 0.25 0.25 1", suction="0.25 0.70 0.35 1", thruster="
 EE_DEFAULTS = dict(type="none", attach={}, pull_N=20.0, cup_mm=40.0, friction=0.8, thrust_N=0.1)
 TIP = (0.020, 0.004)    # m: an anchor's grip face, a disc on its outer pole (radius, thickness)
 CLAMP_SOLREF = "0.002 1"  # the clamp's weld: stiff (the default let a clamped end move 36 mm while the chain folded)
+CUP_T = 0.002           # m: half-thickness of a suction cup (its diameter is a setting)
+CUP_MARGIN = 0.001      # m: a cup's contact margin: it pulls (and pushes) from this far away. Bigger makes it hover
+                        # (MuJoCo 3.16 doesn't let gap switch the push off), so a cup has to be pressed on to stick
 FACINGS = {"up": (0, 0, 1), "down": (0, 0, -1), "+x": (1, 0, 0), "-x": (-1, 0, 0), "+y": (0, 1, 0), "-y": (0, -1, 0)}
 PLATE = (0.5, 0.005)    # m: half-size and half-thickness of the plate an end is attached to when it isn't the floor
 ROD_MM = 35             # default rod diameter (mm), about a handrail
@@ -215,6 +218,7 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
         parent = arm
 
     # end effectors go in after the chain, so the chain's body ids don't move (m1 stays body 1)
+    ee_actuators = []  # (tag, attributes): after the joint servos
     for name, end, side, e in (("ee1", first, -1, ends[0]), (f"ee{n}", body, 1, ends[1])):
         kind = e["type"]
         if kind == "none":
@@ -236,6 +240,13 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
             if root.find("equality") is None:
                 ET.SubElement(root, "equality")
             ET.SubElement(root.find("equality"), "weld", weld)
+        if kind == "suction":  # the cup on its own body, so the adhesion (which acts on all of a body's contacts) only
+            # pulls where the cup touches. It collides with nothing by itself: the contact pairs below, fixed things only
+            cup = ET.SubElement(ee, "body", name=f"{name}_cup", pos=v(0, 0, side * (R_SHELL * s - CUP_T)))
+            ET.SubElement(cup, "geom", name=f"{name}_cup", type="cylinder", size=v(e["cup_mm"] / 2000, CUP_T), mass="0",
+                          contype="0", conaffinity="0", rgba="0.10 0.35 0.15 1")
+            ee_actuators.append(("adhesion", dict(name=f"{name}_suck", body=f"{name}_cup", ctrlrange="0 1",
+                                                  gain=v(e["pull_N"]), forcelimited="false")))
 
     # actuators in CSV order: m1_yaw, m1_pitch, ..., mN_yaw, mN_pitch (skipping mN_pitch, and m1_yaw without ee1)
     act = ET.SubElement(root, "actuator")
@@ -243,10 +254,17 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
         for j, lim in ((f"m{i}_yaw", SLIP_RING_TARGETS if slip_ring else YAW_RANGE), (f"m{i}_pitch", PITCH_RANGE)):
             if j != f"m{n}_pitch" and (j != "m1_yaw" or ends[0]["type"] != "none"):
                 ET.SubElement(act, "position", name=j, joint=j, ctrlrange=v(-math.radians(lim), math.radians(lim)))
+    for tag, attrs in ee_actuators:
+        ET.SubElement(act, tag, attrs)
 
     contact = ET.SubElement(root, "contact")   # neighbours stay one pitch apart, never touch: skip them
     for i in range(1, n):
         ET.SubElement(contact, "exclude", body1=f"m{i}", body2=f"m{i + 1}")
+    for name, e in (("ee1", ends[0]), (f"ee{n}", ends[1])):
+        if e["type"] == "suction":  # a cup touches only fixed things: the floor, plates, the rod, the cage
+            for g in world.findall("geom"):
+                ET.SubElement(contact, "pair", geom1=f"{name}_cup", geom2=g.get("name"), condim="3", margin=v(CUP_MARGIN),
+                              friction=v(e["friction"], e["friction"], 0.005, 0.0001, 0.0001))
 
     sensor = ET.SubElement(root, "sensor")
     ET.SubElement(sensor, "subtreecom", name="com", body="m1")

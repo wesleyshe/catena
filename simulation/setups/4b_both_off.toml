@@ -1,0 +1,26 @@
+# The same walk, but the back foot lets go before the front holds: in zero g it floats away.
+sequence = "walk_let_go.csv"
+move_s = 0.9
+hold_s = 0.35
+speed = 1.0
+playback = 1.0
+gravity_m_s2 = 0.0
+spin_deg_s = [0.0, 0.0, 0.0]
+air = false
+cage = false
+preset = "original14"
+modules = 12
+slip_ring = false
+
+[ee1]
+type = "suction"
+attach = { at = [0.0, 0.6, 0.0], facing = "up", roll_deg = 0.0 }
+pull_N = 60.0
+cup_mm = 80.0
+friction = 0.8
+
+[ee12]
+type = "suction"
+pull_N = 60.0
+cup_mm = 80.0
+friction = 0.8

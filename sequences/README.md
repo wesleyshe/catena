@@ -10,6 +10,8 @@ the robot software should read the same format, so one file runs in both.
 | `arm_reach.csv` | For a chain anchored by ee1 (setup `2a_arm`): curls, turns a quarter turn on ee1's twist servo, reaches, folds into an L, straightens. 18.5 s at move 2.5 s, hold 1 s. |
 | `arm_let_go.csv` | Anchored by ee1 (setup `2c_let_go`): a fast swing, then `ee1_grip` 0 while the servos are still catching up, so it drifts off with that momentum. 19.5 s at move 0.5 s, hold 3.5 s. |
 | `stand_out.csv` | Hanging from m1_pitch (−90°), told to stand straight out (setups `2b_stall_*`, and `simulation/stall_sweep.py`). 20 s at move 4 s, hold 4 s. |
+| `inchworm_walk.csv` | An inchworm walk on two suction cups (setup `4a_walk`): a foot lets go only when the other holds; each landing foot is aimed 15 mm into the floor so its cup presses on. About 0.56 m per step. 19 s at move 0.9 s, hold 0.35 s. |
+| `walk_let_go.csv` | The same walk, but the back foot lets go before the front one holds (setup `4b_both_off`). 19 s. |
 | `roll_loop.csv` | Rolls the whole chain about its own long axis with no push: 2 loops of an m4 pitch fold plus an m8 twist (a 3D "falling cat"), about 64° in total. Default timing takes 33 s; `--speed 2` fits one parabola (16.5 s, 63.4°). Reverse the steps to roll the other way. |
 
 Add your own here. The control window lists every `.csv` in this folder.

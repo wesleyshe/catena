@@ -13,6 +13,7 @@
 8. offscreen renders: one module, the straight 12-module chain, the L and zig-zag folds, the dropped chain
 9. end effectors: every type at each end compiles, the modules are unchanged, the m1_yaw twist axis, zero-g momentum
 10. anchors: placement, the clamp holds, grab on touch, let go keeps the momentum, the grip column
+11. suction cups: hold below the pull limit, pop above it, grab on touch, never stick to the chain
 """
 import contextlib
 import glob
@@ -398,6 +399,52 @@ def check_anchors():
               "with one warning")
 
 
+def check_suction():
+    print("11. suction cups: hold, pop above the pull limit, grab on touch, never the chain")
+    with tempfile.TemporaryDirectory() as tmp:
+        seq = os.path.join(tmp, "still.csv")
+        with open(seq, "w") as f:
+            f.write("0" + ",0" * 23 + "\n")
+        floor = {"at": [0.0, 0.0, 0.0], "facing": "up", "roll_deg": 0.0}
+
+        def session(attach, **cup):
+            setup = setup_file.new(sequence=seq, ee1=setup_file.end("suction", attach=attach, **cup))
+            m, d = load(**setup_file.build_args(setup))
+            return m, d, Session(m, d, None, setup)
+
+        lifted = {}
+        for pull in (15, 25):  # pull m1 straight off the floor, in zero g; the cup's limit is 20 N
+            m, d, s = session(floor)
+            e1, m1 = m.body("ee1").id, m.body("m1").id
+            z0 = d.xpos[e1][2]
+            while d.time < 0.5 - 1e-9:
+                s.advance()
+            d.xfrc_applied[m1, 2] = pull
+            while d.time < 1.5 - 1e-9:
+                s.advance()
+            lifted[pull] = (d.xpos[e1][2] - z0, s.ends["ee1"].held, s.ends["ee1"].pops, s.ends["ee1"].peak)
+        ok = lifted[15][0] < 2e-3 and lifted[15][1] and lifted[25][0] > 0.05 and not lifted[25][1] and lifted[25][2] == 1
+        check(ok, f"a 20 N cup on the floor holds a 15 N pull (moved {lifted[15][0] * 1000:.1f} mm, pull read "
+              f"{lifted[15][3]:.1f} N) and pops at 25 N (counted as 1 pop)")
+
+        m, d, s = session(floor)
+        s.grip("ee1", False)
+        d.qpos[2] += 0.03
+        d.qvel[:] = 0
+        mujoco.mj_forward(m, d)
+        s.grip("ee1", True)
+        m.opt.gravity[:] = (0, 0, -9.81)
+        while d.time < 1:
+            s.advance()
+        held = s.ends["ee1"].held
+        cup = m.geom("ee1_cup").id
+        chain = [g for g in range(m.ngeom) if m.geom_bodyid[g] not in (0, m.body("ee1_cup").id) and m.geom_contype[g]]
+        never = (m.geom_contype[cup] == m.geom_conaffinity[cup] == 0
+                 and all(m.geom_bodyid[g] == 0 for p in range(m.npair) for g in (m.pair_geom1[p], m.pair_geom2[p]) if g != cup))
+        check(held and never, "told to hold, a falling cup grabs the floor; the cup can only ever touch fixed things, "
+              "never the chain")
+
+
 def check_end_effectors():
     print("9. end effectors: a module past m1 (on the m1_yaw twist servo) and one past m12")
     m0, _ = load()
@@ -407,7 +454,7 @@ def check_end_effectors():
             m, _ = load(ee1=t1, ee_n=tn)
             fitted = t1 != "none"
             mass = sum(m0.body_mass) + EE_MASS.get(t1, 0) + EE_MASS.get(tn, 0) + (EE_SERVO_MASS if fitted else 0)
-            if not (m.nu == 22 + fitted and m.njnt == 23 + fitted and m.body("m1").id == 1 and m.body("m2").id == 3
+            if not (joint_servos(m) == 22 + fitted and m.njnt == 23 + fitted and m.body("m1").id == 1 and m.body("m2").id == 3
                     and abs(sum(m.body_mass) - mass) < 1e-9):
                 bad.append(f"{t1}/{tn}")
     check(not bad, f"all {len(EE_TYPES) ** 2} combinations of end types compile: m1_yaw only with ee1, m1 is body 1, "
@@ -415,7 +462,8 @@ def check_end_effectors():
     for preset in PRESETS:
         if preset != "original14":
             m, _ = load(preset, ee1="anchor", ee_n="thruster")
-            check(m.nu == 23, f"{preset} with an anchor and a thruster: {m.nu} actuators, {sum(m.body_mass):.3f} kg")
+            check(joint_servos(m) == 23, f"{preset} with an anchor and a thruster: {joint_servos(m)} joint servos, "
+                  f"{sum(m.body_mass):.3f} kg")
 
     m, d = load(ee1="thruster", ee_n="anchor")
     diffs = []
@@ -538,5 +586,6 @@ if __name__ == "__main__":
     renders()
     check_end_effectors()
     check_anchors()
+    check_suction()
     print("\nALL CHECKS PASSED" if not failures else f"\n{len(failures)} CHECK(S) FAILED")
     raise SystemExit(bool(failures))
