@@ -3,6 +3,19 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-10-29 · Wesley (Claude Code)
+- **Fixes from a fresh review of phases 2–6:**
+  - A second take (Play again, or Restart) now starts from the start pose. Before, it carried on from where the last
+    take ended: 5a crawled off the end of the rod, 4a tumbled.
+  - Pause, Stop and Straighten turn the nozzles off (a stopped burst kept accelerating the chain); Resume re-applies
+    the current row.
+  - With both ends attached, the second end now holds whatever it lands on, as the design and the panel say.
+  - Left for later (minor): the panel's end names go stale if Modules changes without Rebuild; nozzle tick boxes
+    don't follow the sequence; `rod_m` isn't range-checked; anchors latch tilted up to ~60°; the viewer's default
+    camera crops some clips; a thruster's readout says "thruster, thruster"; `turned` means little when anchored.
+- **Checked:** `verify.py` ALL CHECKS PASSED, 12 sections; the real control window by scripted buttons: Load 5a, Play
+  ×8 to the end, Play again and Restart both start afresh (identical drift at the same point, 308 mm).
+
+## 2026-10-29 · Wesley (Claude Code)
 - **End effectors, phase 6: wrap-up.** `README.md` covers the end effectors, every setup (grouped as the six class
   simulations), Playback x and the new log columns. `../experiments/findings.md` has "The class simulations" (each
   clip's measured result, the stall length, the suction-cup tipping requirement, the side-nozzle roll), and

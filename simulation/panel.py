@@ -139,6 +139,7 @@ class Panel:
         self.server.setblocking(False)
         self.conn, self.buf, self.proc, self.sim_running = None, b"", None, True
         self.loaded = setup_file.new()  # the last setup loaded: it keeps whatever has no field here
+        self.played = False  # a take has run since the viewer opened or Reset pose: the next Play starts from the start
 
         self.preset, self.modules, self.slip = tk.StringVar(value="original14"), tk.IntVar(value=N_MODULES), tk.BooleanVar()
         self.seq, self.move, self.hold = tk.StringVar(), tk.DoubleVar(value=3.0), tk.DoubleVar(value=1.0)
@@ -202,7 +203,7 @@ class Panel:
             ttk.Label(timing, text=label).pack(side="left", padx=(0, 4))
             spinbox(timing, var, lo, hi, step, 5, command=cmd).pack(side="left", padx=(0, 10))
         for col, (label, cmd) in enumerate((("Play", self.play), ("Pause", lambda: self.send("pause")),
-                                            ("Resume", lambda: self.send("resume")), ("Restart", lambda: self.send("restart")),
+                                            ("Resume", lambda: self.send("resume")), ("Restart", lambda: self.play(fresh=True)),
                                             ("Stop", lambda: self.send("stop")))):
             ttk.Button(f, text=label, command=cmd, width=7).grid(row=2, column=col, sticky="we")
             f.columnconfigure(col, weight=1)  # buttons share the width evenly
@@ -214,7 +215,7 @@ class Panel:
         spinbox(f, self.g, 0, 30, 0.5, 5, command=self.send_gravity).grid(row=0, column=1)
         ttk.Label(f, text="m/s²  ").grid(row=0, column=2)
         ttk.Button(f, text="Straighten", command=lambda: self.send("straighten")).grid(row=0, column=3)
-        ttk.Button(f, text="Reset pose", command=lambda: self.send("reset")).grid(row=0, column=4, sticky="w")
+        ttk.Button(f, text="Reset pose", command=self.reset_pose).grid(row=0, column=4, sticky="w")
         self.physics_btn = ttk.Button(f, text="⏸  Pause physics", command=lambda: self.send("physics", run=not self.sim_running))
         self.physics_btn.grid(row=1, column=0, columnspan=5, sticky="we", pady=(6, 0))
         f.columnconfigure(4, weight=1)
@@ -336,6 +337,7 @@ class Panel:
             return
         self.close_viewer()
         self.logging.set(False)
+        self.played = False
         self.proc = subprocess.Popen([MJPYTHON, os.path.join(HERE, "play.py"), "--setup", PANEL_SETUP, "--log", "",
                                       "--panel", str(self.server.getsockname()[1])], cwd=HERE)
         self.status.set("starting the viewer...")
@@ -358,16 +360,24 @@ class Panel:
         except OSError:
             self.conn = None
 
-    def play(self):
+    def play(self, fresh=False):
+        """Play the sequence. A second take (or Restart) starts again from the start pose, so every take is the same."""
         path = self.seq.get()
         if not path:
             self.status.set("pick a fold sequence first")
             return
+        if fresh or self.played:
+            self.send("reset")
+        self.played = True
         self.send("speed", value=self.speed.get())
         self.send_playback()
         if self.spin_at_play.get():
             self.send("spin", rate=self.spin_rate.get(), axis=self.spin_axis.get()[-2])
         self.send("play", file=os.path.join(SEQ_DIR, path), move=self.move.get(), hold=self.hold.get())  # abs path stays
+
+    def reset_pose(self):
+        self.send("reset")
+        self.played = False
 
     def send_speed(self):
         self.send("speed", value=self.speed.get())

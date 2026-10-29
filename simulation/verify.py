@@ -386,6 +386,16 @@ def check_anchors():
               f"let go mid-fold: it drifts off at {np.linalg.norm(v0) * 1000:.1f} mm/s, spinning with the momentum the wall "
               f"was taking (|L| {np.linalg.norm(L0):.3f}), both constant after")
 
+        arch = [0] * 24  # an arch whose far end lands on the floor too: ee12 holds whatever it lands on
+        arch[cols.index("m4_pitch")] = arch[cols.index("m9_pitch")] = 90
+        setup = setup_file.new(sequence=csv_file("arch.csv", [arch]), ee1=setup_file.end("anchor", attach=floor),
+                               ee_n=setup_file.end("anchor", attach={"at": [0.0, -5.0, 0.0], "facing": "up"}))
+        m, d = load(**setup_file.build_args(setup))
+        s = Session(m, d, None, setup)
+        for _ in range(20):
+            s.advance()
+        check(s.ends["ee1"].clamped and s.ends["ee12"].clamped and abs(d.xpos[m.body("ee12").id][2] - R) < 2e-3,
+              "with both ends attached, ee1 sets where the chain starts and ee12 holds what it lands on")
         grip = csv_file("grip.csv", [zero + [1, 1], fold + [1, 1], fold + [0, 1]], ("ee1_grip", "ee12_grip"))
         with contextlib.redirect_stdout(io.StringIO()) as said:
             m, d, s = session(floor, sequence=grip)
@@ -479,6 +489,26 @@ def check_thrusters():
     roll, turn = roll_turn(m, d, w)
     print(f"  info  n1 and n3 do roll it a little ({roll:.1f} deg/s after 2 s): each module's centre of mass sits ~5 mm off "
           "the chain axis, and the chain is easy to roll")
+    with tempfile.TemporaryDirectory() as tmp:  # a burst from the sequence; Stop or Pause must cut it, Resume restores it
+        seq = os.path.join(tmp, "burst.csv")
+        with open(seq, "w") as f:
+            f.write(",".join([f"m{i}_{j}" for i in range(1, 13) for j in ("yaw", "pitch")] + ["ee12_n0"]) + "\n"
+                    + "0," * 24 + "1\n" + "0," * 24 + "1\n")
+        m, d = load(ee1="thruster", ee_n="thruster")
+        s = Session(m, d)
+        a = m.actuator("ee12_n0").id
+        s.play(seq, move=1, hold=1)
+        s.advance()
+        firing = d.ctrl[a]
+        s.command({"cmd": "pause"})
+        paused = d.ctrl[a]
+        s.command({"cmd": "resume"})
+        s.advance()
+        resumed = d.ctrl[a]
+        s.command({"cmd": "stop"})
+        stopped, dim = d.ctrl[a], m.site_rgba[m.site("ee12_n0").id][0] < 0.9
+        check(firing == 1 and paused == 0 and resumed == 1 and stopped == 0 and dim,
+              "a nozzle the sequence fires goes off on Pause and Stop (and back on with Resume)")
 
 
 def check_end_effectors():

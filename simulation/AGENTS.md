@@ -18,10 +18,9 @@ History is in `LOG.md`.
     in `../experiments/findings.md`.
 - **It models the AX-12A chain in the current Rhino file.** The STS3032 flight build's Rhino model is due in the coming
   weeks, and comes in through "Incorporating a new design" in `../hardware/AGENTS.md`.
-- **End effectors and setups, phase 3 of 6** (design and plans: `../docs/design/2026-10-2*-end-effectors*.md`).
-  End-effector modules; setups that start the chain attached (placement); the anchor (clamp, grab on touch, let go);
-  suction cups; thrusters; the rod; grip and nozzle columns in sequences; the stall sweep. Setups 1a–1c, 2a–2c, 3a ×4,
-  4a–4b, 5a, 6: all six class simulations. Phase 6 (findings, docs) is the wrap-up.
+- **End effectors and setups: all 6 phases built** (design and plans: `../docs/design/2026-10-2*-end-effectors*.md`).
+  Anchors, suction cups, thrusters, placement, the rod, grip and nozzle columns, the stall sweep, Playback x. 18 setups
+  make the six class simulations (1a–1c, 2a–2c, 3a ×4, 4a–4b, 5a, 6); results in `../experiments/findings.md`.
 - **Owner: Wesley.** Wesley double-clicks `Chain Sim.command` rather than using the shell, and uses the sim to answer
   the professor's physics questions (`../experiments/findings.md`).
 
@@ -129,7 +128,9 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
     sequences write `ctrl[:nj]`. `Session.summary()` is the headless run's last line.
 - **Panel ↔ viewer protocol:**
   - The panel is the socket server, on a port the OS picks. It passes `--panel PORT --log ""` to `play.py`.
-  - Commands are JSON lines `{"cmd": ...}` (Play with "spin when Play starts" ticked sends spin right before play):
+  - Commands are JSON lines `{"cmd": ...}`. The panel's Play sends reset first when a take has already run (and
+    Restart always does), then speed, playback, spin (if "spin when Play starts" is ticked) and play. Pause, stop and
+    straighten turn the nozzles off; resume re-applies the current row:
     play {file, move, hold}, pause, resume, restart, stop, speed {value}, playback {value}, grip {end, on},
     nozzle {end, n, on},
     gravity {g}, straighten, reset, log {on}, screenshot, physics {run}, spin {rate, axis: "x" | "y" | "z" | "all"},
@@ -231,7 +232,7 @@ How `spin`, the readouts, timing, screenshots and the viewer keys work is in "In
   - Remove `__pycache__/` after test runs.
 
 ## Verification
-`verify.py` has 10 sections:
+`verify.py` has 12 sections:
 1. Compile, and meshes match the current CAD.
 2. Joint axes and arm mesh.
 3. Zero-g momentum.

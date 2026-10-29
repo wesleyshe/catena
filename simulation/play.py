@@ -249,6 +249,9 @@ class Session:
             self.grip(e.name, True)
             if e.kind == "anchor":
                 self.clamp(e)
+            for other, setting in zip(self.ends.values(), ends if len(self.ends) == 2 else ()):
+                if other is not e and other.kind in ("anchor", "suction") and setting["attach"]:
+                    self.grip(other.name, True)  # attached too: it holds whatever it lands on
         mujoco.mj_forward(m, d)
 
     def grip(self, name, on):
@@ -266,6 +269,11 @@ class Session:
         if k < len(e.nozzles):
             self.d.ctrl[e.nozzles[k]] = min(1.0, max(0.0, float(throttle)))
             self.m.site_rgba[e.sites[k]] = [float(x) for x in NOZZLE_RGBA[int(self.d.ctrl[e.nozzles[k]] > 0)].split()]
+
+    def nozzles_off(self):
+        for e in self.ends.values():
+            for k in range(len(e.nozzles)):
+                self.nozzle(e.name, k, 0.0)
 
     def clamp(self, e, shift=np.zeros(3)):
         """Weld the end where it is, moved by `shift` (onto the surface it's about to touch): its hold body goes there.
@@ -423,12 +431,14 @@ class Session:
             self.play(c["file"], c.get("move", 3.0), c.get("hold", 1.0))
         elif cmd == "pause":
             self.playing = False
+            self.nozzles_off()  # the timetable stops, and with it the nozzles
         elif cmd == "resume":
-            self.playing = self.keys is not None
+            self.playing, self.ee_row = self.keys is not None, None  # the current row's end-effector values again
         elif cmd == "restart":
             self.seq_t, self.playing, self.ee_row = 0.0, self.keys is not None, None
         elif cmd in ("stop", "straighten"):
             self.keys, self.playing = None, False
+            self.nozzles_off()
             if cmd == "straighten":
                 self.d.ctrl[:self.nj] = 0
         elif cmd == "speed":
