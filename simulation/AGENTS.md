@@ -47,7 +47,8 @@ Default paths are relative to this folder, so the scripts also work when run fro
 | `panel_setup.toml` | Git-ignored. **The panel writes its settings (laid over the loaded setup) here every time it opens the viewer**, and starts `play.py --setup panel_setup.toml`. |
 | `stall_sweep.py` | Experiment A's stall length: the longest chain that stands out level from a wall at Earth, Mars, Moon and zero g (~1 min). |
 | `play.py` | Runtime: `Session` (state, commands, spin, readouts), viewer loop, keyboard, `Logger`, headless mode. |
-| `panel.py` | Tk control window: a separate process that drives `play.py` over a localhost socket. |
+| `panel.py` | Tk control window: a separate process that drives `play.py` over a localhost socket. Its top row is the six demo buttons (`DEMOS`: button label, setup). |
+| `viewer_link.py` | The panel's link to the viewer: starts `play.py --setup FILE --panel PORT` under mjpython, sends commands, reads readouts. |
 | `setup_file.py` | Setup files: `load` (refuses unknown keys), `save` (writes TOML by hand), `about`, `build_args`, `single_axis_spin`. |
 | `setups/` | Example setups, one per class clip. `verify.py` checks every file in it loads and builds. |
 | `Chain Sim.command` | Finder double-click launcher for `panel.py`. A Terminal window stays open while it runs. |

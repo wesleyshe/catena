@@ -7,9 +7,7 @@ shown here and drawn in the viewer.
 """
 import copy
 import glob
-import json
 import os
-import socket
 import subprocess
 import tkinter as tk
 from tkinter import filedialog, simpledialog, ttk
@@ -17,13 +15,15 @@ from tkinter import filedialog, simpledialog, ttk
 import setup_file
 from make_chain import EE_DEFAULTS, EE_TYPES, FACINGS, N_MODULES, PRESETS
 from setup_file import SEQ_DIR, SETUP_DIR
+from viewer_link import ViewerLink
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-MJPYTHON = os.path.join(HERE, ".venv", "bin", "mjpython")
 PANEL_SETUP = os.path.join(HERE, "panel_setup.toml")  # what the open viewer was built from (git-ignored)
 SPIN_AXES = ["vertical (z)", "along chain (y)", "across (x)"]  # the letter before ")" is what the viewer gets
 STARTS = ["floating", "on a surface", "on the rod"]
 ROD = {"from": [0.0, -1.2, 1.0], "to": [0.0, 1.2, 1.0], "diameter_mm": 35.0}  # until a setup says where the rod is
+DEMOS = [("1  Free float", "1a_turn"), ("2  Anchored", "2a_arm"), ("3  Thrusters", "3a_U"),  # the six class simulations:
+         ("4  Suction walk", "4a_walk"), ("5  Rod crawl", "5a_rod_crawl"), ("6  Skater", "6_skater")]  # button, setup
 
 
 def spinbox(parent, var, lo, hi, step, width=6, **kw):
@@ -133,13 +133,10 @@ class Panel:
         root.title("Chain Sim")
         root.attributes("-topmost", True)  # stay visible next to the viewer
         root.protocol("WM_DELETE_WINDOW", self.quit)
-        self.server = socket.socket()
-        self.server.bind(("127.0.0.1", 0))
-        self.server.listen(1)
-        self.server.setblocking(False)
-        self.conn, self.buf, self.proc, self.sim_running = None, b"", None, True
+        self.link, self.sim_running = ViewerLink(), True
         self.loaded = setup_file.new()  # the last setup loaded: it keeps whatever has no field here
         self.played = False  # a take has run since the viewer opened or Reset pose: the next Play starts from the start
+        self.autoplay = False  # a demo button was clicked: play as soon as the viewer connects
 
         self.preset, self.modules, self.slip = tk.StringVar(value="original14"), tk.IntVar(value=N_MODULES), tk.BooleanVar()
         self.seq, self.move, self.hold = tk.StringVar(), tk.DoubleVar(value=3.0), tk.DoubleVar(value=1.0)
@@ -159,6 +156,11 @@ class Panel:
             f = ttk.LabelFrame(side, text=title, padding=6)
             f.pack(fill="x", padx=8, pady=4)
             return f
+
+        f = frame("The six demos: one click opens and plays it (Play again for another take)")
+        for k, (label, name) in enumerate(DEMOS):
+            ttk.Button(f, text=label, command=lambda name=name: self.demo(name)).grid(row=k // 3, column=k % 3, sticky="we")
+            f.columnconfigure(k % 3, weight=1)
 
         f = frame("Setup (a whole run, from setups/)")
         self.setup_box = ttk.Combobox(f, textvariable=self.setup_name, values=self.setups(), state="readonly", width=24,
@@ -271,16 +273,21 @@ class Panel:
                  ee1=self.ends[0].get(s["ee1"]), ee_n=self.ends[1].get(s["ee_n"]))
         return s
 
+    def demo(self, name):
+        """One of the six demos: load its setup, and play it once the viewer is up."""
+        self.setup_name.set(name)
+        self.autoplay = self.load_setup()
+
     def load_setup(self):
-        """Fill every field from the picked setup, then rebuild and open the viewer."""
+        """Fill every field from the picked setup, then rebuild and open the viewer. False if it couldn't."""
         if not self.setup_name.get():
             self.about.set("Pick a setup first.")
-            return
+            return False
         try:
             s = setup_file.load(os.path.join(SETUP_DIR, self.setup_name.get() + ".toml"))
         except (OSError, ValueError) as e:  # a TOML syntax error is a ValueError too
             self.about.set(f"Can't load it: {e}")
-            return
+            return False
         self.loaded = s
         self.preset.set(s["preset"]), self.modules.set(s["modules"]), self.slip.set(s["slip_ring"])
         self.air.set(s["air"]), self.cage.set(s["cage"]), self.rod.set(bool(s["rod"]))
@@ -299,7 +306,7 @@ class Panel:
             self.spin_rate.set(rate)
             self.spin_axis.set(next(a for a in SPIN_AXES if a[-2] == axis))
         self.show_about(warning)
-        self.open_viewer()
+        return self.open_viewer()
 
     def save_setup(self):
         """Save every field (and whatever the loaded setup had that has no field) as a setup file."""
@@ -334,31 +341,16 @@ class Panel:
             setup_file.load(PANEL_SETUP)
         except (tk.TclError, ValueError, OSError) as e:
             self.about.set(f"Can't open the viewer with these settings: {e}")
-            return
-        self.close_viewer()
+            return False
         self.logging.set(False)
         self.played = False
-        self.proc = subprocess.Popen([MJPYTHON, os.path.join(HERE, "play.py"), "--setup", PANEL_SETUP, "--log", "",
-                                      "--panel", str(self.server.getsockname()[1])], cwd=HERE)
+        self.link.open(PANEL_SETUP)
         self.status.set("starting the viewer...")
-
-    def close_viewer(self):
-        if self.proc and self.proc.poll() is None:
-            self.send("quit")
-            try:
-                self.proc.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                self.proc.terminate()
-        self.conn, self.buf = None, b""
+        return True
 
     def send(self, cmd, **args):
-        if not self.conn:
+        if not self.link.send(cmd, **args):
             self.status.set("viewer not connected: click 'Rebuild + open viewer'")
-            return
-        try:
-            self.conn.sendall((json.dumps({"cmd": cmd, **args}) + "\n").encode())
-        except OSError:
-            self.conn = None
 
     def play(self, fresh=False):
         """Play the sequence. A second take (or Restart) starts again from the start pose, so every take is the same."""
@@ -393,35 +385,22 @@ class Panel:
 
     def poll(self):
         """Every 100 ms: accept the viewer's connection, read its readouts, notice if it was closed."""
-        if self.conn is None and self.proc and self.proc.poll() is None:
-            try:
-                self.conn, _ = self.server.accept()
-                self.conn.setblocking(False)
-                self.send_playback()
-            except BlockingIOError:
-                pass
-        if self.conn:
-            try:
-                chunk = self.conn.recv(65536)
-                self.buf += chunk
-                if not chunk:
-                    self.conn = None
-            except BlockingIOError:
-                pass
-            lines = self.buf.split(b"\n")
-            self.buf = lines[-1]
-            if len(lines) > 1:
-                info = json.loads(lines[-2])
-                self.status.set("\n".join(f"{k:<11}{v}" for k, v in info.items()))
-                self.sim_running = info["physics"] == "running"  # also follows the Space key in the viewer
-                self.physics_btn.configure(text="⏸  Pause physics" if self.sim_running else "▶  Resume physics")
-        if self.proc and self.proc.poll() is not None:
+        connected, info, closed = self.link.poll()
+        if connected:
+            self.send_playback()
+            if self.autoplay:
+                self.autoplay = False
+                self.play()
+        if info:
+            self.status.set("\n".join(f"{k:<11}{v}" for k, v in info.items()))
+            self.sim_running = info["physics"] == "running"  # also follows the Space key in the viewer
+            self.physics_btn.configure(text="⏸  Pause physics" if self.sim_running else "▶  Resume physics")
+        if closed:
             self.status.set("viewer closed: click 'Rebuild + open viewer'")
-            self.proc = None
         self.root.after(100, self.poll)
 
     def quit(self):
-        self.close_viewer()
+        self.link.close()
         self.root.destroy()
 
 

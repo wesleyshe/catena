@@ -491,10 +491,16 @@ class Session:
                 "COM drift": f"{np.linalg.norm(d.subtree_com[1] - self.com0) * 1000:.3f} mm",
                 "|L|": f"{L:.1e} kg m^2/s", "max torque": f"{np.abs(d.actuator_force[:self.nj]).max():.2f} N m",
                 "contacts": str(d.ncon), "log": os.path.relpath(self.log.path, HERE) if self.log else "off",
-                **{e.name: f"{e.kind}, {e.state()}" + (f", {e.load:.1f} N, {e.torque:.2f} N m" if e.kind == "anchor" else
-                                                       f", pull {e.load:.1f} of {e.limit:g} N, {e.pops} pops" if e.kind == "suction" else
-                                                       f", {self.thrust(e):.2f} N" if e.kind == "thruster" else "")
-                   for e in self.ends.values()}}
+                **{e.name: self.end_readout(e) for e in self.ends.values()}}
+
+    def end_readout(self, e):
+        if e.kind == "anchor":
+            return f"anchor, {e.state()}, {e.load:.1f} N, {e.torque:.2f} N m"
+        if e.kind == "suction":
+            return f"suction cup, {e.state()}, pull {e.load:.1f} of {e.limit:g} N, {e.pops} pops"
+        if e.kind == "thruster":
+            return f"thruster, {'firing' if self.thrust(e) > 0 else 'off'}, {self.thrust(e):.2f} N"
+        return e.kind
 
 
 def connect_panel(port):

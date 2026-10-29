@@ -3,6 +3,16 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-10-29 · Wesley (Claude Code)
+- **Six demo buttons at the top of the control window** (Wesley: "a simple button for me to play each sequence"):
+  1 Free float (`1a_turn`), 2 Anchored (`2a_arm`), 3 Thrusters (`3a_U`), 4 Suction walk (`4a_walk`), 5 Rod crawl,
+  6 Skater. One click loads the setup, opens the viewer and plays; the other versions stay in the Setup list. A
+  separate simplified "Demos" window was tried and dropped: Wesley wanted the existing window.
+- The panel's viewer link (socket, starting the viewer, commands, readouts) moved to `viewer_link.py`. End-effector
+  readouts read "thruster, firing/off, … N" and "suction cup, …" instead of repeating the type.
+- **Checked:** `verify.py` ALL CHECKS PASSED; the real window by scripted buttons: one click on 4 and on 3 opens and
+  plays each, Play again restarts from the start, and the retake test still passes.
+
+## 2026-10-29 · Wesley (Claude Code)
 - **Fixes from a fresh review of phases 2–6:**
   - A second take (Play again, or Restart) now starts from the start pose. Before, it carried on from where the last
     take ended: 5a crawled off the end of the rod, 4a tumbled.
