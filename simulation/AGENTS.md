@@ -12,7 +12,7 @@ History is in `LOG.md`.
 
 ## Status (2026-10-29)
 - **Internally consistent, not yet checked against the real chain.**
-  - `verify.py` passes all 11 sections.
+  - `verify.py` passes all 12 sections.
   - Predictions hold for the numbers in `../hardware/spec.toml`, and some of those are placeholders.
   - An outside review found the core sound but not yet a flight prediction; see "Is the sim good enough for flight?"
     in `../experiments/findings.md`.
@@ -20,8 +20,8 @@ History is in `LOG.md`.
   weeks, and comes in through "Incorporating a new design" in `../hardware/AGENTS.md`.
 - **End effectors and setups, phase 3 of 6** (design and plans: `../docs/design/2026-10-2*-end-effectors*.md`).
   End-effector modules; setups that start the chain attached (placement); the anchor (clamp, grab on touch, let go);
-  suction cups; grip columns in sequences; the stall sweep. Setups 1a–1c, 2a–2c, 4a–4b, 6. Next: thrusters (4), rod
-  crawl (5).
+  suction cups; thrusters; grip and nozzle columns in sequences; the stall sweep. Setups 1a–1c, 2a–2c, 3a ×4, 4a–4b,
+  6. Next: the rod crawl (5).
 - **Owner: Wesley.** Wesley double-clicks `Chain Sim.command` rather than using the shell, and uses the sim to answer
   the professor's physics questions (`../experiments/findings.md`).
 
@@ -108,7 +108,8 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
     chain's body ids don't move. Both none → `build()` is byte-identical to before they existed.
   - An anchor adds geom `ee{k}_tip` (the grip face; collides with nothing), mocap body `ee{k}_hold` and weld
     `ee{k}_clamp` (to the hold, inactive). A suction cup adds body and geom `ee{k}_cup` (collides with nothing by
-    itself; explicit contact pairs with every world geom) and adhesion actuator `ee{k}_suck`. `play.End` tells the
+    itself; explicit contact pairs with every world geom) and adhesion actuator `ee{k}_suck`. A thruster adds sites and
+    actuators `ee{k}_n0` … `n4` (push against the site's z; the site lights up while firing). `play.End` tells the
     types apart by these names. World geoms: `plate` (an attach point off the floor) and `rod`.
   - Geoms: `m{i}_visual`, which `play.py` recolours for keyboard selection, and `m{i}_sphere`, whose radius `verify.py`
     reads.
@@ -245,5 +246,6 @@ How `spin`, the readouts, timing, screenshots and the viewer keys work is in "In
 10. Anchors: placement on the floor and a wall, the clamp holds while the chain folds, grab on touch (not on a side
    brush), let go keeps the momentum, the grip column and its warning.
 11. Suction cups: a 20 N cup holds a 15 N pull and reads it, pops at 25 N, grabs on touch, can't touch the chain.
+12. Thrusters: one n0 gives a = F/m, both n0 cancel, a side nozzle (n2) turns the chain with no roll.
 
 Its docstring says what each checks, and the key numbers are under Contracts.

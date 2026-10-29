@@ -3,6 +3,18 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-10-29 · Wesley (Claude Code)
+- **End effectors, phase 4: thrusters.** Five nozzle sites per thruster end (n0 out along the axis, n1–n4 along the
+  end's +x, +y, −x, −y), each a site actuator pushing against its exhaust, lit while firing. Sequences
+  `thrust_straight/U/Z/L.csv` and setups 3a ×4: a half-throttle burst of both n0, then coasting.
+  - Results: straight doesn't move; the U glides 0.93 m and turns 1°; the Z spins at 8.2°/s and its centre of mass
+    moves 0.16 mm; the L moves 0.66 m and turns 43°.
+  - Finding: every nozzle's push goes through the chain's axis, but each module's centre of mass sits ~4.8 mm off that
+    axis (the servo block isn't centred in the shell). So n2/n4 turn it with no roll, while n1/n3 also roll it,
+    ~12.8°/s after 2 s of 0.1 N, because the chain is so easy to roll about its length.
+  - 3b (glide, then turn) skipped: optional in the design, and 3a covers the thrusters.
+- **Checked:** `verify.py` ALL CHECKS PASSED, 12 sections; the four 3a setups headless.
+
+## 2026-10-29 · Wesley (Claude Code)
 - **End effectors, phase 3: suction cups.** A cup body at the end's tip with an adhesion actuator (the pull limit),
   touching only fixed things through explicit contact pairs; held = sucking and on a surface; pull = suction minus the
   surface's push; pops counted. Setups 4a (inchworm walk, `inchworm_walk.csv`) and 4b (lets go too early,

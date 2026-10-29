@@ -29,7 +29,7 @@ import mujoco
 import numpy as np
 
 import setup_file
-from make_chain import FLIGHT, attach_point, build, leading_end, level_axis
+from make_chain import FLIGHT, NOZZLE_RGBA, attach_point, build, leading_end, level_axis
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 AXES = dict(x=(1, 0, 0), y=(0, 1, 0), z=(0, 0, 1))  # world axes: x across the start pose, y along it, z vertical
@@ -135,6 +135,7 @@ class End:
         self.clamp = find(mujoco.mjtObj.mjOBJ_EQUALITY, f"{name}_clamp")
         self.suck = actuator(model, f"{name}_suck")
         self.nozzles = [a for k in range(5) if (a := actuator(model, f"{name}_n{k}")) >= 0]
+        self.sites = [model.site(f"{name}_n{k}").id for k in range(len(self.nozzles))]
         self.kind = "anchor" if self.clamp >= 0 else "suction" if self.suck >= 0 else "thruster" if self.nozzles else "plain"
         self.tip = find(mujoco.mjtObj.mjOBJ_GEOM, f"{name}_tip")
         self.mocap = model.body_mocapid[model.body(f"{name}_hold").id] if self.clamp >= 0 else -1
@@ -260,9 +261,11 @@ class Session:
             self.d.ctrl[e.suck] = float(bool(on))
 
     def nozzle(self, name, k, throttle):
+        """Set one nozzle's throttle (0-1); it lights up while it fires."""
         e = self.ends[name]
         if k < len(e.nozzles):
             self.d.ctrl[e.nozzles[k]] = min(1.0, max(0.0, float(throttle)))
+            self.m.site_rgba[e.sites[k]] = [float(x) for x in NOZZLE_RGBA[int(self.d.ctrl[e.nozzles[k]] > 0)].split()]
 
     def clamp(self, e, shift=np.zeros(3)):
         """Weld the end where it is, moved by `shift` (onto the surface it's about to touch): its hold body goes there.
@@ -329,6 +332,8 @@ class Session:
             e.reset()
             if e.clamp >= 0:
                 self.m.eq_solref[e.clamp] = e.stiff
+            for k in range(len(e.nozzles)):
+                self.nozzle(e.name, k, 0.0)
         if self.setup:
             self.place()
         mujoco.mj_forward(self.m, self.d)

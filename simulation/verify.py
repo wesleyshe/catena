@@ -14,6 +14,7 @@
 9. end effectors: every type at each end compiles, the modules are unchanged, the m1_yaw twist axis, zero-g momentum
 10. anchors: placement, the clamp holds, grab on touch, let go keeps the momentum, the grip column
 11. suction cups: hold below the pull limit, pop above it, grab on touch, never stick to the chain
+12. thrusters: a = F/m, opposite nozzles cancel, a side nozzle turns the chain but can't roll it
 """
 import contextlib
 import glob
@@ -445,6 +446,41 @@ def check_suction():
               "never the chain")
 
 
+def check_thrusters():
+    print("12. thrusters: a = F/m, opposite nozzles cancel, side nozzles turn it but can't roll it")
+    def run(nozzles, T=2.0):
+        m, d = load(ee1="thruster", ee_n="thruster")
+        s = Session(m, d)
+        for end, k in nozzles:
+            s.nozzle(end, k, 1.0)
+        c0 = d.subtree_com[1].copy()
+        while d.time < T - 1e-9:
+            s.advance()
+        w = np.linalg.solve(s.inertia(), d.sensor("angmom").data)
+        return m, d, s, d.subtree_com[1] - c0, w
+    m, d, s, moved, w = run([("ee12", 0)])
+    F, M = m.actuator_gainprm[m.actuator("ee12_n0").id][0], sum(m.body_mass)
+    want = 0.5 * F / M * 2.0 ** 2
+    lit = all(m.site_rgba[m.site(f"ee12_n{k}").id][0] > 0.9 for k in (0,)) and m.site_rgba[m.site("ee12_n1").id][0] < 0.9
+    check(abs(-moved[1] - want) < 0.01 * want and np.linalg.norm(moved[[0, 2]]) < 1e-3 * want
+          and np.degrees(np.linalg.norm(w)) < 0.1 and lit,
+          f"ee12's n0 (0.1 N) on a straight {M:.2f} kg chain: it moves {-moved[1] * 1000:.1f} mm toward ee1 in 2 s "
+          f"(F/m gives {want * 1000:.1f}) and turns only {np.degrees(np.linalg.norm(w)):.2f} deg/s; n0 lights up")
+    m, d, s, moved, w = run([("ee1", 0), ("ee12", 0)])
+    check(np.linalg.norm(moved) < 1e-4 and np.linalg.norm(w) < 1e-6, f"both n0 on a straight chain push against each other: "
+          f"it moves {np.linalg.norm(moved) * 1000:.3f} mm")
+    def roll_turn(m, d, w):
+        axis = d.xmat[m.body("m6").id].reshape(3, 3)[:, 2]  # along the chain
+        return np.degrees(abs(w @ axis)), np.degrees(np.linalg.norm(w - (w @ axis) * axis))
+    roll, turn = roll_turn(*run([("ee12", 2)])[:2], run([("ee12", 2)])[4])
+    check(turn > 5 and roll < 1e-3 * turn, f"a side nozzle (ee12 n2) turns the straight chain end over end "
+          f"({turn:.2f} deg/s after 2 s) but can't roll it about its own length ({roll:.4f} deg/s)")
+    m, d, s, moved, w = run([("ee12", 1)])
+    roll, turn = roll_turn(m, d, w)
+    print(f"  info  n1 and n3 do roll it a little ({roll:.1f} deg/s after 2 s): each module's centre of mass sits ~5 mm off "
+          "the chain axis, and the chain is easy to roll")
+
+
 def check_end_effectors():
     print("9. end effectors: a module past m1 (on the m1_yaw twist servo) and one past m12")
     m0, _ = load()
@@ -587,5 +623,6 @@ if __name__ == "__main__":
     check_end_effectors()
     check_anchors()
     check_suction()
+    check_thrusters()
     print("\nALL CHECKS PASSED" if not failures else f"\n{len(failures)} CHECK(S) FAILED")
     raise SystemExit(bool(failures))

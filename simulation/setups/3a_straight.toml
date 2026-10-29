@@ -1,0 +1,21 @@
+# Thrusters, folded into a straight, both end nozzles fire briefly: the two pushes cancel: nothing happens.
+sequence = "thrust_straight.csv"
+move_s = 1.5
+hold_s = 1.0
+speed = 1.0
+playback = 1.0
+gravity_m_s2 = 0.0
+spin_deg_s = [0.0, 0.0, 0.0]
+air = false
+cage = false
+preset = "original14"
+modules = 12
+slip_ring = false
+
+[ee1]
+type = "thruster"
+thrust_N = 0.1
+
+[ee12]
+type = "thruster"
+thrust_N = 0.1

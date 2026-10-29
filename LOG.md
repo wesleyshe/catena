@@ -4,6 +4,11 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-10-29 · Wesley (Claude Code)
+- **New sequences** for the thruster clips: `thrust_straight.csv`, `thrust_U.csv`, `thrust_Z.csv`, `thrust_L.csv`
+  (fold, a brief burst of both end nozzles via `ee1_n0` / `ee12_n0`, coast).
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED; details in `simulation/LOG.md`.
+
+## 2026-10-29 · Wesley (Claude Code)
 - **New sequences** for the suction-cup clips: `inchworm_walk.csv` (an inchworm walk, one foot always holding) and
   `walk_let_go.csv` (the same, letting go too early). They use the `ee1_grip` / `ee12_grip` columns.
 - **Checked:** `simulation/verify.py` ALL CHECKS PASSED; details in `simulation/LOG.md`.

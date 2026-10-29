@@ -75,6 +75,9 @@ EE_DEFAULTS = dict(type="none", attach={}, pull_N=20.0, cup_mm=40.0, friction=0.
 TIP = (0.020, 0.004)    # m: an anchor's grip face, a disc on its outer pole (radius, thickness)
 CLAMP_SOLREF = "0.002 1"  # the clamp's weld: stiff (the default let a clamped end move 36 mm while the chain folded)
 CUP_T = 0.002           # m: half-thickness of a suction cup (its diameter is a setting)
+NOZZLES = ((0, 0, 1), (1, 0, 0), (0, 1, 0), (-1, 0, 0), (0, -1, 0))  # n0-n4 exhausts, in the end's frame (n0's z flips
+                        # to point away from the chain at ee1); each pushes the opposite way
+NOZZLE_RGBA = ("0.35 0.25 0.10 1", "1 0.55 0.1 1")  # off, firing (play.py swaps them)
 CUP_MARGIN = 0.001      # m: a cup's contact margin: it pulls (and pushes) from this far away. Bigger makes it hover
                         # (MuJoCo 3.16 doesn't let gap switch the push off), so a cup has to be pressed on to stick
 FACINGS = {"up": (0, 0, 1), "down": (0, 0, -1), "+x": (1, 0, 0), "-x": (-1, 0, 0), "+y": (0, 1, 0), "-y": (0, -1, 0)}
@@ -247,6 +250,14 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
                           contype="0", conaffinity="0", rgba="0.10 0.35 0.15 1")
             ee_actuators.append(("adhesion", dict(name=f"{name}_suck", body=f"{name}_cup", ctrlrange="0 1",
                                                   gain=v(e["pull_N"]), forcelimited="false")))
+        if kind == "thruster":  # five nozzles on the shell; a site actuator pushes against each one's exhaust (its z)
+            for k, (x, y, z) in enumerate(NOZZLES):
+                out = (x, y, z * side)
+                ET.SubElement(ee, "site", name=f"{name}_n{k}", type="sphere", size=v(0.012 * s), rgba=NOZZLE_RGBA[0],
+                              pos=v(*(c * R_SHELL * s for c in out)), zaxis=v(*out))
+                ee_actuators.append(("general", dict(name=f"{name}_n{k}", site=f"{name}_n{k}", gear="0 0 -1 0 0 0",
+                                                     ctrlrange="0 1", gainprm=v(e["thrust_N"]), biastype="none",
+                                                     dyntype="none", forcelimited="false")))
 
     # actuators in CSV order: m1_yaw, m1_pitch, ..., mN_yaw, mN_pitch (skipping mN_pitch, and m1_yaw without ee1)
     act = ET.SubElement(root, "actuator")
