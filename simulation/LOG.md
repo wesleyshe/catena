@@ -3,6 +3,23 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-10-29 · Wesley (Claude Code)
+- **Countdown before a take** (Wesley: "a 5 seconds delay before the experiment start... T-5 4 3 2 1"; then "can this
+  value be something that is adjusted on the chain sim panel"). Play and Restart send `countdown {s}` (the panel's
+  new **Countdown s**, 5 to start with, 0 for none). The viewer draws T-n big at the top and holds the physics and the
+  take's spin and play (`play.Commands`) until T-0; Pause, Stop, Reset or quit during it call the take off.
+- **The viewer window reopens where it was** (size and place): GLFW's `COCOA_FRAME_NAME` hint, so macOS saves the frame.
+- **The viewer's UI size can't follow it between displays**: MuJoCo picks it once, as the window opens (150% on the
+  HP monitors, judging density from the Retina; 200% = normal on the Retina), and its Python API can't change it.
+  Documented the workaround (Option → Font, or reopen the viewer there) in `README.md`.
+- The sequence readout shows its length to 0.1 s, so `reorient_loop` reads "20.2 s: longer than a 20 s parabola"
+  instead of "20 s: longer than a 20 s parabola".
+- **Checked:** `verify.py` ALL CHECKS PASSED, 14 sections (new 14: the spin and play wait out the countdown, Stop calls
+  it off, Play again starts it afresh). Live viewer with a stand-in panel: sim time held at 2.2 s through "starts in
+  5 ... 1 s", the take started at T-0; Wesley saw the big T-25 of a 40 s test. A test viewer reopened at a saved
+  700×500 frame. Panel: Play sends `countdown 3` before play for 3, none for 0, 5 for an empty box; the panel's width
+  is unchanged (1146 px). Not seen: the new panel line on screen (screenshot declined).
+
+## 2026-10-29 · Wesley (Claude Code)
 - **New demo 5, the pole climb** (Wesley: "a snake swirling through a much bigger rod... wrap and inch along"). Setup
   `5_pole_climb` and `pole_climb.csv`: the bare chain wrapped around a Ø100 mm pole climbs it, no cups or clamps. Button 5
   plays it; the clamp crawl (`5a_rod_crawl`) is in the Setup list.

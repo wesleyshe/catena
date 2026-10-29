@@ -22,6 +22,7 @@ import os
 import queue
 import re
 import socket
+import sys
 import threading
 import time
 
@@ -44,6 +45,8 @@ SOFT_SOLREF = (0.05, 1.0)  # the clamp's weld while it pulls in; then it's back 
 LOAD_TAU = 0.1      # s: end-effector loads are smoothed over this; the stiff clamp's raw force is spiky
 CUP_TOUCH = 0.003   # m: a cup this close to a fixed surface counts as on it
 EE_COLUMN = re.compile(r"(ee\d+)_(grip|n[0-4])$")  # end-effector columns in a sequence CSV
+CALL_OFF = ("pause", "stop", "straighten", "reset", "quit")  # sent during a countdown, these call the take off
+WINDOW_NAME = "CATENA viewer"  # macOS saves the viewer window's size and place under this name, and reopens it there
 
 
 def actuator(model, name):
@@ -507,7 +510,7 @@ class Session:
             done = min(100, 100 * self.seq_t / self.duration())
             seq = f"{self.seq_name} {done:.0f}% ({'playing' if self.playing and done < 100 else 'paused' if not self.playing else 'done'})"
             secs = self.duration() / self.speed
-            seq += f", {secs:.0f} s" + ("" if secs <= PARABOLA_S else f": longer than a {PARABOLA_S:g} s parabola")
+            seq += f", {secs:.1f} s" + ("" if secs <= PARABOLA_S else f": longer than a {PARABOLA_S:g} s parabola")
             if done >= 100 and not self.done:
                 self.done = True
                 print(f"{self.seq_name} done: {self.summary()}")
@@ -528,6 +531,33 @@ class Session:
         if e.kind == "thruster":
             return f"thruster, {'firing' if self.thrust(e) > 0 else 'off'}, {self.thrust(e):.2f} N"
         return e.kind
+
+
+class Commands:
+    """The control window's commands, in the order sent. A countdown {"cmd": "countdown", "s": 5} holds back the ones
+    sent after it (a take's spin and play), and the viewer holds the physics, until it ends. Pause, Stop, Reset or
+    quit sent during it call the take off."""
+
+    def __init__(self):
+        self.waiting, self.until = [], 0.0
+
+    def ready(self, new, now):
+        """The commands to run now; new are the ones just received, now is wall-clock time (s)."""
+        self.waiting += new
+        off = [i for i, c in enumerate(self.waiting) if c["cmd"] in CALL_OFF]
+        if now < self.until and off:
+            self.waiting, self.until = self.waiting[off[-1]:], 0.0
+        out = []
+        while self.waiting and now >= self.until:
+            c = self.waiting.pop(0)
+            if c["cmd"] == "countdown":
+                self.until = now + float(c["s"])
+            else:
+                out.append(c)
+        return out
+
+    def left(self, now):
+        return max(0.0, self.until - now)
 
 
 def connect_panel(port):
@@ -596,6 +626,10 @@ def run_viewer(s, panel_port=None):
     highlight()
     frame, next_readout = 2 * LOG_DT, 0.0  # 50 frames per second; readouts 5 times per second
     steps, shown = 0.0, (time.time(), data.time)  # steps owed this frame (playback); when the rate was last measured
+    commands, texts, count = Commands(), [], 0  # count: the countdown second on screen (0: none)
+    if sys.platform == "darwin":
+        import glfw
+        glfw.window_hint_string(glfw.COCOA_FRAME_NAME, WINDOW_NAME)
     with mujoco.viewer.launch_passive(model, data, key_callback=pressed.append) as viewer:
         with viewer.lock():  # the passive viewer ignores <visual><global azimuth/elevation>; apply them here
             mujoco.mjv_defaultFreeCamera(model, viewer.cam)
@@ -604,8 +638,10 @@ def run_viewer(s, panel_port=None):
             with viewer.lock():
                 while pressed:
                     handle(pressed.pop(0))
+                new = []
                 while not inbox.empty():
-                    c = inbox.get()
+                    new.append(inbox.get())
+                for c in commands.ready(new, start):
                     if c["cmd"] == "quit":
                         viewer.close()
                     elif c["cmd"] == "screenshot":
@@ -615,7 +651,8 @@ def run_viewer(s, panel_port=None):
                             s.command(c)
                         except Exception as e:  # a bad CSV must not kill the viewer
                             print(f"command {c} failed: {e}")
-                steps += frame / LOG_DT * s.playback if s.running else 0
+                left = commands.left(start)  # the physics waits out a countdown, so the take starts at its T-0
+                steps += frame / LOG_DT * s.playback if s.running and not left else 0
                 for _ in range(int(steps)):
                     s.advance()
                 steps -= int(steps)
@@ -624,10 +661,17 @@ def run_viewer(s, panel_port=None):
                     rate = (data.time - shown[1]) / max(1e-6, start - shown[0])
                     info["playback"] = f"x{s.playback:g}" + (f" (reaching x{rate:.1f})" if s.running and rate < 0.9 * s.playback else "")
                     shown = (start, data.time)
+                    if left:
+                        info["sequence"] = f"starts in {math.ceil(left)} s"
             viewer.sync()
             if info:
+                texts = [(None, mujoco.mjtGridPos.mjGRID_TOPLEFT, "\n".join(info), "\n".join(info.values()))]
+            if info or math.ceil(left) != count:  # T-5 ... T-1 in big type, then the take starts
+                count = math.ceil(left)
+                big = [(mujoco.mjtFont.mjFONT_BIG, mujoco.mjtGridPos.mjGRID_TOP, f"T-{count}", "")] if count else []
+                viewer.set_texts(texts + big)
+            if info:
                 next_readout = start + 0.2
-                viewer.set_texts((None, mujoco.mjtGridPos.mjGRID_TOPLEFT, "\n".join(info), "\n".join(info.values())))
                 if sock:
                     try:
                         sock.sendall((json.dumps(info) + "\n").encode())

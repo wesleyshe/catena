@@ -16,6 +16,7 @@
 11. suction cups: hold below the pull limit, pop above it, grab on touch, never stick to the chain
 12. thrusters: a = F/m, opposite nozzles cancel, a side nozzle turns the chain but can't roll it
 13. wrapped around a pole: the start pose touches all round, and the wrap-and-inch climb gets up it
+14. the countdown before a take: the spin and play wait for it, Stop calls it off, Play again starts it afresh
 """
 import contextlib
 import glob
@@ -32,7 +33,7 @@ from PIL import Image
 import setup_file
 from export_meshes import SRC, STAMP, fingerprint
 from make_chain import EE_MASS, EE_SERVO_MASS, EE_TYPES, PRESETS, SPEC_FILE, build
-from play import Session, joint_servos, read_sequence, target
+from play import Commands, Session, joint_servos, read_sequence, target
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FOLD_SEQ = os.path.join(os.path.dirname(HERE), "sequences", "fold_sequence.csv")
@@ -535,6 +536,26 @@ def check_pole_climb():
           f"{s.duration():.1f} s, still wrapped (modules {r1.min() * 1000:.0f}-{r1.max() * 1000:.0f} mm from its axis)")
 
 
+def check_countdown():
+    print("14. the countdown before a take: Play's commands wait for it, Stop calls it off")
+    take = [{"cmd": "reset"}, {"cmd": "countdown", "s": 5}, {"cmd": "spin", "rate": 10}, {"cmd": "play"}]
+    c = Commands()
+    first, held, then = c.ready(take, 100.0), c.ready([], 104.9), c.ready([], 105.0)
+    check([x["cmd"] for x in first] == ["reset"] and held == [] and c.left(102.0) == 3.0
+          and [x["cmd"] for x in then] == ["spin", "play"] and c.left(105.0) == 0,
+          "reset runs at once; the spin and play wait 5 s, then run together")
+    c = Commands()
+    c.ready(take, 0.0)
+    off, later = c.ready([{"cmd": "stop"}], 2.0), c.ready([], 6.0)
+    check([x["cmd"] for x in off] == ["stop"] and later == [] and c.left(2.0) == 0,
+          "Stop during the countdown calls the take off: no spin, no play")
+    c = Commands()
+    c.ready(take, 0.0)
+    again = c.ready(take, 3.0)
+    check([x["cmd"] for x in again] == ["reset"] and c.left(3.0) == 5 and [x["cmd"] for x in c.ready([], 8.0)] == ["spin", "play"],
+          "Play again during the countdown starts a fresh one, and plays once")
+
+
 def check_end_effectors():
     print("9. end effectors: a module past m1 (on the m1_yaw twist servo) and one past m12")
     m0, _ = load()
@@ -679,5 +700,6 @@ if __name__ == "__main__":
     check_suction()
     check_thrusters()
     check_pole_climb()
+    check_countdown()
     print("\nALL CHECKS PASSED" if not failures else f"\n{len(failures)} CHECK(S) FAILED")
     raise SystemExit(bool(failures))

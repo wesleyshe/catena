@@ -21,6 +21,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PANEL_SETUP = os.path.join(HERE, "panel_setup.toml")  # what the open viewer was built from (git-ignored)
 SPIN_AXES = ["vertical (z)", "along chain (y)", "across (x)"]  # the letter before ")" is what the viewer gets
 STARTS = ["floating", "on a surface", "on the rod"]
+COUNTDOWN_S = 5  # the Countdown s box starts here: Play and Restart show T-5 ... T-1 in the viewer first
 ROD = {"from": [0.0, -1.2, 1.0], "to": [0.0, 1.2, 1.0], "diameter_mm": 35.0}  # until a setup says where the rod is
 DEMOS = [("1  Free float", "1a_turn"), ("2  Anchored", "2a_arm"), ("3  Thrusters", "3a_U"),  # the six class simulations:
          ("4  Suction walk", "4a_walk"), ("5  Pole climb", "5_pole_climb"), ("6  Skater", "6_skater")]  # button, setup
@@ -141,6 +142,7 @@ class Panel:
         self.preset, self.modules, self.slip = tk.StringVar(value="original14"), tk.IntVar(value=N_MODULES), tk.BooleanVar()
         self.seq, self.move, self.hold = tk.StringVar(), tk.DoubleVar(value=3.0), tk.DoubleVar(value=1.0)
         self.speed, self.playback = tk.DoubleVar(value=1.0), tk.DoubleVar(value=1.0)
+        self.countdown = tk.IntVar(value=COUNTDOWN_S)  # not saved in setups: it stays put while you switch demos
         self.gravity, self.g = tk.BooleanVar(), tk.DoubleVar(value=9.81)
         self.logging, self.status = tk.BooleanVar(), tk.StringVar(value="starting the viewer...")
         self.spin_rate, self.spin_axis = tk.DoubleVar(value=20.0), tk.StringVar(value=SPIN_AXES[0])
@@ -209,8 +211,14 @@ class Panel:
                                             ("Stop", lambda: self.send("stop")))):
             ttk.Button(f, text=label, command=cmd, width=7).grid(row=2, column=col, sticky="we")
             f.columnconfigure(col, weight=1)  # buttons share the width evenly
+        count = ttk.Frame(f)
+        count.grid(row=3, column=0, columnspan=5, sticky="w", pady=(4, 0))
+        ttk.Label(count, text="Countdown s").pack(side="left", padx=(0, 4))
+        spinbox(count, self.countdown, 0, 60, 1, 5).pack(side="left", padx=(0, 10))
+        ttk.Label(count, text="T-5 ... T-1 in the viewer before Play and Restart (0: none)",
+                  foreground="gray40").pack(side="left")
         ttk.Label(f, text="Speed x makes the moves faster (the physics changes); Playback x only shows the "
-                          "simulation faster than real time.", wraplength=430, foreground="gray40").grid(row=3, column=0, columnspan=5, sticky="w")
+                          "simulation faster than real time.", wraplength=430, foreground="gray40").grid(row=4, column=0, columnspan=5, sticky="w")
 
         f = frame("World")
         ttk.Checkbutton(f, text="Gravity", variable=self.gravity, command=self.send_gravity).grid(row=0, column=0)
@@ -363,6 +371,12 @@ class Panel:
         self.played = True
         self.send("speed", value=self.speed.get())
         self.send_playback()
+        try:
+            count = self.countdown.get()
+        except tk.TclError:  # the box is empty or being typed into
+            count = COUNTDOWN_S
+        if count > 0:  # the viewer holds the spin and play, and the physics, until T-0
+            self.send("countdown", s=count)
         if self.spin_at_play.get():
             self.send("spin", rate=self.spin_rate.get(), axis=self.spin_axis.get()[-2])
         self.send("play", file=os.path.join(SEQ_DIR, path), move=self.move.get(), hold=self.hold.get())  # abs path stays

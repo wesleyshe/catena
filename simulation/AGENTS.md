@@ -12,15 +12,16 @@ History is in `LOG.md`.
 
 ## Status (2026-10-29)
 - **Internally consistent, not yet checked against the real chain.**
-  - `verify.py` passes all 13 sections.
+  - `verify.py` passes all 14 sections.
   - Predictions hold for the numbers in `../hardware/spec.toml`, and some of those are placeholders.
   - An outside review found the core sound but not yet a flight prediction; see "Is the sim good enough for flight?"
     in `../experiments/findings.md`.
 - **It models the AX-12A chain in the current Rhino file.** The STS3032 flight build's Rhino model is due in the coming
   weeks, and comes in through "Incorporating a new design" in `../hardware/AGENTS.md`.
 - **End effectors and setups: all 6 phases built** (design and plans: `../docs/design/2026-10-2*-end-effectors*.md`).
-  Anchors, suction cups, thrusters, placement, the rod, grip and nozzle columns, the stall sweep, Playback x. 18 setups
-  make the six class simulations (1a–1c, 2a–2c, 3a ×4, 4a–4b, 5a, 6); results in `../experiments/findings.md`.
+  Anchors, suction cups, thrusters, placement, the rod, grip and nozzle columns, the stall sweep, Playback x, the
+  countdown. 19 setups make the six class simulations (1a–1c, 2a–2c, 3a ×4, 4a–4b, 5, 5a, 6); results in
+  `../experiments/findings.md`.
 - **Owner: Wesley.** Wesley double-clicks `Chain Sim.command` rather than using the shell, and uses the sim to answer
   the professor's physics questions (`../experiments/findings.md`).
 
@@ -131,12 +132,14 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
 - **Panel ↔ viewer protocol:**
   - The panel is the socket server, on a port the OS picks. It passes `--panel PORT --log ""` to `play.py`.
   - Commands are JSON lines `{"cmd": ...}`. The panel's Play sends reset first when a take has already run (and
-    Restart always does), then speed, playback, spin (if "spin when Play starts" is ticked) and play. Pause, stop and
+    Restart always does), then speed, playback, countdown (unless Countdown s is 0), spin (if "spin when Play
+    starts" is ticked) and play. `play.Commands` holds the commands sent after a countdown, and the viewer holds the
+    physics, until it ends; pause, stop, straighten, reset or quit during it call the take off. Pause, stop and
     straighten turn the nozzles off; resume re-applies the current row:
     play {file, move, hold}, pause, resume, restart, stop, speed {value}, playback {value}, grip {end, on},
     nozzle {end, n, on},
     gravity {g}, straighten, reset, log {on}, screenshot, physics {run}, spin {rate, axis: "x" | "y" | "z" | "all"},
-    quit.
+    countdown {s}, quit.
   - Readouts are JSON lines of display strings, sent 5 times a second. The panel shows them all and reads
     `info["physics"]` to label its pause button.
 - **Keep `make_chain.py`, `setup_file.py` and `panel.py` stdlib-only.** `panel.py` imports only the stdlib plus those
@@ -187,9 +190,8 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
    - MuJoCo's `armature` adds the motors' inertia but not their spin momentum, about (armature/254)·q̇.
    - Over a closed shape loop it cancels.
    - For the slip-ring reaction-wheel finding it's about 3% of module 12's own momentum, so treat that result as ±3%.
-8. **Experiment support.** `../experiments/README.md` lists what the flight experiments still need from the sim: an
-   anchored end (end-effector phase 2), partial-g stall tests (phase 2's sweep), prediction ranges over release
-   errors, and the aircraft's own rotation.
+8. **Experiment support.** `../experiments/README.md` lists what the flight experiments still need from the sim:
+   prediction ranges over release errors, and the aircraft's own rotation.
 9. **Small things from the phase 1 review** (the rest was fixed in phase 2): `play.py --setup` errors print as
    tracebacks; `joint_servos` doesn't assert the joint servos come first; the setup's about line follows the picker
    before Load, and Save as prefills it.
@@ -213,12 +215,12 @@ How `spin`, the readouts, timing, screenshots and the viewer keys work is in "In
 - **macOS viewer:** it needs `mjpython`. Tk can't run inside mjpython because both need the main thread; that's why
   the panel is a separate process.
 - **Don't touch other people's windows.** Check `ps` for `panel.py|play.py` first, and launch your own instance to test.
+- **The viewer window (macOS)** reopens where it was (GLFW's `COCOA_FRAME_NAME` hint). Its UI size is fixed when it
+  opens, and MuJoCo's Python API can't change it. See "Interface details" in `README.md`.
 - **The passive viewer ignores `<visual><global azimuth/elevation>`.** `run_viewer` calls `mjv_defaultFreeCamera`
   instead, and `statistic extent` = the chain length, so the whole chain fits.
-- **Screenshots (macOS):**
-  - The mjpython viewer can be granted to screen tools (`org.mujoco.mjpython`).
-  - The Tk panel can't: a plain-python process has no app bundle.
-  - Workaround for the panel:
+- **Screenshots (macOS):** the mjpython viewer can be granted to screen tools (`org.mujoco.mjpython`), but only the
+  first one running. The Tk panel can't (a plain-python process has no app bundle); the workaround:
     1. Copy the uv `python3.11` into a throwaway `X.app/Contents/MacOS/` with an Info.plist bundle id.
     2. `lsregister -f` it, and run it with `PYTHONHOME=<uv base prefix>`.
     3. Delete it and `lsregister -u` afterwards.
@@ -235,22 +237,5 @@ How `spin`, the readouts, timing, screenshots and the viewer keys work is in "In
   - Remove `__pycache__/` after test runs.
 
 ## Verification
-`verify.py` has 13 sections:
-1. Compile, and meshes match the current CAD.
-2. Joint axes and arm mesh.
-3. Zero-g momentum.
-4. Contacts.
-5. Gravity drop.
-6. Spin, including one axis at a time.
-7. Flight options: IMU output, weighed modules, air drag, net cage.
-8. Renders.
-9. End effectors and setups: every type at each end compiles and leaves the modules unchanged, the `m1_yaw` axis,
-   zero-g momentum with both ends fitted, the `m1_yaw` column, setup-file errors and round trip, every setup in
-   `setups/` builds.
-10. Anchors: placement on the floor and a wall, the clamp holds while the chain folds, grab on touch (not on a side
-   brush), let go keeps the momentum, the grip column and its warning.
-11. Suction cups: a 20 N cup holds a 15 N pull and reads it, pops at 25 N, grabs on touch, can't touch the chain.
-12. Thrusters: one n0 gives a = F/m, both n0 cancel, a side nozzle (n2) turns the chain with no roll.
-13. Pole climb: the wrapped start touches the pole all round; the wrap-and-inch climb gets 30+ cm up it.
-
-Its docstring says what each checks, and the key numbers are under Contracts.
+`verify.py` has 14 sections, from compiling against the current CAD to the countdown before a take. Its docstring
+says what each checks, and the key numbers are under Contracts.
