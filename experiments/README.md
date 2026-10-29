@@ -35,9 +35,10 @@ Measured sim results so far are in `findings.md`.
   - `roll_loop.csv` turns it about its long axis, about 32° per loop. Turning in 3D needs a twist as well as pitch
     folds.
   - What moves that prediction, and by how much, is in `findings.md` under "Is the sim good enough for flight?".
+  - **A held end and the stall length:** an anchor end effector on a wall (setups `2b_stall_*`), and
+    `../simulation/stall_sweep.py`. The longest chain that stands out level is 3 / 4 / 6 / 12+ modules at Earth /
+    Mars / Moon / zero g (`findings.md`, "The class simulations").
 - **Not in the sim yet:**
-  - **A held end, to find the stall length under gravity.** Today the chain floats free or lies on the floor. Pitch
-    folds lie flat unless `CHAIN_ROLL = 90`.
   - **Prediction ranges.** Repeated runs over release spin, masses and servo settings, so success tier 2 has a
     tolerance.
   - **The aircraft's own motion:** its ~90° pitch-over (for video) and the 1.8 g phases before and after.
@@ -52,8 +53,10 @@ Measured sim results so far are in `findings.md`.
   - Tip repeatability and available tip force.
   - Reach to a target behind an obstruction.
 - **Hardware:** this needs an anchored fixture, so it's a separate rig. A stands alone if only one flies.
+- **What the sim does now:** an anchor end effector holds one end to a wall, the floor or a rod, with the clamp's force
+  and torque in the readouts and the log (setups `2a_arm`, `2c_let_go`). Suction cups and thrusters too (setups `3a_*`,
+  `4a`, `4b`, `5a`).
 - **Not in the sim yet:**
-  - An anchored-base option. `m1` has the free joint, and `../simulation/AGENTS.md` lists what depends on that.
   - Obstacles.
   - A tip-force readout.
 

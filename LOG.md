@@ -4,6 +4,12 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-10-29 · Wesley (Claude Code)
+- **`experiments/findings.md`: "The class simulations".** The six clips' measured results; the stall length per
+  gravity (3 / 4 / 6 / 12+ modules at Earth / Mars / Moon / zero g, experiment A's number); a suction cup is sized by
+  tipping, not pull (~2.4 N·m: 80 mm, 60 N walks, 40 mm, 20 N peels); the side nozzles roll the chain a little because
+  each module's centre of mass sits ~4.8 mm off its axis. `experiments/README.md` updated to match.
+
+## 2026-10-29 · Wesley (Claude Code)
 - **New sequence** `rod_crawl.csv`: an inchworm crawl along a rod with a clamp on each end (setup `5a_rod_crawl`).
 - **Checked:** `simulation/verify.py` ALL CHECKS PASSED; details in `simulation/LOG.md`.
 

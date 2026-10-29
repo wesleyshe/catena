@@ -1,7 +1,7 @@
 # End effectors, setups and the class simulations: design
 
-2026-10-28 · Wesley (with Claude Code). Status: **approved by Wesley 2026-10-29. Phases 1–5 are built**
-(plans: `2026-10-29-end-effectors-phase1-plan.md`, `…-phases2-6-plan.md`); phase 6 (wrap-up) is in progress.
+2026-10-28 · Wesley (with Claude Code). Status: **approved by Wesley 2026-10-29. Phases 1–6 are built**
+(plans: `2026-10-29-end-effectors-phase1-plan.md`, `…-phases2-6-plan.md`); 3b (optional) was skipped.
 
 ## Why
 - We want simulations that show, for class, how CATENA moves in zero g:

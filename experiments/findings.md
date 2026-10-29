@@ -135,3 +135,49 @@ An outside reviewer read the code cold, and separate sim runs tested flight cond
   13%). It matters most for the spin experiments.
 - **The servo model is tuned, not measured.** It barely changes net turns, but it sets joint timing and peak torque.
   Bench-test one joint before relying on torque margins.
+
+## The class simulations (end effectors, 2026-10-29)
+Six simulations for class, each a setup in `../simulation/setups/` (Load, then Play, in the control window). End
+effectors are extra modules on the ends: an anchor (a clamp), a suction cup or a thruster (five nozzles). Their
+masses and limits are placeholders. All are in zero g unless the table says otherwise; numbers are headless runs.
+
+| Simulation | Setup | What it shows in zero g | Measured |
+|---|---|---|---|
+| 1. Free float | `1a_turn` | turning with no push (fold loops at flight timing) | turned −30.3° in 20 s |
+| | `1b_spin_0.5`, `1b_spin_1` | the spin at release swamps it | −15.2°; 0.0° |
+| | `1c_roll` | rolling about its own length (a fold plus a twist) | IMU turn 63.4° in 16.5 s |
+| 2. One end anchored | `2a_arm` | an arm on a wall; the clamp takes the reaction | peak clamp load 4.0 N |
+| | `2b_stall_1g` / `_mars` / `_moon` / `_0g` | why zero g matters: m1_pitch lifting the hanging chain | lifts 12.6° / 24.4° / 44.3° / all the way (level) |
+| | `2c_let_go` | let go mid-swing: it keeps the momentum the wall was taking | drifts off at 150 mm/s, spinning |
+| 3. Thrusters | `3a_straight` / `_U` / `_Z` / `_L` | a 2.5 s half-throttle burst of both end nozzles, then coasting | 0 mm; glides 0.93 m (turns 1°); spins 8.2°/s (moves 0.16 mm); 0.66 m and 43° |
+| 4. Suction cups | `4a_walk` | an inchworm walk; a foot lets go only when the other holds | 1.10 m in two steps, 19 s, no pops |
+| | `4b_both_off` | the back foot lets go too early | floats off the floor |
+| 5. Rod crawl | `5a_rod_crawl` | clamps crawling along a handrail | 1.115 m along the rod in 19 s; peak clamp load 3.7 N |
+| 6. Skater | `6_skater` | spinning at 20°/s: faster folded, back to 20°/s straight | 31.9°/s in the L (section 6 of `verify.py`) |
+
+**Stall length (experiment A's number).** `../simulation/stall_sweep.py` hangs chains of 2–12 modules from a wall by
+one end and tells them to stand straight out. The longest that ends within 10° of level:
+
+| Gravity | Longest chain that stands level | Hand estimate (N(N+1)/2 · m·g·pitch ≤ 1.5 N·m, 230 g modules) |
+|---|---|---|
+| Earth, 9.81 m/s² | 3 modules | 2 |
+| Mars, 3.71 | 4 | 4 |
+| Moon, 1.62 | 6 | 7 |
+| zero g | all 12 | any |
+
+The other joints sag too, so a 12-module chain gets m1_pitch further (12.6° at 1 g) than the straight-chain estimate
+(4°). Earth→Moon doubles the stall length, close to N_max ~ g^(−1/2) (×2.5).
+
+**A suction cup has to resist tipping, not pulling.** Walking, each cup feels only ~1 N of pull, but swinging the rest
+of the chain tips the standing foot. A 40 mm, 20 N cup (the placeholder) peels and the chain pivots off the floor;
+40–70 mm cups fail the same way; an 80 mm, 60 N cup walks. That's roughly pull × radius ≈ 2.4 N·m of hold against
+tipping: the number to size a real cup by.
+
+**The side nozzles roll the chain a little.** Every nozzle's push passes through the chain's axis, but each module's
+centre of mass sits ~4.8 mm off it (the servo block isn't centred in the shell). So the nozzles along the end's ±y turn
+it with no roll, while those along ±x also roll it, ~12.8°/s after 2 s of 0.1 N, because a straight chain is very easy
+to roll about its length. Rolling on purpose still needs the fold-and-twist loop (`1c_roll`).
+
+**Letting go only carries momentum if the chain is moving.** Sequences stop at every row, so `2c_let_go` swings fast
+(0.5 s per move): the servos are still catching up when the clamp opens, and that motion is what it drifts off with.
+

@@ -36,12 +36,12 @@ control window and the MuJoCo viewer open side by side.
 |---|---|
 | Setup | Pick a whole run from `setups/` (see [Setups](#setups-setups)); the line under it says what the run shows. **Load** fills in every setting below and opens the viewer; then press **Play**. **Save as...** saves the current settings as a new setup, with a line saying what it shows. |
 | Model | Pick the preset, number of modules and slip ring, and tick **Air drag** (cabin air on the shells) or **Net cage** (the cage from `../hardware/spec.toml`) for flight-like runs. |
-| End effectors | An extra module on either end: none, anchor, suction cup or thruster. The one past m1 sits on module 1's twist servo (`m1_yaw`). For now the types differ only in colour and mass; what they do comes next. Then click **Rebuild + open viewer**, which applies Model and End effectors, rewrites `chain.xml` and restarts the viewer. |
-| Fold sequence | Pick a CSV from `../sequences/` (or **Browse...**), set move/hold seconds and speed, then **Play / Pause / Resume / Restart / Stop**. |
-| World | **Gravity** on/off and its strength, **Straighten** (all joints to 0), **Reset pose** (floating start, at rest), and **Pause physics / Resume physics**, which freezes the whole simulation (time, motion, sequence, log) so you can look around. |
+| End effectors | An extra module on either end: none, **anchor** (a clamp), **suction** cup or **thruster** (five nozzles). The one past m1 sits on module 1's twist servo (`m1_yaw`). Picking a type shows its settings: an anchor or cup can **start** floating, on a surface (x, y, z and the way the surface faces) or on the rod (how far along), with a roll; a cup has its pull limit, diameter and friction; a thruster its push per nozzle. While running: **Hold** / **Let go** (an anchor or cup told to hold grabs whatever fixed thing it touches), or the nozzle tick boxes n0 (out of the end) to n4 (sideways). If ee1 starts attached, it sets where the chain starts, and the other end's placement greys out. **Rod to grab** (in Model) adds the setup's rod. Then click **Rebuild + open viewer**, which applies Model and End effectors and restarts the viewer. |
+| Fold sequence | Pick a CSV from `../sequences/` (or **Browse...**), set move/hold seconds and speed, then **Play / Pause / Resume / Restart / Stop**. **Speed x** makes the moves themselves faster (so the physics changes); **Playback x** only shows the simulation faster than real time, e.g. ×2 to watch a 20 s clip in 10 s (the readout says if the computer can't keep up). |
+| World | **Gravity** on/off and its strength, **Straighten** (all joints to 0), **Reset pose** (back to the start: the setup's start pose, or floating straight, at rest), and **Pause physics / Resume physics**, which freezes the whole simulation (time, motion, sequence, log) so you can look around. |
 | Spin | Set a rate in deg/s, pick an axis (vertical, along the chain, across) and press **Spin**. The whole chain starts spinning about that axis through its centre of mass, keeping its shape and any spin about the other axes. **Stop spin** brings it to rest. A small rate (0.5–5 deg/s) stands in for the leftover spin when the chain is let go in flight. This is a push from outside: it gives the chain angular momentum, which then stays constant. Fold while spinning and it speeds up, like a skater pulling their arms in. Tick **Also spin like this when Play starts** to give the chain this spin as the sequence starts: the spin at release. |
 | Record | **Log to logs/** writes `logs/run_<date>_<time>.csv` while ticked. **Screenshot** saves the viewer's view to `screenshots/`. **Open folder** opens this folder in Finder. |
-| Readouts | Time, sequence progress and length (flagged if it's longer than one ~20 s parabola), gravity, **spin** (the whole chain's spin rate about the vertical: angular momentum ÷ inertia), **turned** (how far the middle module has turned about the vertical since the last reset; twists about the chain's own axis don't count), **IMU turn** (how far the IMU's module has turned in 3D since the last reset, as the flight IMU will see it), centre-of-mass drift, total angular momentum, max servo torque, contacts and log file. These are also drawn in the top-left of the viewer. |
+| Readouts | Time, sequence progress and length (flagged if it's longer than one ~20 s parabola), gravity, **spin** (the whole chain's spin rate about the vertical: angular momentum ÷ inertia), **turned** (how far the middle module has turned about the vertical since the last reset; twists about the chain's own axis don't count), **IMU turn** (how far the IMU's module has turned in 3D since the last reset, as the flight IMU will see it), centre-of-mass drift, total angular momentum, max servo torque, contacts and log file, the playback rate, and a line per end effector (holding / ready to grab / let go, with the clamp's force and torque, a cup's pull of its limit and pops, or the thrust). These are also drawn in the top-left of the viewer, and when a sequence finishes the viewer's Terminal prints a one-line summary. |
 
 The viewer's own sliders and keys still work alongside it. Closing the control window also closes the viewer.
 
@@ -73,13 +73,25 @@ A setup file holds everything about a run that the sequence CSV doesn't: the seq
 at release, air and cage, the chain (preset, modules) and the end effectors. Its first line says what it shows. The
 format is in `setup_file.py`; the files are plain text, so you can also edit them by hand.
 
-| Setup | What it shows | Headless result |
-|---|---|---|
-| `1a_turn` | Turns with no push: 4 fold loops that each end straight, at flight timing | turned −30.3° in 20.25 s |
-| `1b_spin_0.5` | The same, let go spinning at 0.5°/s | −15.2°: half the turn gone |
-| `1b_spin_1` | The same, let go spinning at 1°/s | 0.0°: cancelled |
-| `1c_roll` | Rolls about its own length (pitch fold plus twist, twice), 2× speed | IMU turn 63.4° in 16.5 s |
-| `6_skater` | Spinning at 20°/s, folds into an L and a zig-zag | speeds up folded, back to 20.0°/s straight |
+The six class simulations, each about 20 s (zero g unless it says otherwise):
+
+| Simulation | Setup | What it shows | Headless result |
+|---|---|---|---|
+| 1. Free float | `1a_turn` | Turns with no push: 4 fold loops that each end straight, at flight timing | turned −30.3° in 20.25 s |
+| | `1b_spin_0.5` | The same, let go spinning at 0.5°/s | −15.2°: half the turn gone |
+| | `1b_spin_1` | The same, let go spinning at 1°/s | 0.0°: cancelled |
+| | `1c_roll` | Rolls about its own length (pitch fold plus twist, twice), 2× speed | IMU turn 63.4° in 16.5 s |
+| 2. One end anchored | `2a_arm` | A wall-mounted arm: curls, turns on ee1's twist servo, reaches | peak clamp load 4.0 N |
+| | `2b_stall_1g`, `_mars`, `_moon`, `_0g` | Hanging from a wall, told to stand straight out, at four gravities | lifts 13° / 24° / 44° / all the way |
+| | `2c_let_go` | Swings fast and lets go mid-swing | drifts off at 150 mm/s, spinning |
+| 3. Thrusters | `3a_straight`, `_U`, `_Z`, `_L` | Folds, fires both end nozzles briefly, coasts | nothing; glides 0.93 m; spins 8.2°/s; both |
+| 4. Suction cups | `4a_walk` | Inchworm walk, one foot always holding (80 mm, 60 N cups) | 1.10 m in 19 s |
+| | `4b_both_off` | The same, letting go too early | floats off the floor |
+| 5. Rod crawl | `5a_rod_crawl` | Clamps crawl along a handrail | 1.115 m along the rod in 19 s |
+| 6. Skater | `6_skater` | Spinning at 20°/s, folds into an L and a zig-zag | speeds up folded, back to 20.0°/s straight |
+
+`stall_sweep.py` turns the 2b setups into experiment A's number, the longest chain that stands out level at each
+gravity (about a minute). Results and what they mean are in `../experiments/findings.md`, "The class simulations".
 
 ### Keyboard (viewer)
 
@@ -137,11 +149,13 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
 | `meshes/` | `base_first.stl` (module 1), `base_mid.stl` (2–11), `base_last.stl` (12), `arm.stl` (1–11). |
 | `../hardware/spec.toml` | The real chain's numbers, shared with the robot software. `make_chain.py` reads them. |
 | `make_chain.py` | Parametric generator for `chain.xml`. |
-| `chain.xml` | Generated model, written by the control window and `make_chain.py`. Not in git. |
+| `chain.xml` | Generated model, written by `make_chain.py`. Not in git. |
 | `meshes/SOURCE.txt` | Which CAD file the meshes were exported from; `verify.py` fails if the CAD has changed since. |
 | `Chain Sim.command` | Double-click launcher for the control window. |
 | `panel.py` | Control window: buttons that build the model and drive the viewer. |
 | `setup_file.py`, `setups/` | Reads and writes setup files; `setups/` holds the example runs. |
+| `panel_setup.toml` | What the control window last opened the viewer with (it starts `play.py --setup` with it). Not in git. |
+| `stall_sweep.py` | The stall length at Earth, Mars, Moon and zero g, from the 2b setups. |
 | `play.py` | Viewer, keyboard, sequence playback, logging, live readouts; takes commands from `panel.py`. |
 | `../sequences/` | Fold-sequence CSVs, shared with the robot software; the control window lists these. `fold_sequence.csv` goes straight → L → straight → zig-zag → straight. `reorient_loop.csv` turns the whole chain ~30° with no push (4 shape loops that each end straight). Add your own here. |
 | `logs/` | Run logs: `run_log.csv` from the shell, `run_<date>_<time>.csv` from the control window. |
@@ -176,6 +190,11 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
 - **End effectors** (optional): one module-sized sphere (Ø139 mm) one pitch past m1 and/or past m12. The one past m1
   turns on `m1_yaw` (±150°, the same sign as every yaw); the one past m12 is rigid. Masses are placeholders in
   `make_chain.py`: anchor and suction cup 200 g, thruster 250 g, plus 55 g for the twist servo.
+  - **Anchor:** a clamp that never slips (a weld to a fixed body moved to where the end is). Told to hold, it grabs
+    when its Ø40 mm tip face comes within 15 mm of something fixed, pulling the face onto it over 0.2 s.
+  - **Suction cup:** a cup on the tip that only ever touches fixed things, sucking with its pull limit. It holds by
+    friction sideways, pops above the limit and peels if it tips: it has to be pressed on to stick.
+  - **Thruster:** five nozzles, n0 out of the end and n1–n4 sideways; each pushes against its exhaust and lights up.
 - **Visuals vs physics.** Meshes are visual only. Each module collides as one sphere (Ø139 mm). Mass sits on simple
   primitives: a hollow sphere for the shells, plus a box for the core and a box for the arm.
 - **Servos** are position actuators. Their force limit is the stall torque plus the gear friction, so the net output at
@@ -205,7 +224,9 @@ seconds, and each row is held for `--hold` seconds. Targets update every 10 ms, 
 Columns: `time`, `com_x/y/z` (chain centre of mass, m), `L_x/y/z` and `L_norm` (total angular momentum about the
 centre of mass, kg·m²/s), `max_torque` (largest |actuator torque|, N·m), `contacts` (number of contacts), then what the
 flight IMU will report: `imu_qw/qx/qy/qz` (its module's attitude, world frame) and `imu_wx/wy/wz` (its rotation rate,
-rad/s, in its own frame). The IMU's module is set in `../hardware/spec.toml`. One row is written every 10 ms.
+rad/s, in its own frame). The IMU's module is set in `../hardware/spec.toml`. With end effectors fitted, four
+columns per end follow: `ee{k}_held` (0/1), `ee{k}_load_N` (clamp force or cup pull, smoothed over 0.1 s),
+`ee{k}_torque_Nm` (clamp torque) and `ee{k}_thrust_N`. One row is written every 10 ms.
 
 ## How the meshes are made
 - **Grouping:** by layer (`Link::*` → arm, everything else → base). The module comes from the height of each object's

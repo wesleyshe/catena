@@ -3,6 +3,14 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-10-29 · Wesley (Claude Code)
+- **End effectors, phase 6: wrap-up.** `README.md` covers the end effectors, every setup (grouped as the six class
+  simulations), Playback x and the new log columns. `../experiments/findings.md` has "The class simulations" (each
+  clip's measured result, the stall length, the suction-cup tipping requirement, the side-nozzle roll), and
+  `../experiments/README.md` moves the held end and the anchored arm out of "Not in the sim yet".
+- **Checked:** every one of the 18 setups headless gives the result its description says; filmstrips of 11 of them
+  rendered offscreen and looked at (in `renders/clips/`, not in git).
+
+## 2026-10-29 · Wesley (Claude Code)
 - **End effectors, phase 5: the rod crawl.** `rod_crawl.csv` and setup `5a_rod_crawl`: clamps on both ends crawl along
   a Ø35 mm rod with the same arch gait as the walk (landing exactly on the rod; a clamp grabs from 15 mm and pulls in).
   It moves 1.115 m along the rod in 19 s (two steps), one clamp always holding, peak clamp load 3.7 N.
