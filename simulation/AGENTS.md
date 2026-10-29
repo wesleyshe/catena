@@ -20,8 +20,8 @@ History is in `LOG.md`.
   weeks, and comes in through "Incorporating a new design" in `../hardware/AGENTS.md`.
 - **End effectors and setups, phase 3 of 6** (design and plans: `../docs/design/2026-10-2*-end-effectors*.md`).
   End-effector modules; setups that start the chain attached (placement); the anchor (clamp, grab on touch, let go);
-  suction cups; thrusters; grip and nozzle columns in sequences; the stall sweep. Setups 1a–1c, 2a–2c, 3a ×4, 4a–4b,
-  6. Next: the rod crawl (5).
+  suction cups; thrusters; the rod; grip and nozzle columns in sequences; the stall sweep. Setups 1a–1c, 2a–2c, 3a ×4,
+  4a–4b, 5a, 6: all six class simulations. Phase 6 (findings, docs) is the wrap-up.
 - **Owner: Wesley.** Wesley double-clicks `Chain Sim.command` rather than using the shell, and uses the sim to answer
   the professor's physics questions (`../experiments/findings.md`).
 

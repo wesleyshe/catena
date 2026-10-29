@@ -13,6 +13,7 @@ the robot software should read the same format, so one file runs in both.
 | `inchworm_walk.csv` | An inchworm walk on two suction cups (setup `4a_walk`): a foot lets go only when the other holds; each landing foot is aimed 15 mm into the floor so its cup presses on. About 0.56 m per step. 19 s at move 0.9 s, hold 0.35 s. |
 | `walk_let_go.csv` | The same walk, but the back foot lets go before the front one holds (setup `4b_both_off`). 19 s. |
 | `thrust_straight.csv`, `thrust_U.csv`, `thrust_Z.csv`, `thrust_L.csv` | Thrusters on both ends (setups `3a_*`): fold into the shape, fire both end nozzles (n0) at half throttle for 2.5 s, then coast. Straight: nothing; U: glides; Z: spins in place; L: both. 18.5 s at move 1.5 s, hold 1 s. |
+| `rod_crawl.csv` | Clamps (anchors) on both ends crawl along a rod (setup `5a_rod_crawl`), same arch gait as the walk. About 0.56 m per step; 19 s at move 0.9 s, hold 0.35 s. |
 | `roll_loop.csv` | Rolls the whole chain about its own long axis with no push: 2 loops of an m4 pitch fold plus an m8 twist (a 3D "falling cat"), about 64° in total. Default timing takes 33 s; `--speed 2` fits one parabola (16.5 s, 63.4°). Reverse the steps to roll the other way. |
 
 Add your own here. The control window lists every `.csv` in this folder.

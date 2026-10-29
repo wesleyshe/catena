@@ -1,0 +1,25 @@
+# Clamps on both ends crawl along a handrail in zero g, one clamp always holding: what an astronaut does on the ISS.
+sequence = "rod_crawl.csv"
+move_s = 0.9
+hold_s = 0.35
+speed = 1.0
+playback = 1.0
+gravity_m_s2 = 0.0
+spin_deg_s = [0.0, 0.0, 0.0]
+air = false
+cage = false
+preset = "original14"
+modules = 12
+slip_ring = false
+
+[ee1]
+type = "anchor"
+attach = { rod_m = 2.0, facing = "up", roll_deg = 0.0 }
+
+[ee12]
+type = "anchor"
+
+[rod]
+from = [0.0, -1.2, 1.0]
+to = [0.0, 1.2, 1.0]
+diameter_mm = 35.0

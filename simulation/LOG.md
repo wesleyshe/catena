@@ -3,6 +3,12 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-10-29 · Wesley (Claude Code)
+- **End effectors, phase 5: the rod crawl.** `rod_crawl.csv` and setup `5a_rod_crawl`: clamps on both ends crawl along
+  a Ø35 mm rod with the same arch gait as the walk (landing exactly on the rod; a clamp grabs from 15 mm and pulls in).
+  It moves 1.115 m along the rod in 19 s (two steps), one clamp always holding, peak clamp load 3.7 N.
+- **Checked:** `verify.py` ALL CHECKS PASSED, 12 sections; 5a headless.
+
+## 2026-10-29 · Wesley (Claude Code)
 - **End effectors, phase 4: thrusters.** Five nozzle sites per thruster end (n0 out along the axis, n1–n4 along the
   end's +x, +y, −x, −y), each a site actuator pushing against its exhaust, lit while firing. Sequences
   `thrust_straight/U/Z/L.csv` and setups 3a ×4: a half-throttle burst of both n0, then coasting.
