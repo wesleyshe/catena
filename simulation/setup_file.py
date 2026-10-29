@@ -28,6 +28,8 @@ run shows; the control window displays it. Every key is optional and defaults to
   from = [0.0, -1.2, 1.0]
   to = [0.0, 1.2, 1.0]
   diameter_mm = 35.0
+  # wrap_m = 0.4                   # the bare chain starts wrapped around the rod, m1 this far along it (the
+                                   # sequence's first row must be a coil that fits: every pitch the same, every yaw)
 
 facing is the surface's outward normal (up = the floor; down, +x, -x, +y, -y), and the chain leaves the surface along
 it. On a rod it's the side of the rod the chain is on. If both ends are attached, ee1 sets where the chain starts.
@@ -115,12 +117,16 @@ def read_end(name, table, val):
 
 
 def read_rod(name, val):
-    if not isinstance(val, dict) or {"from", "to"} - set(val) or set(val) - {"from", "to", "diameter_mm"}:
-        raise ValueError(f"{name}: [rod] needs from = [x, y, z] and to = [x, y, z], and optionally diameter_mm")
+    if not isinstance(val, dict) or {"from", "to"} - set(val) or set(val) - {"from", "to", "diameter_mm", "wrap_m"}:
+        raise ValueError(f"{name}: [rod] needs from = [x, y, z] and to = [x, y, z], and optionally diameter_mm, wrap_m")
     rod = {"from": value(name, "rod from", val["from"], [0.0] * 3), "to": value(name, "rod to", val["to"], [0.0] * 3),
            "diameter_mm": value(name, "rod diameter_mm", val.get("diameter_mm", float(ROD_MM)), 0.0)}
     if rod["from"] == rod["to"] or rod["diameter_mm"] <= 0:
         raise ValueError(f"{name}: [rod] needs two different end points and a diameter above 0")
+    if "wrap_m" in val:
+        rod["wrap_m"] = value(name, "rod wrap_m", val["wrap_m"], 0.0)
+        if not 0 <= rod["wrap_m"] <= math.dist(rod["from"], rod["to"]):
+            raise ValueError(f"{name}: [rod] wrap_m = {rod['wrap_m']:g} is off the rod (0 to {math.dist(rod['from'], rod['to']):.2f} m)")
     return rod
 
 

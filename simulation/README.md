@@ -34,7 +34,7 @@ control window and the MuJoCo viewer open side by side.
 
 | Section | What it does |
 |---|---|
-| The six demos | One button per class simulation: **1 Free float**, **2 Anchored**, **3 Thrusters**, **4 Suction walk**, **5 Rod crawl**, **6 Skater**. One click opens it in the viewer and plays it; press **Play** for another take. The other versions of each (e.g. let go spinning, the four gravities, the U / Z / L shapes) are in the Setup list. |
+| The six demos | One button per class simulation: **1 Free float**, **2 Anchored**, **3 Thrusters**, **4 Suction walk**, **5 Pole climb**, **6 Skater**. One click opens it in the viewer and plays it; press **Play** for another take. The other versions of each (e.g. let go spinning, the four gravities, the U / Z / L shapes, the clamp crawl along a handrail) are in the Setup list. |
 | Setup | Pick a whole run from `setups/` (see [Setups](#setups-setups)); the line under it says what the run shows. **Load** fills in every setting below and opens the viewer; then press **Play**. **Save as...** saves the current settings as a new setup, with a line saying what it shows. |
 | Model | Pick the preset, number of modules and slip ring, and tick **Air drag** (cabin air on the shells) or **Net cage** (the cage from `../hardware/spec.toml`) for flight-like runs. |
 | End effectors | An extra module on either end: none, **anchor** (a clamp), **suction** cup or **thruster** (five nozzles). The one past m1 sits on module 1's twist servo (`m1_yaw`). Picking a type shows its settings: an anchor or cup can **start** floating, on a surface (x, y, z and the way the surface faces) or on the rod (how far along), with a roll; a cup has its pull limit, diameter and friction; a thruster its push per nozzle. While running: **Hold** / **Let go** (an anchor or cup told to hold grabs whatever fixed thing it touches), or the nozzle tick boxes n0 (out of the end) to n4 (sideways). If ee1 starts attached, it sets where the chain starts, and the other end's placement greys out. **Rod to grab** (in Model) adds the setup's rod. Then click **Rebuild + open viewer**, which applies Model and End effectors and restarts the viewer. |
@@ -88,7 +88,8 @@ The six class simulations, each about 20 s (zero g unless it says otherwise):
 | 3. Thrusters | `3a_straight`, `_U`, `_Z`, `_L` | Folds, fires both end nozzles briefly, coasts | nothing; glides 0.93 m; spins 8.2°/s; both |
 | 4. Suction cups | `4a_walk` | Inchworm walk, one foot always holding (80 mm, 60 N cups) | 1.10 m in 19 s |
 | | `4b_both_off` | The same, letting go too early | floats off the floor |
-| 5. Rod crawl | `5a_rod_crawl` | Clamps crawl along a handrail | 1.115 m along the rod in 19 s |
+| 5. Pole climb | `5_pole_climb` | Wrapped around a Ø100 mm pole like a snake, it climbs by squeezing: no cups, no clamps | 394 mm up in 19.3 s |
+| | `5a_rod_crawl` | Clamps on both ends crawl along a thin handrail | 1.115 m along the rod in 19 s |
 | 6. Skater | `6_skater` | Spinning at 20°/s, folds into an L and a zig-zag | speeds up folded, back to 20.0°/s straight |
 
 `stall_sweep.py` turns the 2b setups into experiment A's number, the longest chain that stands out level at each
@@ -157,6 +158,7 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
 | `setup_file.py`, `setups/` | Reads and writes setup files; `setups/` holds the example runs. |
 | `panel_setup.toml` | What the control window last opened the viewer with (it starts `play.py --setup` with it). Not in git. |
 | `stall_sweep.py` | The stall length at Earth, Mars, Moon and zero g, from the 2b setups. |
+| `pole_climb_design.py` | Designs the pole climb (pole size, squeeze, stretch) and writes its sequence and setup. |
 | `play.py` | Viewer, keyboard, sequence playback, logging, live readouts; takes commands from `panel.py`. |
 | `../sequences/` | Fold-sequence CSVs, shared with the robot software; the control window lists these. `fold_sequence.csv` goes straight → L → straight → zig-zag → straight. `reorient_loop.csv` turns the whole chain ~30° with no push (4 shape loops that each end straight). Add your own here. |
 | `logs/` | Run logs: `run_log.csv` from the shell, `run_<date>_<time>.csv` from the control window. |

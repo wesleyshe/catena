@@ -142,6 +142,9 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
     fluid = dict(density=v(FLIGHT["cabin_air_kg_m3"]), viscosity=v(1.8e-5)) if air else {}
     ET.SubElement(root, "option", gravity=v(0, 0, -gravity), timestep=v(p["timestep"]), integrator="RK4", **fluid)
     center = v(0, 0, height) if not spot else v(*(spot[0][k] + spot[1][k] * span * p["pitch"] / 2 for k in range(3)))
+    if rod and "wrap_m" in rod and not spot:  # wrapped around the rod: look at the coil
+        a, b = rod["from"], rod["to"]
+        center = v(*(a[k] + (b[k] - a[k]) * (rod["wrap_m"] + 0.3) / math.dist(a, b) for k in range(3)))
     ET.SubElement(root, "statistic", center=center, extent=v(span * p["pitch"]))  # viewer frames the whole chain
     vis = ET.SubElement(root, "visual")
     ET.SubElement(vis, "global", offwidth="1600", offheight="1200", azimuth="0", elevation="-25")  # viewer starts side-on

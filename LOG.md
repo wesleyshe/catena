@@ -4,6 +4,11 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-10-29 · Wesley (Claude Code)
+- **New sequence** `pole_climb.csv`: the bare chain wrapped around a pole climbs it, gripping by squeezing (setup
+  `5_pole_climb`, demo button 5). `experiments/findings.md` gains the squeeze-grip numbers.
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED; details in `simulation/LOG.md`.
+
+## 2026-10-29 · Wesley (Claude Code)
 - **`experiments/findings.md`: "The class simulations".** The six clips' measured results; the stall length per
   gravity (3 / 4 / 6 / 12+ modules at Earth / Mars / Moon / zero g, experiment A's number); a suction cup is sized by
   tipping, not pull (~2.4 N·m: 80 mm, 60 N walks, 40 mm, 20 N peels); the side nozzles roll the chain a little because

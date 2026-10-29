@@ -23,7 +23,7 @@ SPIN_AXES = ["vertical (z)", "along chain (y)", "across (x)"]  # the letter befo
 STARTS = ["floating", "on a surface", "on the rod"]
 ROD = {"from": [0.0, -1.2, 1.0], "to": [0.0, 1.2, 1.0], "diameter_mm": 35.0}  # until a setup says where the rod is
 DEMOS = [("1  Free float", "1a_turn"), ("2  Anchored", "2a_arm"), ("3  Thrusters", "3a_U"),  # the six class simulations:
-         ("4  Suction walk", "4a_walk"), ("5  Rod crawl", "5a_rod_crawl"), ("6  Skater", "6_skater")]  # button, setup
+         ("4  Suction walk", "4a_walk"), ("5  Pole climb", "5_pole_climb"), ("6  Skater", "6_skater")]  # button, setup
 
 
 def spinbox(parent, var, lo, hi, step, width=6, **kw):

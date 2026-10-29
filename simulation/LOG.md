@@ -3,6 +3,19 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-10-29 · Wesley (Claude Code)
+- **New demo 5, the pole climb** (Wesley: "a snake swirling through a much bigger rod... wrap and inch along"). Setup
+  `5_pole_climb` and `pole_climb.csv`: the bare chain wrapped around a Ø100 mm pole climbs it, no cups or clamps. Button 5
+  plays it; the clamp crawl (`5a_rod_crawl`) is in the Setup list.
+  - The keyframes were designed on the pole's surface (module centres on cylinders round it, joint angles from
+    those points), because giving each zone its own coil put the front 39–265 mm off the pole.
+  - `[rod] wrap_m` starts a setup wrapped: the sequence's first row is a coil, and `Session.wrap` puts its axis on the
+    rod's.
+  - Measured: 394 mm up in 19.3 s; the squeeze holds the servos at their 1.6 N·m limit (a real AX-12A would overheat).
+- **Checked:** `verify.py` ALL CHECKS PASSED, 13 sections (new: the wrapped start touches all round, the climb gets up
+  the pole); button 5 writes the same setup the viewer needs and that file climbs the same headless. The live window
+  couldn't be tried: the Mac's display was idle and the viewer didn't open.
+
+## 2026-10-29 · Wesley (Claude Code)
 - **Six demo buttons at the top of the control window** (Wesley: "a simple button for me to play each sequence"):
   1 Free float (`1a_turn`), 2 Anchored (`2a_arm`), 3 Thrusters (`3a_U`), 4 Suction walk (`4a_walk`), 5 Rod crawl,
   6 Skater. One click loads the setup, opens the viewer and plays; the other versions stay in the Setup list. A

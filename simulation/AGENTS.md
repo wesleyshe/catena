@@ -12,7 +12,7 @@ History is in `LOG.md`.
 
 ## Status (2026-10-29)
 - **Internally consistent, not yet checked against the real chain.**
-  - `verify.py` passes all 12 sections.
+  - `verify.py` passes all 13 sections.
   - Predictions hold for the numbers in `../hardware/spec.toml`, and some of those are placeholders.
   - An outside review found the core sound but not yet a flight prediction; see "Is the sim good enough for flight?"
     in `../experiments/findings.md`.
@@ -45,6 +45,7 @@ Default paths are relative to this folder, so the scripts also work when run fro
 | `make_chain.py` | Parametric generator. The `PRESETS` table and constants at the top are what people edit. `build()` returns the XML. |
 | `chain.xml` | Written by `make_chain.py` (git-ignored). Nothing else uses it: `play.py` builds the model fresh from the spec. |
 | `panel_setup.toml` | Git-ignored. **The panel writes its settings (laid over the loaded setup) here every time it opens the viewer**, and starts `play.py --setup panel_setup.toml`. |
+| `pole_climb_design.py` | Writes `../sequences/pole_climb.csv` and `setups/5_pole_climb.toml` (pole size, squeeze and stretch at the top). |
 | `stall_sweep.py` | Experiment A's stall length: the longest chain that stands out level from a wall at Earth, Mars, Moon and zero g (~1 min). |
 | `play.py` | Runtime: `Session` (state, commands, spin, readouts), viewer loop, keyboard, `Logger`, headless mode. |
 | `panel.py` | Tk control window: a separate process that drives `play.py` over a localhost socket. Its top row is the six demo buttons (`DEMOS`: button label, setup). |
@@ -142,7 +143,8 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
   two, which is what lets it run under the throwaway-bundle screenshot trick (see Gotchas).
 - **Setup files:** keys are `setup_file.DEFAULTS`, plus tables `[ee1]`, `[ee{modules}]` (type + that type's
   `SETTINGS`) and `[rod]`. A relative `sequence` is relative to `../sequences/`. New keys go in `DEFAULTS` (and
-  `build_args` if `build()` needs them); `load` refuses anything else. The panel keeps the loaded setup and lays its
+  `build_args` if `build()` needs them); `load` refuses anything else. `[rod] wrap_m` starts the bare chain wrapped
+  around the rod (`Session.wrap`): its sequence's first row must be a coil (every pitch the same, every yaw the same). The panel keeps the loaded setup and lays its
   fields over it, so keys without a field survive Save as.
 - **Paths:**
   - Everything resolves from the script folder (`HERE`): `meshes/`, `logs/`, `screenshots/`, `chain.xml`.
@@ -233,7 +235,7 @@ How `spin`, the readouts, timing, screenshots and the viewer keys work is in "In
   - Remove `__pycache__/` after test runs.
 
 ## Verification
-`verify.py` has 12 sections:
+`verify.py` has 13 sections:
 1. Compile, and meshes match the current CAD.
 2. Joint axes and arm mesh.
 3. Zero-g momentum.
@@ -249,5 +251,6 @@ How `spin`, the readouts, timing, screenshots and the viewer keys work is in "In
    brush), let go keeps the momentum, the grip column and its warning.
 11. Suction cups: a 20 N cup holds a 15 N pull and reads it, pops at 25 N, grabs on touch, can't touch the chain.
 12. Thrusters: one n0 gives a = F/m, both n0 cancel, a side nozzle (n2) turns the chain with no roll.
+13. Pole climb: the wrapped start touches the pole all round; the wrap-and-inch climb gets 30+ cm up it.
 
 Its docstring says what each checks, and the key numbers are under Contracts.

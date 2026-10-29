@@ -119,6 +119,17 @@ def read_ee(path, model):
     return out
 
 
+def coil_axis(pitch, yaw, length):
+    """A chain whose every pitch and yaw are the same is a coil (a helix). Its axis in m1's frame: (unit u pointing the
+    way the chain winds along it, a point on it, its radius)."""
+    R = axis_rotation((1, 0, 0), math.degrees(pitch)) @ axis_rotation((0, 0, 1), math.degrees(yaw))
+    t = axis_rotation((1, 0, 0), math.degrees(pitch)) @ np.array([0, 0, length])
+    th = math.acos(min(1.0, max(-1.0, (np.trace(R) - 1) / 2)))
+    u = np.array([R[2, 1] - R[1, 2], R[0, 2] - R[2, 0], R[1, 0] - R[0, 1]]) / (2 * math.sin(th))
+    c = np.linalg.lstsq(np.eye(3) - R, t - (u @ t) * u, rcond=None)[0]
+    return u * np.sign(u @ t), c, np.linalg.norm(c - (c @ u) * u)
+
+
 def axis_rotation(axis, deg):
     q, R = np.zeros(4), np.zeros(9)
     mujoco.mju_axisAngle2Quat(q, np.asarray(axis, float), math.radians(deg))
@@ -232,6 +243,8 @@ class Session:
                 d.act[m.actuator_actadr[a]] = self.row0[a]
         ends = [self.setup["ee1"], self.setup["ee_n"]]
         lead = leading_end(ends)
+        if lead is None and "wrap_m" in self.setup["rod"]:
+            self.wrap()
         if lead is not None:
             e = self.ends[list(self.ends)[lead] if len(self.ends) == 2 else next(iter(self.ends))]
             point, normal = attach_point(ends[lead]["attach"], self.setup["rod"])
@@ -253,6 +266,20 @@ class Session:
                 if other is not e and other.kind in ("anchor", "suction") and setting["attach"]:
                     self.grip(other.name, True)  # attached too: it holds whatever it lands on
         mujoco.mj_forward(m, d)
+
+    def wrap(self):
+        """Start wrapped around the rod: the first row is a coil (from m1_pitch and m2_yaw); put its axis on the rod's,
+        m1 at wrap_m along it, winding toward the rod's 'to' end."""
+        m, d, rod = self.m, self.d, self.setup["rod"]
+        q = {m.actuator(a).name: self.row0[a] for a in range(self.nj)}
+        u, c, _ = coil_axis(q["m1_pitch"], q["m2_yaw"], np.linalg.norm(m.body_pos[m.body("m2").id]))
+        a, b = np.array(rod["from"]), np.array(rod["to"])
+        e = (b - a) / np.linalg.norm(b - a)
+        k, cos = np.cross(u, e), u @ e  # the rotation taking u to e
+        K = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
+        R1 = np.eye(3) + K + K @ K / (1 + cos) if cos > -1 + 1e-9 else axis_rotation(np.cross(u, (1, 0, 0)), 180)
+        d.qpos[:3] = a + e * rod["wrap_m"] - R1 @ c
+        mujoco.mju_mat2Quat(d.qpos[3:7], R1.flatten())
 
     def grip(self, name, on):
         """Hold (grab whatever fixed thing the end touches, now or later) or let go."""

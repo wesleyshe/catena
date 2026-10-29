@@ -152,7 +152,8 @@ masses and limits are placeholders. All are in zero g unless the table says othe
 | 3. Thrusters | `3a_straight` / `_U` / `_Z` / `_L` | a 2.5 s half-throttle burst of both end nozzles, then coasting | 0 mm; glides 0.93 m (turns 1°); spins 8.2°/s (moves 0.16 mm); 0.66 m and 43° |
 | 4. Suction cups | `4a_walk` | an inchworm walk; a foot lets go only when the other holds | 1.10 m in two steps, 19 s, no pops |
 | | `4b_both_off` | the back foot lets go too early | floats off the floor |
-| 5. Rod crawl | `5a_rod_crawl` | clamps crawling along a handrail | 1.115 m along the rod in 19 s; peak clamp load 3.7 N |
+| 5. Pole climb | `5_pole_climb` | the bare chain wrapped around a Ø100 mm pole climbs it by squeezing, like a snake | 394 mm up in 19.3 s; swings ±50° around the pole |
+| | `5a_rod_crawl` | clamps crawling along a thin handrail | 1.115 m along the rod in 19 s; peak clamp load 3.7 N |
 | 6. Skater | `6_skater` | spinning at 20°/s: faster folded, back to 20°/s straight | 31.9°/s in the L (section 6 of `verify.py`) |
 
 **Stall length (experiment A's number).** `../simulation/stall_sweep.py` hangs chains of 2–12 modules from a wall by
@@ -180,4 +181,13 @@ to roll about its length. Rolling on purpose still needs the fold-and-twist loop
 
 **Letting go only carries momentum if the chain is moving.** Sequences stop at every row, so `2c_let_go` swings fast
 (0.5 s per move): the servos are still catching up when the clamp opens, and that motion is what it drifts off with.
+
+**Wrapped around a pole, the chain grips by squeezing: no suction cups or clamps needed.** Every pitch the same and
+every yaw the same make a coil; around a Ø200 mm pole that's 47° of pitch per joint (limit 124°), 1.5 turns for 12
+modules. Wrapped just to the pole's shape it slides off at 2 N. Told to bend 8° tighter, 10 shells press on with 59 N
+in all and it holds a 20 N push along the pole (12 mm of give, no slip), with friction 1. The cost: the squeeze holds the
+servos near stall (1.3 of 1.5 N·m) for as long as it grips, which a real AX-12A won't sustain; with plastic shells
+(friction ~0.3) it would hold ~20 N, still far above the 1–4 N it meets in zero g. `5_pole_climb` uses this on a Ø100 mm
+pole: two 4-module coils take turns squeezing while the middle stretches (from 315 to 499 mm along the pole), ~13 cm per
+step; a quarter of the designed stretch is lost to slip.
 

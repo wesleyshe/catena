@@ -15,6 +15,7 @@
 10. anchors: placement, the clamp holds, grab on touch, let go keeps the momentum, the grip column
 11. suction cups: hold below the pull limit, pop above it, grab on touch, never stick to the chain
 12. thrusters: a = F/m, opposite nozzles cancel, a side nozzle turns the chain but can't roll it
+13. wrapped around a pole: the start pose touches all round, and the wrap-and-inch climb gets up it
 """
 import contextlib
 import glob
@@ -511,6 +512,29 @@ def check_thrusters():
               "a nozzle the sequence fires goes off on Pause and Stop (and back on with Resume)")
 
 
+def check_pole_climb():
+    print("13. wrapped around a pole: the start pose, the squeeze grip, the climb")
+    setup = setup_file.load(os.path.join(setup_file.SETUP_DIR, "5_pole_climb.toml"))
+    m, d = load(**setup_file.build_args(setup))
+    s = Session(m, d, None, setup)
+    a, b = np.array(setup["rod"]["from"]), np.array(setup["rod"]["to"])
+    u = (b - a) / np.linalg.norm(b - a)
+    want = setup["rod"]["diameter_mm"] / 2000 + m.geom("m1_sphere").size[0]
+    def from_axis():
+        rel = np.array([d.xpos[m.body(f"m{i}").id] for i in range(1, 13)]) - a
+        return np.linalg.norm(rel - np.outer(rel @ u, u), axis=1)
+    r0, z0 = from_axis(), (d.subtree_com[1] - a) @ u
+    check(np.abs(r0 - want).max() < 1e-3 and (r0 > 0).all() and d.ncon >= 10,
+          f"wrapped start: all 12 modules {r0.min() * 1000:.1f}-{r0.max() * 1000:.1f} mm from the pole's axis "
+          f"(touching at {want * 1000:.1f}), {d.ncon} shells on the pole")
+    s.play(setup["sequence"], setup["move_s"], setup["hold_s"])
+    while s.seq_t < s.duration() - 1e-9:
+        s.advance()
+    climbed, r1 = (d.subtree_com[1] - a) @ u - z0, from_axis()
+    check(climbed > 0.3 and r1.max() < want + 0.05, f"the wrap-and-inch climb: {climbed * 1000:.0f} mm up the pole in "
+          f"{s.duration():.1f} s, still wrapped (modules {r1.min() * 1000:.0f}-{r1.max() * 1000:.0f} mm from its axis)")
+
+
 def check_end_effectors():
     print("9. end effectors: a module past m1 (on the m1_yaw twist servo) and one past m12")
     m0, _ = load()
@@ -654,5 +678,6 @@ if __name__ == "__main__":
     check_anchors()
     check_suction()
     check_thrusters()
+    check_pole_climb()
     print("\nALL CHECKS PASSED" if not failures else f"\n{len(failures)} CHECK(S) FAILED")
     raise SystemExit(bool(failures))

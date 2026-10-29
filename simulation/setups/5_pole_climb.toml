@@ -1,0 +1,19 @@
+# Wrapped around a pole like a snake, it climbs by squeezing with one end while the rest slides up: no suction, no clamps.
+sequence = "pole_climb.csv"
+move_s = 0.7
+hold_s = 0.3
+speed = 1.0
+playback = 1.0
+gravity_m_s2 = 0.0
+spin_deg_s = [0.0, 0.0, 0.0]
+air = false
+cage = false
+preset = "original14"
+modules = 12
+slip_ring = false
+
+[rod]
+from = [0.0, 0.0, 0.15]
+to = [0.0, 0.0, 2.6]
+diameter_mm = 100.0
+wrap_m = 0.35
