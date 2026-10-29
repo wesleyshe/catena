@@ -3,6 +3,16 @@
 Newest first. This file covers root files, `sequences/`, `experiments/` and `docs/`. Each area has its own `LOG.md`.
 The format is in the root `AGENTS.md`.
 
+## 2026-10-29 · Wesley (Claude Code)
+- **Shared fact changed: `m1_yaw` can now be a real servo.** In the sim, an optional end-effector module past m1 sits
+  on a twist servo, and that servo is `m1_yaw` (same sign as every yaw, ±150°): 23 joints with it fitted, 22 without.
+  The sequence format is unchanged; existing sequences keep `m1_yaw` at 0 and still work.
+  - Updated: root `AGENTS.md` (shared facts), `sequences/README.md`.
+  - **Software needs to:** treat the `m1_yaw` column as a servo command when the chain has the ee1 end effector, and
+    ignore it otherwise. End-effector command columns (grip, nozzles) come in a later phase.
+- **Added the end-effector design and its phase 1 plan** in `docs/design/` (approved by Wesley 2026-10-29).
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED; details in `simulation/LOG.md`.
+
 ## 2026-10-22 · Wesley (Claude Code)
 - **Answered a team question in the sim:** one fold vs. loops of folds, in 3D.
   - One fold leaves no lasting turn (0.02°).

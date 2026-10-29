@@ -10,6 +10,8 @@ Kinematics (measured from 'complete chain.3dm', see ../hardware/AGENTS.md). Per 
   m{i}_arm  U-yoke + hub, joint m{i}_pitch about +X through the module centre.
   m{i+1}    next base, one pitch above, joint m{i+1}_yaw about +Z (its yaw horn is bolted to the hub).
 Module 1 has no yaw servo and the last module has no pitch servo or arm, so N modules have 2N-2 joints.
+End effectors (optional, one module each): ee1 one pitch before m1, on module 1's yaw servo m1_yaw (2N-1 joints), and
+ee{N} one pitch past module N, rigid. Each is none, anchor, suction or thruster.
 """
 import argparse
 import math
@@ -61,19 +63,30 @@ N_MODULES = HW["modules"]                            # default chain length, fro
 CORE_BOX = ((0, -0.00975, -0.00575), (0.019, 0.02875, 0.04425))  # bracket + servos: centre, half-size
 ARM_BOX = ((0, 0, 0.038), (0.032, 0.012, 0.050))                 # yoke + hub: centre, half-size
 BASE_RGBA, ARM_RGBA = "0.78 0.78 0.80 1", "0.20 0.45 0.95 1"
+# End effectors are concepts, not hardware yet, so their placeholder numbers live here, not in spec.toml.
+# The 7 cm presets scale the masses by s^3.
+EE_TYPES = ("none", "anchor", "suction", "thruster")
+EE_MASS = dict(anchor=0.200, suction=0.200, thruster=0.250)  # kg; the thruster also carries nozzles, valves and gas
+EE_SERVO_MASS = 0.055   # kg, ee1's twist servo (an AX-12A), carried in ee1
+EE_RGBA = dict(anchor="0.80 0.25 0.25 1", suction="0.25 0.70 0.35 1", thruster="0.95 0.70 0.15 1")
 
 
 def v(*xs):
     return " ".join(f"{x:.6g}" for x in xs)
 
 
-def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=False, cage=False):
-    """air: cabin air drag on the shells. cage: the net cage around the chain's start position (sizes in the spec)."""
+def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=False, cage=False, ee1="none", ee_n="none"):
+    """air: cabin air drag on the shells. cage: the net cage around the chain's start position (sizes in the spec).
+    ee1, ee_n: the end effector past m1 and past module N (ee12 on 12 modules), one of EE_TYPES."""
+    for kind in (ee1, ee_n):
+        if kind not in EE_TYPES:
+            raise ValueError(f"end effector {kind!r}: choose one of {', '.join(EE_TYPES)}")
     p = PRESETS[preset]
     s = p["pitch"] / 0.140                       # geometric scale
     kp = p["torque"] / math.radians(KP_SATURATE)
     damping = p["torque"] / p["speed"]           # servo slows to its no-load speed at stall torque
-    height = n * p["pitch"] / 2 + 2 * R_SHELL * s  # float height: more than half the chain plus a shell
+    span = n + (ee1 != "none") + (ee_n != "none")  # modules end to end, counting end effectors
+    height = span * p["pitch"] / 2 + 2 * R_SHELL * s  # float height: more than half the chain plus a shell
     roll = math.radians(CHAIN_ROLL)
     weighed = p.get("module_masses") or []
     if weighed and len(weighed) != n:
@@ -86,7 +99,7 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
     # hand estimate (quadratic drag, Cd ~0.45), so read it as an upper bound.
     fluid = dict(density=v(FLIGHT["cabin_air_kg_m3"]), viscosity=v(1.8e-5)) if air else {}
     ET.SubElement(root, "option", gravity=v(0, 0, -gravity), timestep=v(p["timestep"]), integrator="RK4", **fluid)
-    ET.SubElement(root, "statistic", center=v(0, 0, height), extent=v(n * p["pitch"]))  # viewer frames the whole chain
+    ET.SubElement(root, "statistic", center=v(0, 0, height), extent=v(span * p["pitch"]))  # viewer frames the whole chain
     vis = ET.SubElement(root, "visual")
     ET.SubElement(vis, "global", offwidth="1600", offheight="1200", azimuth="0", elevation="-25")  # viewer starts side-on
     ET.SubElement(vis, "headlight", ambient="0.4 0.4 0.4", diffuse="0.6 0.6 0.6")
@@ -126,6 +139,7 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
                               rgba="0.5 0.6 0.7 0.12", solref="0.05 1")
     imu = min(SPEC["imu"]["module"], n)
     parent = world
+    yaw_limits = {} if slip_ring else dict(range=v(-math.radians(YAW_RANGE), math.radians(YAW_RANGE)))
     for i in range(1, n + 1):
         if weighed:  # a weighed module includes its arm (module N has none)
             base_mass = weighed[i - 1] - (p["arm_mass"] if i < n else 0)
@@ -135,12 +149,10 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
             body = ET.SubElement(parent, "body", name="m1", pos=v(0, -(n - 1) * p["pitch"] / 2, height),
                                  xyaxes=v(math.sin(roll), 0, math.cos(roll), math.cos(roll), 0, -math.sin(roll)))
             ET.SubElement(body, "freejoint", name="root")
+            first = body
         else:
             body = ET.SubElement(parent, "body", name=f"m{i}", pos=v(0, 0, p["pitch"]))
-            yaw = dict(name=f"m{i}_yaw", axis="0 0 1")
-            if not slip_ring:
-                yaw["range"] = v(-math.radians(YAW_RANGE), math.radians(YAW_RANGE))
-            ET.SubElement(body, "joint", yaw)
+            ET.SubElement(body, "joint", dict(name=f"m{i}_yaw", axis="0 0 1", **yaw_limits))
         mesh = "base_first" if i == 1 else "base_last" if i == n else "base_mid"
         ET.SubElement(body, "geom", {"class": "visual", "mesh": mesh, "rgba": BASE_RGBA, "name": f"m{i}_visual"})
         ET.SubElement(body, "geom", {"class": "collision", "name": f"m{i}_sphere", "mass": v(base_mass * p["shell_frac"])})
@@ -158,11 +170,23 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
                                     "size": v(*(h * s for h in ARM_BOX[1])), "mass": v(p["arm_mass"])})
         parent = arm
 
-    # actuators in CSV order: m1_yaw, m1_pitch, ..., mN_yaw, mN_pitch (skipping the two that don't exist)
+    # end effectors go in after the chain, so the chain's body ids don't move (m1 stays body 1)
+    for name, end, side, kind in (("ee1", first, -1, ee1), (f"ee{n}", body, 1, ee_n)):
+        if kind == "none":
+            continue
+        ee = ET.SubElement(end, "body", name=name, pos=v(0, 0, side * p["pitch"]))
+        if name == "ee1":  # module 1's missing yaw. About -Z so that +angle turns the m12 side +, like every other yaw
+            ET.SubElement(ee, "joint", dict(name="m1_yaw", axis="0 0 -1", **yaw_limits))
+        mass = (EE_MASS[kind] + (EE_SERVO_MASS if name == "ee1" else 0)) * s ** 3
+        ET.SubElement(ee, "geom", {"class": "visual", "type": "sphere", "size": v(R_SHELL * s), "rgba": EE_RGBA[kind],
+                                   "name": f"{name}_visual"})
+        ET.SubElement(ee, "geom", {"class": "collision", "name": f"{name}_sphere", "mass": v(mass), "shellinertia": "false"})
+
+    # actuators in CSV order: m1_yaw, m1_pitch, ..., mN_yaw, mN_pitch (skipping mN_pitch, and m1_yaw without ee1)
     act = ET.SubElement(root, "actuator")
     for i in range(1, n + 1):
         for j, lim in ((f"m{i}_yaw", SLIP_RING_TARGETS if slip_ring else YAW_RANGE), (f"m{i}_pitch", PITCH_RANGE)):
-            if j not in ("m1_yaw", f"m{n}_pitch"):
+            if j != f"m{n}_pitch" and (j != "m1_yaw" or ee1 != "none"):
                 ET.SubElement(act, "position", name=j, joint=j, ctrlrange=v(-math.radians(lim), math.radians(lim)))
 
     contact = ET.SubElement(root, "contact")   # neighbours stay one pitch apart, never touch: skip them

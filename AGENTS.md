@@ -39,9 +39,12 @@ These are confirmed by the team. Change one only together with the other areas, 
   - `m{i}_pitch` sits between base i and arm i.
   - `m{i+1}_yaw` sits between arm i and base i+1.
   - Module 1 has no yaw servo and module 12 has no pitch servo, so there are **22 actuated joints**.
+  - **End effectors (in the sim so far):** an optional extra module past m1 (`ee1`) and past m12 (`ee12`). ee1 sits on a
+    twist servo, and that servo is `m1_yaw`: with ee1 fitted there are 23 joints. ee12 is rigid.
   - Both end modules carry the U2D2 and power hub.
 - **Sequence columns:** a fold sequence has 24 columns in the order `m1_yaw, m1_pitch, …, m12_yaw, m12_pitch`.
-  `m1_yaw` and `m12_pitch` are always 0.
+  `m12_pitch` is always 0. `m1_yaw` is 0 unless ee1 is fitted, when it drives ee1's twist servo, with the same sign
+  as every yaw.
 - **Numbers live in `hardware/spec.toml`:** module count, spacing (140 mm), shell (Ø139 mm), ranges (pitch ±124°,
   yaw ±150°), servo and masses. Code reads them from there; never copy them into code.
 - **Units:** degrees in sequence CSVs; SI (m, kg, s, N·m) in code; mm and g in CAD and the spec.

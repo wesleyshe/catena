@@ -2,6 +2,28 @@
 
 Newest first. The format is in the root `AGENTS.md`.
 
+## 2026-10-29 · Wesley (Claude Code)
+- **End effectors and setups, phase 1** (design `../docs/design/2026-10-28-end-effectors.md`, plan next to it):
+  - `build(..., ee1, ee_n)`: an optional module past m1, on the `m1_yaw` twist servo, and one past module N, rigid.
+    Each is none, anchor, suction or thruster; so far they differ only in mass (placeholders in `make_chain.py`) and
+    colour.
+  - `play.py` counts joint servos and modules instead of assuming every actuator is a joint (`modules`,
+    `joint_servos`, `Session.nj`). Headless runs end with a summary line.
+  - Setup files: `setup_file.py`, `play.py --setup`, and five example setups in `setups/` (1a, 1b ×2, 1c, 6). The
+    control window has a Setup box (Load, Save as), an End effectors box, and "spin when Play starts".
+  - 1a/1b use flight timing (move 1 s, hold 0.25 s), not ×4, because the release-spin numbers in `findings.md` were
+    measured at that timing.
+  - `AGENTS.md` was over 250 lines: "Physics choices" moved to the end of `README.md`.
+  - From a fresh review: setups refuse `move_s <= 0`, `hold_s < 0` and `speed <= 0` (they hung a headless run or
+    crashed the viewer), and verify's random motion moves only joint servos. The rest is open issue 9 in `AGENTS.md`.
+- **Checked:**
+  - `verify.py`: ALL CHECKS PASSED, now 9 sections; sections 1–8 print exactly what they did before.
+  - Both ends none: `build()` output and the headless logs (fold sequence; flight-like with spin, air, cage) are
+    byte-identical to `fbe880f`.
+  - Setups headless: 1a turned −30.3°, 1b −15.2° / 0.0°, 1c IMU turn 63.4°, 6 back to +20.0°/s, matching `findings.md`.
+  - The real control window, with scripted button presses: Load 6_skater → Play (spin +20.0°/s), ee1 thruster →
+    Rebuild (`chain.xml` has `ee1` and `m1_yaw`), Save as → Load gave the same fields. Not yet looked at by eye.
+
 ## 2026-10-22 · Wesley (Claude Code)
 - **Fixes from the outside review:**
   - Spin now changes one axis at a time; it used to reset the other two. Stop spin zeroes all three.

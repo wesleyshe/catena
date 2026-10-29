@@ -3,6 +3,7 @@
   mjpython play.py                                  viewer: Control-panel sliders + keyboard
   mjpython play.py --seq ../sequences/fold_sequence.csv       viewer, playing the sequence
   .venv/bin/python play.py --seq ../sequences/fold_sequence.csv --headless    no viewer, run and log only
+  .venv/bin/python play.py --setup setups/1a_turn.toml --headless   a whole run from a setup file (setups/)
   mjpython play.py --gravity 9.81                   start with Earth gravity: the chain drops onto the floor
   .venv/bin/python play.py --seq ../sequences/reorient_loop.csv --headless --speed 4 --spin 0 0 1 --air --cage
       flight-like: the sequence 4x faster (to fit a parabola), let go with 1 deg/s of spin, cabin air, net cage
@@ -26,6 +27,7 @@ import time
 import mujoco
 import numpy as np
 
+import setup_file
 from make_chain import FLIGHT, build
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -41,16 +43,26 @@ def actuator(model, name):
     return mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, name)
 
 
+def modules(model):
+    """How many chain modules: bodies m1, m2, ... (arms and end effectors don't count)."""
+    return sum(1 for b in range(model.nbody) if model.body(b).name[:1] == "m" and model.body(b).name[1:].isdigit())
+
+
+def joint_servos(model):
+    """How many joint servos. They come first among the actuators, in CSV column order."""
+    return int(np.sum(model.actuator_trntype == mujoco.mjtTrn.mjTRN_JOINT))
+
+
 def stamp():
     return time.strftime("%Y%m%d_%H%M%S")
 
 
 def read_sequence(path, model):
-    """Keyframes from a CSV as ctrl vectors (rad). Columns are degrees in the order m1_yaw, m1_pitch, ...,
-    mN_yaw, mN_pitch; an optional header row names them. m1_yaw and mN_pitch don't exist and are ignored."""
+    """Keyframes from a CSV as joint-servo targets (rad). Columns are degrees in the order m1_yaw, m1_pitch, ...,
+    mN_yaw, mN_pitch; an optional header row names them. mN_pitch has no servo, nor has m1_yaw without ee1: ignored."""
     with open(path) as f:
         rows = [r for r in csv.reader(f) if r and not r[0].lstrip().startswith("#")]
-    n = (model.nu + 2) // 2
+    n, nj = modules(model), joint_servos(model)
     names = [f"m{i}_{j}" for i in range(1, n + 1) for j in ("yaw", "pitch")]
     try:
         float(rows[0][0])
@@ -59,10 +71,10 @@ def read_sequence(path, model):
     keys = []
     for r in rows:
         assert len(r) == len(names), f"{path}: expected {len(names)} columns, got {len(r)}"
-        q = np.zeros(model.nu)
+        q = np.zeros(nj)
         for name, val in zip(names, map(float, r)):
             a = actuator(model, name)
-            if a >= 0:
+            if 0 <= a < nj:
                 q[a] = math.radians(val)
             elif val != 0:
                 print(f"warning: {name} has no servo, ignoring {val:g} deg")
@@ -83,8 +95,8 @@ class Logger:
     """Writes time, chain COM, total angular momentum about the COM, max |actuator torque|, contacts, and what the
     flight IMU will report: its module's attitude (quaternion, world frame) and rotation rate (rad/s, its own frame)."""
 
-    def __init__(self, path):
-        self.path = path
+    def __init__(self, path, nj):
+        self.path, self.nj = path, nj  # nj: joint servos, the first nj actuators
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         self.f = open(path, "w", newline="")
         self.w = csv.writer(self.f)
@@ -94,7 +106,7 @@ class Logger:
     def __call__(self, data):
         com, L = data.sensor("com").data, data.sensor("angmom").data
         self.w.writerow([f"{data.time:.3f}", *(f"{x:.7g}" for x in com), *(f"{x:.4g}" for x in L),
-                         f"{np.linalg.norm(L):.4g}", f"{np.abs(data.actuator_force).max():.4g}", data.ncon,
+                         f"{np.linalg.norm(L):.4g}", f"{np.abs(data.actuator_force[:self.nj]).max():.4g}", data.ncon,
                          *(f"{x:.6g}" for x in data.sensor("imu_quat").data),
                          *(f"{x:.4g}" for x in data.sensor("imu_gyro").data)])
 
@@ -110,8 +122,9 @@ class Session:
         self.keys, self.seq_name, self.move, self.hold = None, "", 3.0, 1.0
         self.seq_t, self.playing, self.speed = 0.0, False, 1.0
         self.running = True  # False freezes the physics (time, motion, sequence clock, log)
-        self.mid = model.body(f"m{max(1, (model.nu + 2) // 4)}").id  # middle module (m6 of 12): its heading = "turned"
-        self.log = Logger(log_path) if log_path else None
+        self.nj = joint_servos(model)  # sequences drive these; other actuators (end effectors) come after them
+        self.mid = model.body(f"m{max(1, modules(model) // 2)}").id  # middle module (m6 of 12): its heading = "turned"
+        self.log = Logger(log_path, self.nj) if log_path else None
         self.reset()
 
     def reset(self):
@@ -174,7 +187,7 @@ class Session:
     def advance(self):
         """Simulate LOG_DT seconds. Sequence targets update once per LOG_DT, like commands on a servo bus."""
         if self.keys is not None and self.playing:
-            self.d.ctrl[:] = target(self.keys, self.seq_t, self.move, self.hold)
+            self.d.ctrl[:self.nj] = target(self.keys, self.seq_t, self.move, self.hold)
             self.seq_t += LOG_DT * self.speed
         mujoco.mj_step(self.m, self.d, nstep=max(1, round(LOG_DT / self.m.opt.timestep)))
         mujoco.mj_forward(self.m, self.d)  # sensors for the current state (mj_step leaves them one step behind)
@@ -187,7 +200,7 @@ class Session:
             self.log.close()
             self.log = None
         if on:
-            self.log = Logger(os.path.join(HERE, "logs", f"run_{stamp()}.csv"))
+            self.log = Logger(os.path.join(HERE, "logs", f"run_{stamp()}.csv"), self.nj)
             self.log(self.d)
 
     def command(self, c):
@@ -204,7 +217,7 @@ class Session:
         elif cmd in ("stop", "straighten"):
             self.keys, self.playing = None, False
             if cmd == "straighten":
-                self.d.ctrl[:] = 0
+                self.d.ctrl[:self.nj] = 0
         elif cmd == "speed":
             self.speed = float(c["value"])
         elif cmd == "gravity":
@@ -217,6 +230,12 @@ class Session:
             self.reset()
         elif cmd == "log":
             self.set_log(c["on"])
+
+    def summary(self):
+        """One line on how the run went, printed when a headless run ends."""
+        drift = np.linalg.norm(self.d.subtree_com[1] - self.com0) * 1000
+        return (f"turned {self.turned:+.1f} deg, IMU turn {self.imu_turn():.1f} deg, spin {self.spin_rate():+.1f} deg/s, "
+                f"COM moved {drift:.3f} mm")
 
     def readouts(self):
         d, L = self.d, np.linalg.norm(self.d.sensor("angmom").data)
@@ -231,7 +250,7 @@ class Session:
                 "spin": f"{self.spin_rate():+.1f} deg/s", "turned": f"{self.turned:+.1f} deg",
                 "IMU turn": f"{self.imu_turn():.1f} deg",
                 "COM drift": f"{np.linalg.norm(d.subtree_com[1] - self.com0) * 1000:.3f} mm",
-                "|L|": f"{L:.1e} kg m^2/s", "max torque": f"{np.abs(d.actuator_force).max():.2f} N m",
+                "|L|": f"{L:.1e} kg m^2/s", "max torque": f"{np.abs(d.actuator_force[:self.nj]).max():.2f} N m",
                 "contacts": str(d.ncon), "log": os.path.relpath(self.log.path, HERE) if self.log else "off"}
 
 
@@ -264,7 +283,7 @@ def run_viewer(s, panel_port=None):
     import mujoco.viewer
 
     model, data = s.m, s.d
-    n = (model.nu + 2) // 2
+    n = modules(model)
     pressed, sel = [], [2]
     sock, inbox = connect_panel(panel_port) if panel_port else (None, queue.Queue())
 
@@ -348,13 +367,21 @@ if __name__ == "__main__":
                     help="start spinning at this rate (deg/s) about world x, y, z: the leftover spin when it's let go")
     ap.add_argument("--air", action="store_true", help="cabin air drag on the shells (when building the model)")
     ap.add_argument("--cage", action="store_true", help="the net cage from hardware/spec.toml (when building the model)")
+    ap.add_argument("--setup", help="setup file (setups/*.toml): the model and the settings above; flags given here win")
     ap.add_argument("--panel", type=int, help=argparse.SUPPRESS)  # port of the control window
     a = ap.parse_args()
+    setup = setup_file.load(a.setup) if a.setup else None
+    if setup:  # the setup's values become the defaults, so flags on the command line still win
+        ap.set_defaults(seq=setup["sequence"] or None, move=setup["move_s"], hold=setup["hold_s"], speed=setup["speed"],
+                        gravity=setup["gravity_m_s2"], air=setup["air"], cage=setup["cage"],
+                        spin=setup["spin_deg_s"] if any(setup["spin_deg_s"]) else None)
+        a = ap.parse_args()
 
     if a.model:
         model = mujoco.MjModel.from_xml_path(a.model)
     else:  # always the current hardware spec, never a stale chain.xml
-        xml = build(air=a.air, cage=a.cage).replace('meshdir="meshes"', f'meshdir="{HERE}/meshes"')
+        opts = {**setup_file.build_args(setup), "air": a.air, "cage": a.cage} if setup else dict(air=a.air, cage=a.cage)
+        xml = build(**opts).replace('meshdir="meshes"', f'meshdir="{HERE}/meshes"')
         model = mujoco.MjModel.from_xml_string(xml)
     if a.gravity is not None:
         model.opt.gravity[:] = (0, 0, -a.gravity)
@@ -371,6 +398,7 @@ if __name__ == "__main__":
                 session.advance()
             secs = session.duration() / session.speed
             print(f"ran {secs:g} s" + (f" (longer than a {PARABOLA_S:g} s parabola)" if secs > PARABOLA_S else ""))
+            print(session.summary())
         else:
             run_viewer(session, a.panel)
     finally:

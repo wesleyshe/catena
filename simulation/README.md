@@ -34,10 +34,12 @@ control window and the MuJoCo viewer open side by side.
 
 | Section | What it does |
 |---|---|
-| Model | Pick the preset, number of modules and slip ring, and tick **Air drag** (cabin air on the shells) or **Net cage** (the cage from `../hardware/spec.toml`) for flight-like runs. Then click **Rebuild + open viewer**, which rewrites `chain.xml` and restarts the viewer. |
+| Setup | Pick a whole run from `setups/` (see [Setups](#setups-setups)); the line under it says what the run shows. **Load** fills in every setting below and opens the viewer; then press **Play**. **Save as...** saves the current settings as a new setup, with a line saying what it shows. |
+| Model | Pick the preset, number of modules and slip ring, and tick **Air drag** (cabin air on the shells) or **Net cage** (the cage from `../hardware/spec.toml`) for flight-like runs. |
+| End effectors | An extra module on either end: none, anchor, suction cup or thruster. The one past m1 sits on module 1's twist servo (`m1_yaw`). For now the types differ only in colour and mass; what they do comes next. Then click **Rebuild + open viewer**, which applies Model and End effectors, rewrites `chain.xml` and restarts the viewer. |
 | Fold sequence | Pick a CSV from `../sequences/` (or **Browse...**), set move/hold seconds and speed, then **Play / Pause / Resume / Restart / Stop**. |
 | World | **Gravity** on/off and its strength, **Straighten** (all joints to 0), **Reset pose** (floating start, at rest), and **Pause physics / Resume physics**, which freezes the whole simulation (time, motion, sequence, log) so you can look around. |
-| Spin | Set a rate in deg/s, pick an axis (vertical, along the chain, across) and press **Spin**. The whole chain starts spinning about that axis through its centre of mass, keeping its shape and any spin about the other axes. **Stop spin** brings it to rest. A small rate (0.5–5 deg/s) stands in for the leftover spin when the chain is let go in flight. This is a push from outside: it gives the chain angular momentum, which then stays constant. Fold while spinning and it speeds up, like a skater pulling their arms in. |
+| Spin | Set a rate in deg/s, pick an axis (vertical, along the chain, across) and press **Spin**. The whole chain starts spinning about that axis through its centre of mass, keeping its shape and any spin about the other axes. **Stop spin** brings it to rest. A small rate (0.5–5 deg/s) stands in for the leftover spin when the chain is let go in flight. This is a push from outside: it gives the chain angular momentum, which then stays constant. Fold while spinning and it speeds up, like a skater pulling their arms in. Tick **Also spin like this when Play starts** to give the chain this spin as the sequence starts: the spin at release. |
 | Record | **Log to logs/** writes `logs/run_<date>_<time>.csv` while ticked. **Screenshot** saves the viewer's view to `screenshots/`. **Open folder** opens this folder in Finder. |
 | Readouts | Time, sequence progress and length (flagged if it's longer than one ~20 s parabola), gravity, **spin** (the whole chain's spin rate about the vertical: angular momentum ÷ inertia), **turned** (how far the middle module has turned about the vertical since the last reset; twists about the chain's own axis don't count), **IMU turn** (how far the IMU's module has turned in 3D since the last reset, as the flight IMU will see it), centre-of-mass drift, total angular momentum, max servo torque, contacts and log file. These are also drawn in the top-left of the viewer. |
 
@@ -55,12 +57,29 @@ The viewer's own sliders and keys still work alongside it. Closing the control w
 | No viewer: run the sequence and log | `.venv/bin/python play.py --seq ../sequences/fold_sequence.csv --headless` |
 | Viewer with Earth gravity (drops to the floor) | `.venv/bin/mjpython play.py --gravity 9.81` |
 | Flight-like: 4× faster, let go with 1 deg/s of spin, air, cage | `.venv/bin/python play.py --seq ../sequences/reorient_loop.csv --headless --speed 4 --spin 0 0 1 --air --cage` |
+| Run a whole setup (end effectors, timing, spin...) and log | `.venv/bin/python play.py --setup setups/1a_turn.toml --headless` |
 | Run all checks and renders | `.venv/bin/python verify.py` |
 | Control window (same as double-clicking `Chain Sim.command`) | `.venv/bin/python panel.py` |
 
 `play.py` options: `--model FILE.xml` (without it, the model is built fresh from `../hardware/spec.toml`), `--seq FILE`, `--move 3` (seconds between rows), `--hold 1` (seconds per row),
 `--log logs/run_log.csv`, `--headless`, `--gravity 9.81` (m/s² towards the floor, overriding the model), `--speed 4`
-(play the sequence 4× faster), `--spin X Y Z` (start spinning at these deg/s about world x, y, z), `--air` and `--cage`.
+(play the sequence 4× faster), `--spin X Y Z` (start spinning at these deg/s about world x, y, z), `--air`, `--cage`, and
+`--setup FILE`, which sets the model and all of these from a setup file (flags you also give win). A headless run ends
+with one line: how far it turned, the IMU turn, its spin and how far the centre of mass moved.
+
+## Setups (`setups/`)
+
+A setup file holds everything about a run that the sequence CSV doesn't: the sequence and its timing, gravity, the spin
+at release, air and cage, the chain (preset, modules) and the end effectors. Its first line says what it shows. The
+format is in `setup_file.py`; the files are plain text, so you can also edit them by hand.
+
+| Setup | What it shows | Headless result |
+|---|---|---|
+| `1a_turn` | Turns with no push: 4 fold loops that each end straight, at flight timing | turned −30.3° in 20.25 s |
+| `1b_spin_0.5` | The same, let go spinning at 0.5°/s | −15.2°: half the turn gone |
+| `1b_spin_1` | The same, let go spinning at 1°/s | 0.0°: cancelled |
+| `1c_roll` | Rolls about its own length (pitch fold plus twist, twice), 2× speed | IMU turn 63.4° in 16.5 s |
+| `6_skater` | Spinning at 20°/s, folds into an L and a zig-zag | speeds up folded, back to 20.0°/s straight |
 
 ### Keyboard (viewer)
 
@@ -122,6 +141,7 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
 | `meshes/SOURCE.txt` | Which CAD file the meshes were exported from; `verify.py` fails if the CAD has changed since. |
 | `Chain Sim.command` | Double-click launcher for the control window. |
 | `panel.py` | Control window: buttons that build the model and drive the viewer. |
+| `setup_file.py`, `setups/` | Reads and writes setup files; `setups/` holds the example runs. |
 | `play.py` | Viewer, keyboard, sequence playback, logging, live readouts; takes commands from `panel.py`. |
 | `../sequences/` | Fold-sequence CSVs, shared with the robot software; the control window lists these. `fold_sequence.csv` goes straight → L → straight → zig-zag → straight. `reorient_loop.csv` turns the whole chain ~30° with no push (4 shape loops that each end straight). Add your own here. |
 | `logs/` | Run logs: `run_log.csv` from the shell, `run_<date>_<time>.csv` from the control window. |
@@ -153,6 +173,9 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
   that's real behaviour, not a disconnected part.
 - **22 actuated joints, not 24.** Module 1 has no yaw servo; it carries the U2D2 and power hub instead. Module 12 has
   no pitch servo or arm. Both of these come from `complete chain.3dm`.
+- **End effectors** (optional): one module-sized sphere (Ø139 mm) one pitch past m1 and/or past m12. The one past m1
+  turns on `m1_yaw` (±150°, the same sign as every yaw); the one past m12 is rigid. Masses are placeholders in
+  `make_chain.py`: anchor and suction cup 200 g, thruster 250 g, plus 55 g for the twist servo.
 - **Visuals vs physics.** Meshes are visual only. Each module collides as one sphere (Ø139 mm). Mass sits on simple
   primitives: a hollow sphere for the shells, plus a box for the core and a box for the arm.
 - **Servos** are position actuators. Their force limit is the stall torque plus the gear friction, so the net output at
@@ -165,15 +188,16 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
   - A 60° jump at m6 now overshoots about 1° and settles in 0.5 s. Before, it overshot 9.5° and swung 15 times.
   - These values are estimates. Raise `kv` in `PRESETS` for stiffer, slower stops, or lower it for snappier ones.
 - **Integrator.** It uses RK4, because the default integrator let the centre of mass wander tens of millimetres during
-  random motion. RK4 is only stable below a timestep limit, so lighter modules need a smaller timestep (see AGENTS.md).
+  random motion. RK4 is only stable below a timestep limit, so lighter modules need a smaller timestep (see Physics choices below).
 
 ### Fold sequence CSVs (`../sequences/`)
 
 The full format, shared with the robot software, is in `../sequences/README.md`. In brief:
 
 Each row is one keyframe of 24 angles in degrees, in the order `m1_yaw, m1_pitch, …, m12_yaw, m12_pitch`. A header
-row naming the columns is optional, and lines starting with `#` are skipped. `m1_yaw` and `m12_pitch` have no servo,
-so they're ignored, with a warning if they're not zero. Rows are eased between with a cosine profile over `--move`
+row naming the columns is optional, and lines starting with `#` are skipped. `m12_pitch` has no servo, and neither has
+`m1_yaw` unless an end effector is fitted past m1 (it's that end effector's twist servo); a column without a servo is
+ignored, with a warning if it's not zero. Rows are eased between with a cosine profile over `--move`
 seconds, and each row is held for `--hold` seconds. Targets update every 10 ms, like commands on a servo bus.
 
 ### Log files (`logs/`)
@@ -205,4 +229,52 @@ rad/s, in its own frame). The IMU's module is set in `../hardware/spec.toml`. On
 - Weighed module masses add up.
 - Air drag slows a 20 deg/s spin to 18.6 deg/s in 10 s.
 - With 0.01 g left over, the chain reaches the net cage after about 3 s.
+- End effectors: every type at either end compiles and leaves the 12 modules exactly as they were; `m1_yaw` twists
+  about the chain axis; with both ends fitted the centre of mass still moves ≤ 0.006 mm in 12 s of random motion.
+- Setup files refuse misspelt keys and missing sequences, and Save as then Load gives the same setup back.
 - **What it doesn't check:** anything against the real chain. These are consistency checks, not validation.
+
+## Physics choices
+Why the model is built the way it is. Kept here so `AGENTS.md` stays short; read before changing any of these.
+- **Meshes and collision:** meshes are visual only (`mass=0`, no contacts). Each base collides as one sphere;
+  neighbouring bases are excluded from colliding.
+- **Mass:** the sphere carries `shell_frac × base_mass` with `shellinertia`. The rest of the base's mass sits on a core
+  box, and the arm has its own box. Sizes are in `make_chain.py`.
+- **Servo model:**
+  - `kp = stall / 10°`. This roughly matches the AX-12A's default compliance slope (32 steps ≈ 9.4°).
+  - `forcerange = ±stall × (1 + GEAR_FRICTION)`. The motor also has to overcome the gear friction, so the net torque at
+    the output at stall is the rated stall torque. Before 2026-10-22 it was ±stall, so the output was 7% low.
+  - Damping = stall torque / no-load speed, so the no-load speed emerges when the servo saturates.
+  - `timeconst` = 5 ms lag on targets.
+  - **Anti-wobble (2026-10-20):**
+    - Three additions: `frictionloss` = `GEAR_FRICTION` (7%) × stall torque, a per-preset `armature` (0.002 / 0.0002
+      kg·m²), and actuator `kv` (1.0 / 0.25).
+    - `kv` acts whenever the servo isn't saturated, which in smooth moves is nearly all the time. It's a stand-in for
+      damping the model doesn't otherwise capture, not something the AX-12A does; see open issue 9.
+    - Effect on a 60° step at m6: before, 9.5° overshoot, 15 swings, 3.5 s to settle, 8° flex. After, 1°, 2 swings,
+      0.5 s, 2.7°.
+    - **`armature` is what makes `kv` possible** at a 0.5 ms timestep; without it the light twist mode goes unstable.
+    - All three are internal, so momentum is conserved and the zero-g split is unchanged.
+- **End effectors:** each collides as one sphere and carries its mass as a solid sphere (placeholder masses are
+  `EE_MASS` and `EE_SERVO_MASS` in `make_chain.py`, × s³ for the 7 cm presets; not in the spec until one is designed).
+  With any fitted, the float height and `statistic extent` count them as modules.
+- **7 cm presets:** lengths × 0.5. Printed mass × 0.5³ plus real servo masses (XL330 18 g, STS3032 about 20 g).
+- **Integrator: RK4.**
+  - implicitfast drifted the centre of mass 135 mm in 12 s of random motion; RK4 drifts 0.005 mm.
+  - Stability needs timestep < ~2.8·(I_twist + armature)/(4·(damping + kv)): 0.5 ms for original14 and 0.1 ms for the
+    7 cm presets.
+  - Without the 5 ms lag, 10 ms target steps make conservation about 100× worse.
+- **Floor contact:** `condim 6` with rolling friction = `ROLLING_RESISTANCE` × R. Without it, the bases' ~7 mm
+  centre-of-mass offset makes a dropped chain rock forever, because energy is conserved.
+- **World layout:**
+  - The chain floats along world +Y at height n·pitch/2 + 2R, so a zero-g fold can't reach the floor at z = 0.
+  - `CHAIN_ROLL = 0` makes the pitch axes vertical, so pitch folds lie flat on the floor.
+  - Gravity defaults to 0.
+- **Ranges:** pitch ±124°, yaw ±150°. `--slip-ring` frees yaw only, with targets spanning ±360°.
+- **Flight options** (`--air`, `--cage`, panel tick boxes; numbers in `[flight]` in the spec):
+  - **Air drag** is MuJoCo's ellipsoid fluid model on the shells only; the boxes inside get zero coefficients. For a
+    spinning chain it gives about twice the loss of a hand estimate, so treat it as an upper bound.
+  - **The net cage** is six thin static boxes around the start pose, with a soft `solref` (0.05 s) standing in for a
+    net. Its size is a placeholder.
+  - **Leftover gravity in the cabin** is just the gravity setting. A uniform pull doesn't change the turn (checked to
+    0.01°); it only moves the chain into the cage.

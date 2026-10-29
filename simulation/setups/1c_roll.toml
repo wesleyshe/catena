@@ -1,0 +1,12 @@
+# Rolls about its own length, about 63° in 16.5 s: a pitch fold plus a twist, twice. Watch the IMU turn.
+sequence = "roll_loop.csv"
+move_s = 3.0
+hold_s = 1.0
+speed = 2.0
+gravity_m_s2 = 0.0
+spin_deg_s = [0.0, 0.0, 0.0]
+air = false
+cage = false
+preset = "original14"
+modules = 12
+slip_ring = false

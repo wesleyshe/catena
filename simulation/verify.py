@@ -11,18 +11,24 @@
 6. spin: the Spin command (one axis at a time), the spin-up when folded (skater effect), Stop spin, the tip-turn readout
 7. flight options: the IMU output, weighed modules, air drag and the net cage
 8. offscreen renders: one module, the straight 12-module chain, the L and zig-zag folds, the dropped chain
+9. end effectors: every type at each end compiles, the modules are unchanged, the m1_yaw twist axis, zero-g momentum
 """
+import contextlib
+import glob
+import io
 import math
 import os
+import tempfile
 
 import mujoco
 import numpy as np
 import trimesh
 from PIL import Image
 
+import setup_file
 from export_meshes import SRC, STAMP, fingerprint
-from make_chain import PRESETS, SPEC_FILE, build
-from play import Session, read_sequence, target
+from make_chain import EE_MASS, EE_SERVO_MASS, EE_TYPES, PRESETS, SPEC_FILE, build
+from play import Session, joint_servos, read_sequence, target
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FOLD_SEQ = os.path.join(os.path.dirname(HERE), "sequences", "fold_sequence.csv")
@@ -113,26 +119,32 @@ def check_axes():
     check(abs(arm[:, 2].max() - 88) < 0.01, f"hub top at +{arm[:, 2].max():.2f} mm; + 52 mm to the next yaw horn face = 140 mm pitch")
 
 
+def random_motion(m, d, T=12.0, amp=90, period=1.5):
+    """Smooth random joint motion in zero g. Returns the max COM drift (m), max |L|, max gross body momentum, stable.
+    Only the joint servos move: other actuators (end effectors) stay off."""
+    rng, nj = np.random.default_rng(1), joint_servos(m)
+    keys = np.radians(rng.uniform(-amp, amp, (int(T / period) + 2, nj)))
+    keys[0] = 0
+    mujoco.mj_forward(m, d)
+    c0 = d.subtree_com[1].copy()
+    drift = L = gross = 0.0
+    while d.time < T:
+        k = int(d.time // period)
+        u = (d.time - k * period) / period
+        d.ctrl[:nj] = keys[k] + (0.5 - 0.5 * math.cos(math.pi * u)) * (keys[k + 1] - keys[k])
+        mujoco.mj_step(m, d, nstep=round(0.01 / m.opt.timestep))
+        mujoco.mj_forward(m, d)
+        drift = max(drift, np.linalg.norm(d.subtree_com[1] - c0))
+        L = max(L, np.linalg.norm(d.sensor("angmom").data))
+        gross = max(gross, gross_momentum(m, d))
+    return drift, L, gross, not any(w.number for w in d.warning)
+
+
 def check_momentum(T=12.0, amp=90, period=1.5):
     print("3. zero gravity, smooth random joint motion")
     for preset in PRESETS:
         m, d = load(preset)
-        rng = np.random.default_rng(1)
-        keys = np.radians(rng.uniform(-amp, amp, (int(T / period) + 2, m.nu)))
-        keys[0] = 0
-        mujoco.mj_forward(m, d)
-        c0 = d.subtree_com[1].copy()
-        drift = L = gross = 0.0
-        while d.time < T:
-            k = int(d.time // period)
-            u = (d.time - k * period) / period
-            d.ctrl[:] = keys[k] + (0.5 - 0.5 * math.cos(math.pi * u)) * (keys[k + 1] - keys[k])
-            mujoco.mj_step(m, d, nstep=round(0.01 / m.opt.timestep))
-            mujoco.mj_forward(m, d)
-            drift = max(drift, np.linalg.norm(d.subtree_com[1] - c0))
-            L = max(L, np.linalg.norm(d.sensor("angmom").data))
-            gross = max(gross, gross_momentum(m, d))
-        stable = not any(w.number for w in d.warning)
+        drift, L, gross, stable = random_motion(m, d, T, amp, period)
         check(stable and drift < 1e-4 and L < 1e-4 * gross,
               f"{preset}: {T:g} s, COM moved {drift * 1000:.4f} mm, |L| max {L:.1e} vs {gross:.2f} kg m^2/s "
               f"of body momenta ({L / gross:.0e}){'' if stable else ', UNSTABLE'}")
@@ -291,6 +303,125 @@ def renders():
     render(m, d, f"{HERE}/renders/gravity_drop.png", [(135, -25), (90, -10)], d.subtree_com[1], 2.2, (1000, 700))
 
 
+def check_end_effectors():
+    print("9. end effectors: a module past m1 (on the m1_yaw twist servo) and one past m12")
+    m0, _ = load()
+    bad = []
+    for t1 in EE_TYPES:
+        for tn in EE_TYPES:
+            m, _ = load(ee1=t1, ee_n=tn)
+            fitted = t1 != "none"
+            mass = sum(m0.body_mass) + EE_MASS.get(t1, 0) + EE_MASS.get(tn, 0) + (EE_SERVO_MASS if fitted else 0)
+            if not (m.nu == 22 + fitted and m.njnt == 23 + fitted and m.body("m1").id == 1 and m.body("m2").id == 3
+                    and abs(sum(m.body_mass) - mass) < 1e-9):
+                bad.append(f"{t1}/{tn}")
+    check(not bad, f"all {len(EE_TYPES) ** 2} combinations of end types compile: m1_yaw only with ee1, m1 is body 1, "
+          "m2 body 3, masses add up" + (f" (wrong: {', '.join(bad)})" if bad else ""))
+    for preset in PRESETS:
+        if preset != "original14":
+            m, _ = load(preset, ee1="anchor", ee_n="thruster")
+            check(m.nu == 23, f"{preset} with an anchor and a thruster: {m.nu} actuators, {sum(m.body_mass):.3f} kg")
+
+    m, d = load(ee1="thruster", ee_n="anchor")
+    diffs = []
+    for b in range(1, m0.nbody):
+        name, k = m0.body(b).name, m.body(m0.body(b).name).id
+        for f in ("body_mass", "body_inertia", "body_ipos", "body_iquat", "body_quat") + (("body_pos",) if b != 1 else ()):
+            if not np.array_equal(getattr(m0, f)[b], getattr(m, f)[k]):
+                diffs.append(f"{name} {f}")
+    for j in range(1, m0.njnt):
+        k = m.joint(m0.joint(j).name).id
+        diffs += [f"{m0.joint(j).name} {f}" for f in ("jnt_axis", "jnt_pos", "jnt_range")
+                  if not np.array_equal(getattr(m0, f)[j], getattr(m, f)[k])]
+    for a in range(m0.nu):
+        k = m.actuator(m0.actuator(a).name).id
+        diffs += [f"{m0.actuator(a).name} {f}" for f in ("actuator_gainprm", "actuator_biasprm", "actuator_dynprm",
+                                                         "actuator_ctrlrange", "actuator_forcerange")
+                  if not np.array_equal(getattr(m0, f)[a], getattr(m, f)[k])]
+    check(not diffs, "fitting end effectors leaves the 12 modules, their joints and servos exactly as they were"
+          + (f": {', '.join(diffs[:5])}" if diffs else ""))
+
+    P = PRESETS["original14"]["pitch"]
+    mujoco.mj_forward(m, d)
+    R1, p1 = d.xmat[1].reshape(3, 3).copy(), d.xpos[1].copy()
+    j, e1, e12 = m.joint("m1_yaw").id, m.body("ee1").id, m.body("ee12").id
+    at = lambda b: R1.T @ (d.xpos[b] - p1)
+    ok = np.allclose(R1.T @ d.xaxis[j], (0, 0, -1)) and np.allclose(at(e1), (0, 0, -P)) and np.allclose(at(e12), (0, 0, 12 * P))
+    d.qpos[m.jnt_qposadr[j]] = math.radians(30)
+    mujoco.mj_kinematics(m, d)
+    ok = ok and np.allclose(at(e1), (0, 0, -P)) and np.allclose(R1.T @ d.xmat[e1].reshape(3, 3), rot((0, 0, 1), math.radians(-30)))
+    check(ok, "m1_yaw twists about the chain axis (-Z in m1's frame, so +30 deg turns the m12 side +30 deg, like every "
+          "yaw); ee1 sits one pitch before m1, ee12 one pitch past m12")
+
+    m, d = load(ee1="anchor", ee_n="thruster")
+    drift, L, gross, stable = random_motion(m, d)
+    check(stable and drift < 1e-4 and L < 1e-4 * gross,
+          f"zero g, both ends fitted, 12 s of random motion including m1_yaw: COM moved {drift * 1000:.4f} mm, "
+          f"|L| max {L:.1e} vs {gross:.2f} kg m^2/s ({L / gross:.0e}){'' if stable else ', UNSTABLE'}")
+
+    with tempfile.TemporaryDirectory() as tmp:  # a sequence that twists m1_yaw to 20 deg
+        seq = os.path.join(tmp, "twist.csv")
+        with open(seq, "w") as f:
+            f.write(",".join(f"m{i}_{j}" for i in range(1, 13) for j in ("yaw", "pitch")) + "\n20" + ",0" * 23 + "\n")
+        m, d = load(ee1="anchor")
+        s = Session(m, d)
+        keys = read_sequence(seq, m)
+        s.play(seq, move=1, hold=1)
+        while d.time < 1 - 1e-9:
+            s.advance()
+        got = math.degrees(d.qpos[m.jnt_qposadr[m.joint("m1_yaw").id]])
+        m0, _ = load()
+        with contextlib.redirect_stdout(io.StringIO()) as said:
+            keys0 = read_sequence(seq, m0)
+        check(s.nj == 23 and np.isclose(keys[0, 0], math.radians(20)) and abs(got - 20) < 1 and not keys0.any()
+              and "m1_yaw has no servo" in said.getvalue(),
+              f"the m1_yaw column drives ee1's twist servo ({got:.1f} deg after 1 s for 20); "
+              "without ee1 it's ignored with a warning")
+
+        def refused(text, *words):  # load() must refuse this setup with an error that names the problem
+            path = os.path.join(tmp, "bad.toml")
+            with open(path, "w") as f:
+                f.write(text)
+            try:
+                setup_file.load(path)
+            except ValueError as e:
+                return all(w in str(e) for w in words)
+            return False
+        check(refused('sequence = "fold_sequence.csv"\ngraviy = 9.81\n', "graviy", "bad.toml")
+              and refused('sequence = "nowhere.csv"\n', "nowhere.csv")
+              and refused('modules = 6\n[ee12]\ntype = "anchor"\n', "[ee6]")
+              and refused('[ee1]\ntype = "hook"\n', "hook")
+              and refused('speed = 0\n', "speed") and refused('move_s = 0\n', "move_s") and refused('hold_s = -1\n', "hold_s"),
+              "setup files: a misspelt key, a missing sequence, the wrong far-end table, an unknown type and timings that "
+              "can't play are refused, naming the problem")
+        path = os.path.join(tmp, "round.toml")
+        mine = {**setup_file.DEFAULTS, "sequence": seq, "move_s": 1.5, "spin_deg_s": [0.0, 0.0, 0.5], "modules": 8,
+                "cage": True, "ee1": "anchor", "ee_n": "thruster"}
+        setup_file.save(path, mine, "a round trip")
+        same = setup_file.load(path) == mine and setup_file.about(path) == "a round trip"
+        ours = {**setup_file.DEFAULTS, "sequence": FOLD_SEQ}
+        setup_file.save(path, ours)
+        same = same and setup_file.load(path) == ours and 'sequence = "fold_sequence.csv"' in open(path).read()
+        check(same, "Save as then Load gives back the same setup, for a sequence in sequences/ and one elsewhere")
+
+    one = setup_file.single_axis_spin
+    two = one([0, 2, 0.5])
+    check(one([0, 0, 0.5]) == (0.5, "z", "") and two[:2] == (2.0, "y") and "z" in two[2] and one([0, 0, 0]) == (0.0, "z", ""),
+          "a setup's spin, for the control window's one-axis Spin box: the largest axis, with a warning if others are dropped")
+
+    names, bad = sorted(glob.glob(os.path.join(setup_file.SETUP_DIR, "*.toml"))), []
+    for path in names:
+        try:
+            setup = setup_file.load(path)
+            m, _ = load(**setup_file.build_args(setup))
+            read_sequence(setup["sequence"], m)
+            assert setup_file.about(path), "no line at the top saying what it shows"
+        except Exception as e:
+            bad.append(f"{os.path.basename(path)}: {e}")
+    check(names and not bad, f"all {len(names)} setups in setups/ load, build, read their sequence and say what they show"
+          + (f": {'; '.join(bad)}" if bad else ""))
+
+
 if __name__ == "__main__":
     check_compile()
     check_axes()
@@ -300,5 +431,6 @@ if __name__ == "__main__":
     check_spin()
     check_flight()
     renders()
+    check_end_effectors()
     print("\nALL CHECKS PASSED" if not failures else f"\n{len(failures)} CHECK(S) FAILED")
     raise SystemExit(bool(failures))

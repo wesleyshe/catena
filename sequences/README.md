@@ -16,7 +16,10 @@ Add your own here. The control window lists every `.csv` in this folder.
   `m1_yaw, m1_pitch, m2_yaw, m2_pitch, …, m12_yaw, m12_pitch`.
 - **Header and comments:** a header row naming the columns is optional. Lines starting with `#` are skipped, so use
   them to say what the sequence does.
-- **Columns with no servo:** `m1_yaw` and `m12_pitch`. Keep them at 0; the sim warns if they aren't.
+- **Columns with no servo:** `m12_pitch`, and `m1_yaw` unless the chain has an end effector past m1. Keep them at 0;
+  the sim warns if they aren't.
+- **`m1_yaw` with an end effector past m1** drives that end effector's twist servo (±150°). Positive turns the m12 side
+  the same way as every other yaw. Sequences written for the bare chain leave it at 0, so they still work.
 - **Ranges:** pitch ±124° and yaw ±150°. The sim clamps targets to these.
 - **Playback:** the sim holds each row for `hold` seconds, then eases to the next over `move` seconds with a cosine
   profile. The defaults are `move` 3 s and `hold` 1 s, set by `--move` and `--hold` or in the control window. Targets

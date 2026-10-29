@@ -10,14 +10,15 @@ import os
 import socket
 import subprocess
 import tkinter as tk
-from tkinter import filedialog, ttk
+from tkinter import filedialog, simpledialog, ttk
 
-from make_chain import N_MODULES, PRESETS, build
+import setup_file
+from make_chain import EE_TYPES, N_MODULES, PRESETS, build
+from setup_file import SEQ_DIR, SETUP_DIR
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MJPYTHON = os.path.join(HERE, ".venv", "bin", "mjpython")
 MODEL = os.path.join(HERE, "chain.xml")
-SEQ_DIR = os.path.join(os.path.dirname(HERE), "sequences")  # at the repo root, shared with the robot software
 SPIN_AXES = ["vertical (z)", "along chain (y)", "across (x)"]  # the letter before ")" is what the viewer gets
 
 
@@ -39,11 +40,25 @@ class Panel:
         self.logging, self.status = tk.BooleanVar(), tk.StringVar(value="starting the viewer...")
         self.spin_rate, self.spin_axis = tk.DoubleVar(value=20.0), tk.StringVar(value=SPIN_AXES[0])
         self.air, self.cage = tk.BooleanVar(), tk.BooleanVar()
+        self.ee1, self.ee_n = tk.StringVar(value="none"), tk.StringVar(value="none")
+        self.setup_name, self.about, self.about_text = tk.StringVar(), tk.StringVar(), ""
+        self.spin_at_play = tk.BooleanVar()
 
         def frame(title):
             f = ttk.LabelFrame(root, text=title, padding=6)
             f.pack(fill="x", padx=8, pady=4)
             return f
+
+        f = frame("Setup (a whole run, from setups/)")
+        self.setup_box = ttk.Combobox(f, textvariable=self.setup_name, values=self.setups(), state="readonly", width=24,
+                                      postcommand=lambda: self.setup_box.configure(values=self.setups()))
+        self.setup_box.grid(row=0, column=0, sticky="we")
+        self.setup_box.bind("<<ComboboxSelected>>", lambda e: self.show_about())
+        ttk.Button(f, text="Load", command=self.load_setup).grid(row=0, column=1, padx=(6, 0))
+        ttk.Button(f, text="Save as...", command=self.save_setup).grid(row=0, column=2, padx=(6, 0))
+        ttk.Label(f, textvariable=self.about, wraplength=400, justify="left").grid(row=1, column=0, columnspan=3, sticky="w")
+        f.columnconfigure(0, weight=1)
+        self.about.set("Pick a setup and click Load (it fills everything below), or set things up by hand.")
 
         f = frame("Model")
         ttk.Label(f, text="Preset").grid(row=0, column=0, sticky="w")
@@ -53,8 +68,14 @@ class Panel:
         ttk.Checkbutton(f, text="Slip ring", variable=self.slip).grid(row=0, column=4, padx=8, sticky="w")
         ttk.Checkbutton(f, text="Air drag (cabin air)", variable=self.air).grid(row=1, column=0, columnspan=2, sticky="w")
         ttk.Checkbutton(f, text="Net cage (size in spec.toml)", variable=self.cage).grid(row=1, column=2, columnspan=3, sticky="w")
-        ttk.Button(f, text="Rebuild + open viewer", command=self.open_viewer).grid(row=2, column=0, columnspan=5, sticky="we", pady=(6, 0))
-        f.columnconfigure(4, weight=1)  # let the button span the whole box
+        f.columnconfigure(4, weight=1)
+
+        f = frame("End effectors (a module on each end)")
+        for row, (label, var) in enumerate((("Past m1 (on the m1_yaw twist servo)", self.ee1), ("Past the last module", self.ee_n))):
+            ttk.Label(f, text=label).grid(row=row, column=0, sticky="w")
+            ttk.Combobox(f, textvariable=var, values=EE_TYPES, state="readonly", width=10).grid(row=row, column=1, padx=(8, 0))
+        ttk.Button(root, text="Rebuild + open viewer  (applies Model and End effectors)",
+                   command=self.open_viewer).pack(fill="x", padx=8, pady=(0, 4))
 
         f = frame("Fold sequence")
         self.seq_box = ttk.Combobox(f, textvariable=self.seq, values=self.sequences(), width=28,
@@ -92,6 +113,8 @@ class Panel:
         ttk.Button(f, text="Spin", command=lambda: self.send("spin", rate=self.spin_rate.get(),
                                                              axis=self.spin_axis.get()[-2])).grid(row=0, column=3, padx=(6, 0))
         ttk.Button(f, text="Stop spin", command=lambda: self.send("spin", rate=0.0, axis="all")).grid(row=0, column=4, padx=6)
+        ttk.Checkbutton(f, text="Also spin like this when Play starts (the spin at release)",
+                        variable=self.spin_at_play).grid(row=1, column=0, columnspan=5, sticky="w", pady=(4, 0))
 
         f = frame("Record")
         ttk.Checkbutton(f, text="Log to logs/", variable=self.logging, command=lambda: self.send("log", on=self.logging.get())).grid(row=0, column=0)
@@ -107,6 +130,69 @@ class Panel:
     def sequences(self):
         return sorted(os.path.basename(p) for p in glob.glob(os.path.join(SEQ_DIR, "*.csv")))
 
+    def setups(self):
+        return sorted(os.path.splitext(os.path.basename(p))[0] for p in glob.glob(os.path.join(SETUP_DIR, "*.toml")))
+
+    def show_about(self, note=""):
+        path = os.path.join(SETUP_DIR, self.setup_name.get() + ".toml")
+        self.about_text = setup_file.about(path) if os.path.exists(path) else ""
+        self.about.set("\n".join(x for x in (self.about_text or "(no line saying what it shows)", note) if x))
+
+    def load_setup(self):
+        """Fill every field from the picked setup, then rebuild and open the viewer."""
+        if not self.setup_name.get():
+            self.about.set("Pick a setup first.")
+            return
+        try:
+            s = setup_file.load(os.path.join(SETUP_DIR, self.setup_name.get() + ".toml"))
+        except (OSError, ValueError) as e:  # a TOML syntax error is a ValueError too
+            self.about.set(f"Can't load it: {e}")
+            return
+        self.preset.set(s["preset"]), self.modules.set(s["modules"]), self.slip.set(s["slip_ring"])
+        self.air.set(s["air"]), self.cage.set(s["cage"]), self.ee1.set(s["ee1"]), self.ee_n.set(s["ee_n"])
+        seq = s["sequence"]
+        self.seq.set(os.path.basename(seq) if os.path.dirname(seq) == SEQ_DIR else seq)
+        self.move.set(s["move_s"]), self.hold.set(s["hold_s"]), self.speed.set(s["speed"])
+        self.gravity.set(s["gravity_m_s2"] > 0)
+        if s["gravity_m_s2"] > 0:
+            self.g.set(s["gravity_m_s2"])
+        rate, axis, warning = setup_file.single_axis_spin(s["spin_deg_s"])
+        self.spin_at_play.set(rate != 0)
+        if rate:
+            self.spin_rate.set(rate)
+            self.spin_axis.set(next(a for a in SPIN_AXES if a[-2] == axis))
+        self.show_about(warning)
+        self.open_viewer()
+
+    def save_setup(self):
+        """Save every field as a setup file, with a line saying what it shows."""
+        path = filedialog.asksaveasfilename(initialdir=SETUP_DIR, defaultextension=".toml", filetypes=[("Setup", "*.toml")])
+        if not path:
+            return
+        about = simpledialog.askstring("Save setup", "One line on what this run shows:", initialvalue=self.about_text,
+                                       parent=self.root)
+        if about is None:
+            return
+        try:
+            spin = [0.0, 0.0, 0.0]
+            if self.spin_at_play.get():
+                spin["xyz".index(self.spin_axis.get()[-2])] = float(self.spin_rate.get())
+            seq = self.seq.get()
+            setup_file.save(path, {**setup_file.DEFAULTS, "sequence": os.path.join(SEQ_DIR, seq) if seq else "",
+                                   "move_s": float(self.move.get()), "hold_s": float(self.hold.get()),
+                                   "speed": float(self.speed.get()), "spin_deg_s": spin, "air": self.air.get(),
+                                   "gravity_m_s2": float(self.g.get()) if self.gravity.get() else 0.0,
+                                   "cage": self.cage.get(), "preset": self.preset.get(), "modules": int(self.modules.get()),
+                                   "slip_ring": self.slip.get(), "ee1": self.ee1.get(), "ee_n": self.ee_n.get()}, about)
+        except (tk.TclError, ValueError, OSError) as e:  # e.g. a number box holding something that isn't a number
+            self.about.set(f"Can't save it: {e}")
+            return
+        if os.path.dirname(os.path.abspath(path)) == SETUP_DIR:
+            self.setup_name.set(os.path.splitext(os.path.basename(path))[0])
+            self.show_about()
+        else:
+            self.about.set(f"Saved {path} (outside setups/, so it isn't in the list)")
+
     def browse(self):
         path = filedialog.askopenfilename(initialdir=SEQ_DIR, filetypes=[("CSV", "*.csv")])
         if path:
@@ -117,7 +203,8 @@ class Panel:
         self.close_viewer()
         g = self.g.get() if self.gravity.get() else 0.0
         with open(MODEL, "w") as fh:
-            fh.write(build(self.preset.get(), int(self.modules.get()), self.slip.get(), g, self.air.get(), self.cage.get()) + "\n")
+            fh.write(build(self.preset.get(), int(self.modules.get()), self.slip.get(), g, self.air.get(), self.cage.get(),
+                           ee1=self.ee1.get(), ee_n=self.ee_n.get()) + "\n")
         self.logging.set(False)
         self.proc = subprocess.Popen([MJPYTHON, os.path.join(HERE, "play.py"), "--model", MODEL, "--log", "",
                                       "--panel", str(self.server.getsockname()[1])], cwd=HERE)
@@ -147,6 +234,8 @@ class Panel:
             self.status.set("pick a fold sequence first")
             return
         self.send("speed", value=self.speed.get())
+        if self.spin_at_play.get():
+            self.send("spin", rate=self.spin_rate.get(), axis=self.spin_axis.get()[-2])
         self.send("play", file=os.path.join(SEQ_DIR, path), move=self.move.get(), hold=self.hold.get())  # abs path stays
 
     def send_speed(self):
