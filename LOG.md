@@ -4,6 +4,14 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-10-29 · Wesley (Claude Code)
+- **Shared format: sequences can now carry end-effector columns** after the 24 joint columns: `ee{k}_grip` (1 hold,
+  0 let go) and `ee{k}_n0` … `n4` (thruster throttle 0–1). They apply from the start of a row's hold. Documented in
+  `sequences/README.md` and the root `AGENTS.md`. **Software needs to:** read them as end-effector commands once the
+  real end effectors exist; until then, ignore columns starting with `ee`.
+- **New sequences** for the anchored-arm clips: `arm_reach.csv`, `arm_let_go.csv`, `stand_out.csv`.
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED; details in `simulation/LOG.md`.
+
+## 2026-10-29 · Wesley (Claude Code)
 - **Shared fact changed: `m1_yaw` can now be a real servo.** In the sim, an optional end-effector module past m1 sits
   on a twist servo, and that servo is `m1_yaw` (same sign as every yaw, ±150°): 23 joints with it fitted, 22 without.
   The sequence format is unchanged; existing sequences keep `m1_yaw` at 0 and still work.

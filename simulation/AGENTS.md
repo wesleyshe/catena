@@ -12,15 +12,15 @@ History is in `LOG.md`.
 
 ## Status (2026-10-29)
 - **Internally consistent, not yet checked against the real chain.**
-  - `verify.py` passes all 9 sections.
+  - `verify.py` passes all 10 sections.
   - Predictions hold for the numbers in `../hardware/spec.toml`, and some of those are placeholders.
   - An outside review found the core sound but not yet a flight prediction; see "Is the sim good enough for flight?"
     in `../experiments/findings.md`.
 - **It models the AX-12A chain in the current Rhino file.** The STS3032 flight build's Rhino model is due in the coming
   weeks, and comes in through "Incorporating a new design" in `../hardware/AGENTS.md`.
-- **End effectors and setups, phase 1 of 6** (design: `../docs/design/2026-10-28-end-effectors.md`). End-effector
-  modules can be fitted (types differ only in mass and colour so far) and setup files run whole clips (1a–1c, 6).
-  Next: phase 2, placement and the anchor.
+- **End effectors and setups, phase 2 of 6** (design and plans: `../docs/design/2026-10-2*-end-effectors*.md`).
+  End-effector modules; setups that start the chain attached (placement); the anchor (clamp, grab on touch, let go);
+  grip columns in sequences; the stall sweep. Setups 1a–1c, 2a–2c, 6. Next: suction (3), thrusters (4), rod crawl (5).
 - **Owner: Wesley.** Wesley double-clicks `Chain Sim.command` rather than using the shell, and uses the sim to answer
   the professor's physics questions (`../experiments/findings.md`).
 
@@ -43,7 +43,9 @@ Default paths are relative to this folder, so the scripts also work when run fro
 | Path | What it is |
 |---|---|
 | `make_chain.py` | Parametric generator. The `PRESETS` table and constants at the top are what people edit. `build()` returns the XML. |
-| `chain.xml` | Generated and git-ignored. **`panel.py` rewrites it from its Model settings every time it starts or rebuilds.** `play.py` without `--model` doesn't use it: it builds the model fresh from the spec. |
+| `chain.xml` | Written by `make_chain.py` (git-ignored). Nothing else uses it: `play.py` builds the model fresh from the spec. |
+| `panel_setup.toml` | Git-ignored. **The panel writes its settings (laid over the loaded setup) here every time it opens the viewer**, and starts `play.py --setup panel_setup.toml`. |
+| `stall_sweep.py` | Experiment A's stall length: the longest chain that stands out level from a wall at Earth, Mars, Moon and zero g (~1 min). |
 | `play.py` | Runtime: `Session` (state, commands, spin, readouts), viewer loop, keyboard, `Logger`, headless mode. |
 | `panel.py` | Tk control window: a separate process that drives `play.py` over a localhost socket. |
 | `setup_file.py` | Setup files: `load` (refuses unknown keys), `save` (writes TOML by hand), `about`, `build_args`, `single_axis_spin`. |
@@ -69,7 +71,7 @@ Fold sequences live in `../sequences/` because the robot software shares them. T
 ```
 ../hardware/cad/complete chain.3dm --export_meshes.py--> meshes/*.stl --make_chain.py--> chain.xml --> play.py
                                                                                      ^ JSON lines over 127.0.0.1
-Chain Sim.command --> panel.py (Tk) -- writes chain.xml, spawns `mjpython play.py --panel PORT` --+
+Chain Sim.command --> panel.py (Tk) -- writes panel_setup.toml, spawns `mjpython play.py --setup it --panel PORT` --+
 setups/*.toml --setup_file.py--> build() args + run settings --> play.py --setup, or the panel's fields (Load / Save as)
 verify.py builds models in memory with make_chain.build() and drives play.Session headless.
 ```
@@ -103,6 +105,9 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
   - End effectors: bodies `ee1` (child of m1, on hinge `m1_yaw`, axis −Z so + turns the m12 side +, like every yaw) and
     `ee{N}` (rigid child of m{N}), with geoms `ee{k}_visual` and `ee{k}_sphere`. They're added after the chain, so the
     chain's body ids don't move. Both none → `build()` is byte-identical to before they existed.
+  - An anchor adds geom `ee{k}_tip` (the grip face; collides with nothing), mocap body `ee{k}_hold` and weld
+    `ee{k}_clamp` (to the hold, inactive). `play.End` tells the types apart by these names. World geoms: `plate` (an
+    attach point off the floor) and `rod`.
   - Geoms: `m{i}_visual`, which `play.py` recolours for keyboard selection, and `m{i}_sphere`, whose radius `verify.py`
     reads.
   - Sensors `com`, `com_vel` and `angmom` sit on body `m1`.
@@ -112,22 +117,28 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
 - **`play.py` API used elsewhere:**
   - `verify.py` uses `Session` (`advance`, `command`, `readouts`, `spin`, `spin_rate`, `imu_turn`, `inertia`, `turned`,
     `d`), plus `read_sequence` and `target`.
-  - `make_chain.build(preset, n, slip_ring, gravity, air, cage, ee1, ee_n)`. `air` and `cage` take their numbers from
-    `[flight]` in the spec; `ee1`/`ee_n` are `EE_TYPES`.
+  - `make_chain.build(preset, n, slip_ring, gravity, air, cage, ee1, ee_n, rod)`. `air` and `cage` take their numbers
+    from `[flight]` in the spec; `ee1`/`ee_n` are a type from `EE_TYPES` or a dict like `EE_DEFAULTS`.
+  - `Session(model, data, log_path, setup)`: with a setup, `reset()` (Reset pose) goes to its start pose. `Session.ends`
+    maps `ee1`/`ee{N}` to `End` (kind, armed, clamped, held, load, torque, peak, pops); `grip(end, on)`,
+    `nozzle(end, k, throttle)`. Per fitted end the log appends `ee{k}_held, ee{k}_load_N, ee{k}_torque_Nm, ee{k}_thrust_N`.
   - `Session.mid` is module n//2, which is m6 of 12. `turned` tracks its heading. `Session.nj` is the joint-servo count:
     sequences write `ctrl[:nj]`. `Session.summary()` is the headless run's last line.
 - **Panel ↔ viewer protocol:**
   - The panel is the socket server, on a port the OS picks. It passes `--panel PORT --log ""` to `play.py`.
   - Commands are JSON lines `{"cmd": ...}` (Play with "spin when Play starts" ticked sends spin right before play):
-    play {file, move, hold}, pause, resume, restart, stop, speed {value},
+    play {file, move, hold}, pause, resume, restart, stop, speed {value}, playback {value}, grip {end, on},
+    nozzle {end, n, on},
     gravity {g}, straighten, reset, log {on}, screenshot, physics {run}, spin {rate, axis: "x" | "y" | "z" | "all"},
     quit.
   - Readouts are JSON lines of display strings, sent 5 times a second. The panel shows them all and reads
     `info["physics"]` to label its pause button.
 - **Keep `make_chain.py`, `setup_file.py` and `panel.py` stdlib-only.** `panel.py` imports only the stdlib plus those
   two, which is what lets it run under the throwaway-bundle screenshot trick (see Gotchas).
-- **Setup files:** keys are `setup_file.DEFAULTS`, plus tables `[ee1]` and `[ee{modules}]`. A relative `sequence` is in
-  `../sequences/`. New keys go in `DEFAULTS` (and `build_args` if `build()` needs them); `load` refuses anything else.
+- **Setup files:** keys are `setup_file.DEFAULTS`, plus tables `[ee1]`, `[ee{modules}]` (type + that type's
+  `SETTINGS`) and `[rod]`. A relative `sequence` is relative to `../sequences/`. New keys go in `DEFAULTS` (and
+  `build_args` if `build()` needs them); `load` refuses anything else. The panel keeps the loaded setup and lays its
+  fields over it, so keys without a field survive Save as.
 - **Paths:**
   - Everything resolves from the script folder (`HERE`): `meshes/`, `logs/`, `screenshots/`, `chain.xml`.
   - Sequences come from `../sequences/`, `export_meshes.py` reads `../hardware/cad/`, and `make_chain.py` reads
@@ -172,13 +183,9 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
 8. **Experiment support.** `../experiments/README.md` lists what the flight experiments still need from the sim: an
    anchored end (end-effector phase 2), partial-g stall tests (phase 2's sweep), prediction ranges over release
    errors, and the aircraft's own rotation.
-9. **Setup files, before phase 2 builds on them** (from the phase 1 review, 2026-10-29):
-   - The panel only carries keys it has a widget for: Load drops the rest, Save as writes DEFAULTS for them. Fine
-     today; phase 2's placement and phase 5's `[rod]` would be lost. First task of phase 2: keep the loaded setup and
-     lay the fields over it, ideally launching the viewer with `play.py --setup` so both paths share one mapping.
-   - `save` keeps a sequence outside `../sequences/` as an absolute path, which won't load on another computer;
-     `toml()` falls back to `repr()` for types it doesn't know (tuples, numpy numbers, dicts) and escapes non-BMP
-     characters badly; a TOML syntax error doesn't name the file; `os.path.exists` accepts a folder as a sequence.
+9. **Small things from the phase 1 review** (the rest was fixed in phase 2): `play.py --setup` errors print as
+   tracebacks; `joint_servos` doesn't assert the joint servos come first; the setup's about line follows the picker
+   before Load, and Save as prefills it.
 10. **The servo model is tuned, not identified.**
    - `kv` has no counterpart in the AX-12A (its firmware is proportional-only), and it makes joints lag their targets:
      7.6° at default timing, against 2.2° without it.
@@ -192,25 +199,8 @@ The reasons behind the servo model, masses, integrator, floor, world layout, end
 in "Physics choices" at the end of `README.md`. Read them before changing any of those.
 
 ## Interface details
-- `physics` freezes the whole sim through `Session.running`; `pause` only holds the fold sequence.
-- **`spin`** adds a rigid rotation about the centre of mass to the free joint.
-  - Root linear velocity += Δω × (p_root − c), and root angular velocity += Δω, with Δω along one world axis.
-  - That sets that axis's component of I⁻¹L to the rate, while leaving the other components, the shape and the joint
-    velocities alone. `axis="all"` (Stop spin) sets all three.
-  - It's an outside push, so it changes L. It also stands in for the leftover spin at release (`--spin X Y Z`).
-  - Before 2026-10-22 it reset the x and y components too.
-- **Readouts:**
-  - `spin` = (I_total⁻¹ L)_z, the whole chain's rate if its shape froze.
-  - `turned` = the heading change of m6's chain axis about the vertical since the last reset. The module-1-to-12 line
-    was rejected because a tip swing alone moves it about 5°.
-  - `IMU turn` = the 3D angle the IMU's module has turned since the last reset: what the flight IMU will report.
-  - The `sequence` line shows the sequence's length at the current speed, and flags it if it's longer than one
-    parabola (`parabola_s` in the spec).
-- **Timing:** `Session` keeps a sequence clock separate from sim time (for speed, pause and restart). Targets update
-  and the log writes every 10 ms (`mj_step(nstep=…)`).
-- **Screenshots** use an offscreen `mujoco.Renderer` with the viewer's camera.
-- **Viewer keys:** PageUp/PageDown select a module, Up/Down nudge pitch, Right/Left nudge yaw, Space pauses physics.
-- **Tested in the real GUI:** Play (2026-10-17), layout screenshots, and Spin → Play → Stop spin (2026-10-21).
+How `spin`, the readouts, timing, screenshots and the viewer keys work is in "Interface details" at the end of
+`README.md`.
 
 ## Gotchas for agents
 - **macOS viewer:** it needs `mjpython`. Tk can't run inside mjpython because both need the main thread; that's why
@@ -235,7 +225,7 @@ in "Physics choices" at the end of `README.md`. Read them before changing any of
   - Remove `__pycache__/` after test runs.
 
 ## Verification
-`verify.py` has 9 sections:
+`verify.py` has 10 sections:
 1. Compile, and meshes match the current CAD.
 2. Joint axes and arm mesh.
 3. Zero-g momentum.
@@ -247,5 +237,7 @@ in "Physics choices" at the end of `README.md`. Read them before changing any of
 9. End effectors and setups: every type at each end compiles and leaves the modules unchanged, the `m1_yaw` axis,
    zero-g momentum with both ends fitted, the `m1_yaw` column, setup-file errors and round trip, every setup in
    `setups/` builds.
+10. Anchors: placement on the floor and a wall, the clamp holds while the chain folds, grab on touch (not on a side
+   brush), let go keeps the momentum, the grip column and its warning.
 
 Its docstring says what each checks, and the key numbers are under Contracts.

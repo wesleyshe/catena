@@ -12,6 +12,7 @@
 7. flight options: the IMU output, weighed modules, air drag and the net cage
 8. offscreen renders: one module, the straight 12-module chain, the L and zig-zag folds, the dropped chain
 9. end effectors: every type at each end compiles, the modules are unchanged, the m1_yaw twist axis, zero-g momentum
+10. anchors: placement, the clamp holds, grab on touch, let go keeps the momentum, the grip column
 """
 import contextlib
 import glob
@@ -303,6 +304,100 @@ def renders():
     render(m, d, f"{HERE}/renders/gravity_drop.png", [(135, -25), (90, -10)], d.subtree_com[1], 2.2, (1000, 700))
 
 
+def check_anchors():
+    print("10. anchors: where an end starts attached, the clamp, grab on touch, let go, the grip column")
+    P, cols = PRESETS["original14"]["pitch"], [f"m{i}_{j}" for i in range(1, 13) for j in ("yaw", "pitch")]
+    zero, fold = [0] * 24, [0] * 24
+    fold[cols.index("m6_pitch")] = 90
+    with tempfile.TemporaryDirectory() as tmp:
+        def csv_file(name, rows, extra=()):
+            path = os.path.join(tmp, name)
+            with open(path, "w") as f:
+                f.write("\n".join([",".join(cols + list(extra))] + [",".join(map(str, r)) for r in rows]) + "\n")
+            return path
+        seq = csv_file("fold.csv", [zero, fold])
+
+        def session(attach, log=None, sequence=seq):
+            setup = setup_file.new(sequence=sequence, ee1=setup_file.end("anchor", attach=attach))
+            m, d = load(**setup_file.build_args(setup))
+            s = Session(m, d, log)
+            s.use_setup(setup)
+            return m, d, s
+
+        floor, wall = {"at": [0.0, 0.0, 0.0], "facing": "up", "roll_deg": 0.0}, {"at": [0.0, -0.9, 1.8], "facing": "+y"}
+        m, d, s = session(floor)
+        R, e1, m1, m12 = m.geom("ee1_sphere").size[0], m.body("ee1").id, m.body("m1").id, m.body("m12").id
+        ok = (np.allclose(d.xpos[e1], (0, 0, R)) and np.allclose(d.xpos[m12], (0, 0, R + 12 * P))
+              and np.allclose(d.xmat[m1].reshape(3, 3)[:, 0], (1, 0, 0)) and s.ends["ee1"].clamped)
+        m, d, s = session({**wall, "roll_deg": 90.0})
+        ok = ok and (np.allclose(d.xpos[e1], (0, -0.9 + R, 1.8)) and np.allclose(d.xpos[m12], (0, -0.9 + R + 12 * P, 1.8))
+                     and np.allclose(d.xmat[m1].reshape(3, 3)[:, 0], (0, 0, -1)) and m.geom("plate").id >= 0)
+        check(ok, "placement: ee1's tip sits on the floor or on a wall plate, the chain leaves along the surface's normal, "
+              "pitch axes start level and roll turns them; it starts clamped")
+
+        log = os.path.join(tmp, "log.csv")
+        m, d, s = session(floor, log)
+        p0, moved = d.xpos[e1].copy(), 0.0
+        s.play(seq, move=2, hold=0.5)
+        while s.seq_t < s.duration() - 1e-9:
+            s.advance()
+            moved = max(moved, np.linalg.norm(d.xpos[e1] - p0))
+        s.log.close()
+        s.log = None
+        head = open(log).readline().strip().split(",")
+        peak = s.ends["ee1"].peak
+        check(moved < 1e-3 and peak > 0.1 and head[-4:] == ["ee1_held", "ee1_load_N", "ee1_torque_Nm", "ee1_thrust_N"],
+              f"the clamp holds ee1 within {moved * 1000:.2f} mm while m6 folds 90 deg (peak load {peak:.2f} N); "
+              "the log gets 4 columns for the end")
+
+        s.grip("ee1", False)  # let go, lift it 3 cm, hold again and drop it onto the floor
+        d.qpos[2] += 0.03
+        d.qvel[:] = 0
+        mujoco.mj_forward(m, d)
+        s.grip("ee1", True)
+        m.opt.gravity[:] = (0, 0, -9.81)
+        t0 = d.time
+        while d.time < t0 + 1:
+            s.advance()
+        grabbed = s.ends["ee1"].clamped and abs(d.xpos[e1][2] - R) < 2e-3
+        m, d, s = session({})  # floating, lying along +y: dropped on its side, the tip never faces the floor
+        s.grip("ee1", True)
+        m.opt.gravity[:] = (0, 0, -9.81)
+        while d.time < 3:
+            s.advance()
+        check(grabbed and not s.ends["ee1"].clamped and d.ncon > 0,
+              "grab on touch: told to hold, a falling ee1 latches onto the floor tip-first and is pulled onto it; "
+              "dropped on its side it doesn't latch")
+
+        m, d, s = session(wall)
+        s.play(seq, move=2, hold=0.5)
+        while s.seq_t < 1.5:
+            s.advance()
+        s.grip("ee1", False)
+        s.advance()
+        L0, v0 = d.sensor("angmom").data.copy(), d.sensor("com_vel").data.copy()
+        while s.seq_t < s.duration() - 1e-9:
+            s.advance()
+        L1, v1 = d.sensor("angmom").data, d.sensor("com_vel").data
+        check(np.linalg.norm(L0) > 1e-3 and np.linalg.norm(L1 - L0) < 1e-4 * np.linalg.norm(L0)
+              and np.linalg.norm(v0) > 1e-3 and np.linalg.norm(v1 - v0) < 1e-4 * np.linalg.norm(v0),
+              f"let go mid-fold: it drifts off at {np.linalg.norm(v0) * 1000:.1f} mm/s, spinning with the momentum the wall "
+              f"was taking (|L| {np.linalg.norm(L0):.3f}), both constant after")
+
+        grip = csv_file("grip.csv", [zero + [1, 1], fold + [1, 1], fold + [0, 1]], ("ee1_grip", "ee12_grip"))
+        with contextlib.redirect_stdout(io.StringIO()) as said:
+            m, d, s = session(floor, sequence=grip)
+            s.play(grip, move=1, hold=0.5)
+        held = []
+        while s.seq_t < s.duration() - 1e-9:
+            s.advance()
+            if abs(s.seq_t - 2.9) < 0.005 or abs(s.seq_t - 3.1) < 0.005:
+                held.append(s.ends["ee1"].clamped)
+        check(held == [True, False] and said.getvalue().count("ee12_grip") == 1,
+              "the ee1_grip column lets go when row 2's hold starts (3.0 s); ee12_grip without an ee12 is ignored, "
+              "with one warning")
+
+
 def check_end_effectors():
     print("9. end effectors: a module past m1 (on the m1_yaw twist servo) and one past m12")
     m0, _ = load()
@@ -391,18 +486,28 @@ def check_end_effectors():
               and refused('sequence = "nowhere.csv"\n', "nowhere.csv")
               and refused('modules = 6\n[ee12]\ntype = "anchor"\n', "[ee6]")
               and refused('[ee1]\ntype = "hook"\n', "hook")
-              and refused('speed = 0\n', "speed") and refused('move_s = 0\n', "move_s") and refused('hold_s = -1\n', "hold_s"),
-              "setup files: a misspelt key, a missing sequence, the wrong far-end table, an unknown type and timings that "
-              "can't play are refused, naming the problem")
+              and refused('speed = 0\n', "speed") and refused('move_s = 0\n', "move_s") and refused('hold_s = -1\n', "hold_s")
+              and refused('[ee1]\ntype = "anchor"\nthrust_N = 1\n', "thrust_N") and refused('ee1 = "anchor"\n', "table")
+              and refused('[ee1]\ntype = "anchor"\nattach = { rod_m = 0.3 }\n', "[rod]") and refused('speed = \n', "bad.toml")
+              and refused('sequence = "."\n', "sequences"),
+              "setup files: a misspelt key, a missing sequence, the wrong far-end table, an unknown type, timings that "
+              "can't play, settings for another type, an attach without its rod and bad TOML are refused, naming the problem")
         path = os.path.join(tmp, "round.toml")
-        mine = {**setup_file.DEFAULTS, "sequence": seq, "move_s": 1.5, "spin_deg_s": [0.0, 0.0, 0.5], "modules": 8,
-                "cage": True, "ee1": "anchor", "ee_n": "thruster"}
+        rod = {"from": [0.0, -1.0, 1.0], "to": [0.0, 1.0, 1.0], "diameter_mm": 35.0}
+        mine = setup_file.new(sequence=seq, move_s=1.5, spin_deg_s=[0.0, 0.0, 0.5], modules=8, cage=True, rod=rod,
+                              ee1=setup_file.end("anchor", attach={"at": [0.0, -0.9, 1.8], "facing": "+y", "roll_deg": 90.0}),
+                              ee_n=setup_file.end("thruster", thrust_N=0.2))
         setup_file.save(path, mine, "a round trip")
         same = setup_file.load(path) == mine and setup_file.about(path) == "a round trip"
-        ours = {**setup_file.DEFAULTS, "sequence": FOLD_SEQ}
+        theirs = setup_file.new(sequence=seq, rod=rod, ee1=setup_file.end("suction", pull_N=15.0,
+                                                                          attach={"rod_m": 0.4, "facing": "up", "roll_deg": 0.0}))
+        setup_file.save(path, theirs)
+        same = same and setup_file.load(path) == theirs
+        ours = setup_file.new(sequence=os.path.join(HERE, "..", "sequences", "fold_sequence.csv"))
         setup_file.save(path, ours)
-        same = same and setup_file.load(path) == ours and 'sequence = "fold_sequence.csv"' in open(path).read()
-        check(same, "Save as then Load gives back the same setup, for a sequence in sequences/ and one elsewhere")
+        same = same and setup_file.load(path)["sequence"] == FOLD_SEQ and 'sequence = "fold_sequence.csv"' in open(path).read()
+        check(same, "Save as then Load gives back the same setup: placements, rod, settings per type, and sequences in "
+              "sequences/ or elsewhere")
 
     one = setup_file.single_axis_spin
     two = one([0, 2, 0.5])
@@ -432,5 +537,6 @@ if __name__ == "__main__":
     check_flight()
     renders()
     check_end_effectors()
+    check_anchors()
     print("\nALL CHECKS PASSED" if not failures else f"\n{len(failures)} CHECK(S) FAILED")
     raise SystemExit(bool(failures))

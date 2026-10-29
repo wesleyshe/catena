@@ -1,0 +1,17 @@
+# Hanging from a wall in zero g, told to stand straight out: with no weight, it stands all the way out.
+sequence = "stand_out.csv"
+move_s = 4.0
+hold_s = 4.0
+speed = 1.0
+playback = 1.0
+gravity_m_s2 = 0.0
+spin_deg_s = [0.0, 0.0, 0.0]
+air = false
+cage = false
+preset = "original14"
+modules = 12
+slip_ring = false
+
+[ee1]
+type = "anchor"
+attach = { at = [0.0, -1.0, 1.8], facing = "+y", roll_deg = 0.0 }

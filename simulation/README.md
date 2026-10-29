@@ -278,3 +278,24 @@ Why the model is built the way it is. Kept here so `AGENTS.md` stays short; read
     net. Its size is a placeholder.
   - **Leftover gravity in the cabin** is just the gravity setting. A uniform pull doesn't change the turn (checked to
     0.01°); it only moves the chain into the cage.
+
+## Interface details
+- `physics` freezes the whole sim through `Session.running`; `pause` only holds the fold sequence.
+- **`spin`** adds a rigid rotation about the centre of mass to the free joint.
+  - Root linear velocity += Δω × (p_root − c), and root angular velocity += Δω, with Δω along one world axis.
+  - That sets that axis's component of I⁻¹L to the rate, while leaving the other components, the shape and the joint
+    velocities alone. `axis="all"` (Stop spin) sets all three.
+  - It's an outside push, so it changes L. It also stands in for the leftover spin at release (`--spin X Y Z`).
+  - Before 2026-10-22 it reset the x and y components too.
+- **Readouts:**
+  - `spin` = (I_total⁻¹ L)_z, the whole chain's rate if its shape froze.
+  - `turned` = the heading change of m6's chain axis about the vertical since the last reset. The module-1-to-12 line
+    was rejected because a tip swing alone moves it about 5°.
+  - `IMU turn` = the 3D angle the IMU's module has turned since the last reset: what the flight IMU will report.
+  - The `sequence` line shows the sequence's length at the current speed, and flags it if it's longer than one
+    parabola (`parabola_s` in the spec).
+- **Timing:** `Session` keeps a sequence clock separate from sim time (for speed, pause and restart). Targets update
+  and the log writes every 10 ms (`mj_step(nstep=…)`).
+- **Screenshots** use an offscreen `mujoco.Renderer` with the viewer's camera.
+- **Viewer keys:** PageUp/PageDown select a module, Up/Down nudge pitch, Right/Left nudge yaw, Space pauses physics.
+- **Tested in the real GUI:** Play (2026-10-17), layout screenshots, and Spin → Play → Stop spin (2026-10-21).

@@ -3,11 +3,12 @@
 A setup is a TOML file in setups/, the same format as ../hardware/spec.toml. Its first line, a # comment, says what the
 run shows; the control window displays it. Every key is optional and defaults to DEFAULTS:
 
-  # Turns about 30° with no push.
-  sequence = "reorient_loop.csv"   # in ../sequences/, or a full path
-  move_s = 1.0                     # seconds to move between rows, and to hold each row
-  hold_s = 0.25
-  speed = 1.0                      # play the whole sequence this many times faster
+  # Reaches out from a wall and holds.
+  sequence = "arm_reach.csv"       # in ../sequences/, or a path relative to it, or a full path
+  move_s = 3.0                     # seconds to move between rows, and to hold each row
+  hold_s = 1.0
+  speed = 1.0                      # play the whole sequence this many times faster (faster motion: different physics)
+  playback = 1.0                   # the viewer shows it this many times faster than real time (same physics)
   gravity_m_s2 = 0.0
   spin_deg_s = [0.0, 0.0, 0.5]     # spin about world x, y, z when the sequence starts: the leftover spin at release
   air = false                      # cabin air drag, the net cage (numbers in ../hardware/spec.toml)
@@ -18,21 +19,50 @@ run shows; the control window displays it. Every key is optional and defaults to
 
   [ee1]                            # the end effector past m1; [ee12] is the one past m12 ([ee{modules}] in general)
   type = "anchor"                  # none, anchor, suction or thruster; a missing table means none
+  attach = { at = [0.0, -0.9, 1.8], facing = "+y", roll_deg = 0.0 }   # anchor, suction: where it starts attached
+  # attach = { rod_m = 0.3, facing = "up", roll_deg = 0.0 }           # ... or on the rod, this far along it
+  # pull_N = 20.0, cup_mm = 40.0, friction = 0.8                      # suction cup only
+  # thrust_N = 0.1                                                    # thruster only: per nozzle
+
+  [rod]                            # a fixed rod (a handrail) that anchors can clamp onto; a missing table means none
+  from = [0.0, -1.2, 1.0]
+  to = [0.0, 1.2, 1.0]
+  diameter_mm = 35.0
+
+facing is the surface's outward normal (up = the floor; down, +x, -x, +y, -y), and the chain leaves the surface along
+it. On a rod it's the side of the rod the chain is on. If both ends are attached, ee1 sets where the chain starts.
 
 play.py --setup FILE runs one; the control window's Setup box loads and saves them. Stdlib only, like panel.py.
 """
+import copy
 import json
+import math
+import numbers
 import os
 import tomllib
 
-from make_chain import EE_TYPES, N_MODULES, PRESETS
+from make_chain import EE_DEFAULTS, EE_TYPES, FACINGS, N_MODULES, PRESETS, ROD_MM
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(HERE)
 SETUP_DIR = os.path.join(HERE, "setups")
-SEQ_DIR = os.path.join(os.path.dirname(HERE), "sequences")  # at the repo root, shared with the robot software
-DEFAULTS = dict(sequence="", move_s=3.0, hold_s=1.0, speed=1.0, gravity_m_s2=0.0, spin_deg_s=[0.0, 0.0, 0.0],
-                air=False, cage=False, preset="original14", modules=N_MODULES, slip_ring=False, ee1="none", ee_n="none")
+SEQ_DIR = os.path.join(REPO, "sequences")  # at the repo root, shared with the robot software
+DEFAULTS = dict(sequence="", move_s=3.0, hold_s=1.0, speed=1.0, playback=1.0, gravity_m_s2=0.0, spin_deg_s=[0.0, 0.0, 0.0],
+                air=False, cage=False, preset="original14", modules=N_MODULES, slip_ring=False,
+                ee1=dict(EE_DEFAULTS), ee_n=dict(EE_DEFAULTS), rod={})
 ENDS = ("ee1", "ee_n")  # in a setup dict; in the file they're the tables [ee1] and [ee{modules}]
+TABLES = ENDS + ("rod",)
+SETTINGS = dict(none=(), anchor=("attach",), suction=("attach", "pull_N", "cup_mm", "friction"), thruster=("thrust_N",))
+
+
+def new(**changes):
+    """A fresh setup dict: DEFAULTS with these changes."""
+    return {**copy.deepcopy(DEFAULTS), **copy.deepcopy(changes)}
+
+
+def end(kind="none", **settings):
+    """An end-effector entry for a setup dict, e.g. end("anchor", attach={"at": [0, 0, 0], "facing": "up"})."""
+    return {**copy.deepcopy(EE_DEFAULTS), "type": kind, **copy.deepcopy(settings)}
 
 
 def fits(val, default):
@@ -47,42 +77,95 @@ def fits(val, default):
     return isinstance(val, type(default)) and not isinstance(val, bool)
 
 
+def value(name, key, val, default):
+    if not fits(val, default):
+        raise ValueError(f"{name}: {key} = {val!r}, expected something like {default!r}")
+    return [float(x) for x in val] if isinstance(default, list) else type(default)(val)
+
+
+def read_attach(name, table, val):
+    """{} (floating), {at, facing, roll_deg} or {rod_m, facing, roll_deg}."""
+    if not isinstance(val, dict) or len({"at", "rod_m"} & set(val)) != 1 or set(val) - {"at", "rod_m", "facing", "roll_deg"}:
+        raise ValueError(f"{name}: [{table}] attach = {val!r}: write {{ at = [x, y, z], facing = \"up\", roll_deg = 0 }} "
+                         "or { rod_m = 0.3, facing = \"up\", roll_deg = 0 }")
+    out = {"at": value(name, "attach at", val["at"], [0.0] * 3)} if "at" in val else \
+          {"rod_m": value(name, "attach rod_m", val["rod_m"], 0.0)}
+    out["facing"] = val.get("facing", "up")
+    if out["facing"] not in FACINGS:
+        raise ValueError(f"{name}: [{table}] facing {out['facing']!r}: choose one of {', '.join(FACINGS)}")
+    out["roll_deg"] = value(name, "attach roll_deg", val.get("roll_deg", 0.0), 0.0)
+    return out
+
+
+def read_end(name, table, val):
+    if not isinstance(val, dict):
+        raise ValueError(f"{name}: {table} = {val!r}: an end effector is a table; write [{table}] and then type = ...")
+    kind = val.get("type", "none")
+    if kind not in EE_TYPES:
+        raise ValueError(f"{name}: [{table}] type {kind!r}: choose one of {', '.join(EE_TYPES)}")
+    extra = set(val) - {"type"} - set(SETTINGS[kind])
+    if extra:
+        raise ValueError(f"{name}: [{table}] a {kind} has no {', '.join(sorted(extra))}"
+                         f" (its settings: {', '.join(SETTINGS[kind]) or 'none'})")
+    out = end(kind)
+    for key in SETTINGS[kind]:
+        if key in val:
+            out[key] = read_attach(name, table, val[key]) if key == "attach" else value(name, key, val[key], EE_DEFAULTS[key])
+    return out
+
+
+def read_rod(name, val):
+    if not isinstance(val, dict) or {"from", "to"} - set(val) or set(val) - {"from", "to", "diameter_mm"}:
+        raise ValueError(f"{name}: [rod] needs from = [x, y, z] and to = [x, y, z], and optionally diameter_mm")
+    rod = {"from": value(name, "rod from", val["from"], [0.0] * 3), "to": value(name, "rod to", val["to"], [0.0] * 3),
+           "diameter_mm": value(name, "rod diameter_mm", val.get("diameter_mm", float(ROD_MM)), 0.0)}
+    if rod["from"] == rod["to"] or rod["diameter_mm"] <= 0:
+        raise ValueError(f"{name}: [rod] needs two different end points and a diameter above 0")
+    return rod
+
+
 def load(path):
-    """The setup in `path` as a flat dict with DEFAULTS' keys. ee1 and ee_n are end-effector types; sequence is a full
-    path, or "" for none. Raises ValueError, naming the file, for anything it doesn't understand."""
+    """The setup in `path` as a dict like DEFAULTS: ee1 / ee_n / rod are dicts, and sequence is a full path or "".
+    Raises ValueError, naming the file, for anything it doesn't understand."""
     name = os.path.basename(path)
-    with open(path, "rb") as f:
-        raw = tomllib.load(f)
-    setup, n = dict(DEFAULTS), raw.get("modules", N_MODULES)
+    try:
+        with open(path, "rb") as f:
+            raw = tomllib.load(f)
+    except tomllib.TOMLDecodeError as e:
+        raise ValueError(f"{name}: {e}") from None
+    setup, n = new(), raw.get("modules", N_MODULES)
     for key, val in raw.items():
-        if key in ("ee1", f"ee{n}") and isinstance(val, dict):
-            if set(val) - {"type"}:
-                raise ValueError(f"{name}: [{key}] has unknown keys {', '.join(sorted(set(val) - {'type'}))}")
-            if val.get("type", "none") not in EE_TYPES:
-                raise ValueError(f"{name}: [{key}] type {val.get('type')!r}: choose one of {', '.join(EE_TYPES)}")
-            setup["ee1" if key == "ee1" else "ee_n"] = val.get("type", "none")
+        if key in ("ee1", f"ee{n}"):
+            setup["ee1" if key == "ee1" else "ee_n"] = read_end(name, key, val)
         elif key.startswith("ee") and key[2:].isdigit():
             raise ValueError(f"{name}: [{key}]: the ends of a {n}-module chain are [ee1] and [ee{n}]")
-        elif key in DEFAULTS and key not in ENDS:
-            default = DEFAULTS[key]
-            if not fits(val, default):
-                raise ValueError(f"{name}: {key} = {val!r}, expected something like {default!r}")
-            setup[key] = [float(x) for x in val] if isinstance(default, list) else type(default)(val)
+        elif key == "rod":
+            setup["rod"] = read_rod(name, val)
+        elif key in DEFAULTS and key not in TABLES:
+            setup[key] = value(name, key, val, DEFAULTS[key])
         else:
-            keys = ", ".join(k for k in DEFAULTS if k not in ENDS)
-            raise ValueError(f"{name}: unknown key {key!r}. Setup keys: {keys}, and tables [ee1] and [ee{n}]")
+            keys = ", ".join(k for k in DEFAULTS if k not in TABLES)
+            raise ValueError(f"{name}: unknown key {key!r}. Setup keys: {keys}, and tables [ee1], [ee{n}] and [rod]")
     for key, ok, rule in (("move_s", setup["move_s"] > 0, "more than 0"), ("hold_s", setup["hold_s"] >= 0, "0 or more"),
-                          ("speed", setup["speed"] > 0, "more than 0")):
+                          ("speed", setup["speed"] > 0, "more than 0"), ("playback", setup["playback"] > 0, "more than 0")):
         if not ok:
             raise ValueError(f"{name}: {key} = {setup[key]:g}, it must be {rule} for the sequence to play")
     if setup["preset"] not in PRESETS:
         raise ValueError(f"{name}: preset {setup['preset']!r}: choose one of {', '.join(PRESETS)}")
     if setup["modules"] < 2:
         raise ValueError(f"{name}: modules = {setup['modules']}, need at least 2")
+    for key in ENDS:
+        attach = setup[key]["attach"]
+        if "rod_m" in attach:
+            if not setup["rod"]:
+                raise ValueError(f"{name}: an end is attached to the rod, but there's no [rod] table")
+            u = [b - a for a, b in zip(setup["rod"]["from"], setup["rod"]["to"])]
+            if abs(sum(x * y for x, y in zip(u, FACINGS[attach["facing"]]))) > 1e-9 * math.hypot(*u):
+                raise ValueError(f"{name}: facing {attach['facing']!r} isn't across the rod; pick a side of the rod")
     if setup["sequence"]:
         setup["sequence"] = os.path.normpath(os.path.join(SEQ_DIR, os.path.expanduser(setup["sequence"])))
-        if not os.path.exists(setup["sequence"]):
-            raise ValueError(f"{name}: the sequence {setup['sequence']} doesn't exist")
+        if not os.path.isfile(setup["sequence"]):
+            raise ValueError(f"{name}: the sequence {setup['sequence']} isn't a file (sequences are in {SEQ_DIR})")
     return setup
 
 
@@ -93,23 +176,40 @@ def about(path):
     return line.lstrip("#").strip() if line.startswith("#") else ""
 
 
-def save(path, setup, about=""):
-    """Write `setup` (a dict like load's) as TOML, by hand because tomllib only reads. An end that's none gets no table."""
-    def toml(x):
-        if isinstance(x, bool):
-            return "true" if x else "false"
-        if isinstance(x, list):
-            return "[" + ", ".join(map(toml, x)) + "]"
-        return json.dumps(x) if isinstance(x, str) else repr(x)
+def toml(x):
+    """One TOML value. Only the kinds a setup holds; anything else is a mistake, so it raises."""
+    if isinstance(x, bool):
+        return "true" if x else "false"
+    if isinstance(x, numbers.Integral):
+        return str(int(x))
+    if isinstance(x, numbers.Real):
+        return repr(float(x))
+    if isinstance(x, str):
+        return json.dumps(x, ensure_ascii=False)
+    if isinstance(x, (list, tuple)):
+        return "[" + ", ".join(map(toml, x)) + "]"
+    if isinstance(x, dict):
+        return "{ " + ", ".join(f"{k} = {toml(v)}" for k, v in x.items()) + " }"
+    raise TypeError(f"can't write {x!r} ({type(x).__name__}) to a setup file")
 
+
+def save(path, setup, about=""):
+    """Write `setup` (a dict like load's) as TOML, by hand because tomllib only reads. An end that's none, or no rod,
+    gets no table. A sequence inside the repo is saved relative to sequences/, so the file works on any computer."""
     seq = setup["sequence"]
-    if seq and os.path.dirname(os.path.abspath(seq)) == SEQ_DIR:
-        seq = os.path.basename(seq)
+    if seq:
+        seq = os.path.abspath(seq)
+        if os.path.commonpath([seq, REPO]) == REPO:
+            seq = os.path.relpath(seq, SEQ_DIR)
     lines = [f"# {' '.join(about.split())}"] if about.strip() else []
-    lines += [f"{k} = {toml(seq if k == 'sequence' else setup[k])}" for k in DEFAULTS if k not in ENDS]
+    lines += [f"{k} = {toml(seq if k == 'sequence' else setup[k])}" for k in DEFAULTS if k not in TABLES]
     for key, table in zip(ENDS, ("ee1", f"ee{setup['modules']}")):
-        if setup[key] != "none":
-            lines += ["", f"[{table}]", f"type = {toml(setup[key])}"]
+        e = setup[key]
+        if e["type"] != "none":
+            lines += ["", f"[{table}]", f"type = {toml(e['type'])}"]
+            lines += [f"{k} = {toml(e[k])}" for k in SETTINGS[e["type"]] if not (k == "attach" and not e[k])]
+    if setup["rod"]:
+        lines += ["", "[rod]"] + [f"{k} = {toml(v)}" for k, v in setup["rod"].items()]
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
 
@@ -126,4 +226,4 @@ def single_axis_spin(spin):
 def build_args(setup):
     """make_chain.build()'s keyword arguments for this setup."""
     return dict(preset=setup["preset"], n=setup["modules"], slip_ring=setup["slip_ring"], gravity=setup["gravity_m_s2"],
-                air=setup["air"], cage=setup["cage"], ee1=setup["ee1"], ee_n=setup["ee_n"])
+                air=setup["air"], cage=setup["cage"], ee1=setup["ee1"], ee_n=setup["ee_n"], rod=setup["rod"])

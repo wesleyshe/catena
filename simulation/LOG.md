@@ -3,6 +3,26 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-10-29 · Wesley (Claude Code)
+- **End effectors, phase 2: placement and the anchor** (plan `../docs/design/2026-10-29-end-effectors-phases2-6-plan.md`):
+  - Setups can start an end attached (`attach`: a point and facing, or along the rod), and start the chain in its
+    sequence's first row. `[rod]` adds a fixed rod.
+  - The anchor clamps (a weld to a mocap body), grabs on touch when told to hold (its tip within 15 mm, then pulls in
+    softly over 0.2 s), and lets go; load and torque are smoothed and logged (4 columns per fitted end).
+  - Sequences can carry `ee{k}_grip` columns. New: `arm_reach.csv`, `arm_let_go.csv`, `stand_out.csv`; setups 2a,
+    2b ×4, 2c. `stall_sweep.py`: the longest chain that stands out level is 3 modules on Earth, 4 on Mars, 6 on the
+    Moon, all 12 in zero g (hand estimate 2 / 4 / 7).
+  - Wesley asked for a speed multiplier for watching: **Playback x** (panel), `--playback`, setup key `playback`. It
+    runs more physics steps per frame, so the physics doesn't change; the readout says if the computer can't keep up.
+  - The control window lays its fields over the loaded setup and starts the viewer from `panel_setup.toml` (the
+    review's I1), and has per-type end-effector settings, Hold / Let go, nozzle toggles and a rod tick box. Two
+    columns now.
+  - The phase 1 review's minors in `setup_file.py` are fixed (relative paths, strict `toml()`, `isfile`, file names
+    in errors).
+- **Checked:** `verify.py` ALL CHECKS PASSED, 10 sections; with both ends none, `build()` and the headless logs are
+  byte-identical to `fbe880f`; the 1a setup log equals the plain-flags run; every new setup headless; the real
+  control window by scripted buttons (Load 2a, Play ×4, Let go, Hold, Save as keeps the placement). Not looked at by eye.
+
+## 2026-10-29 · Wesley (Claude Code)
 - **End effectors and setups, phase 1** (design `../docs/design/2026-10-28-end-effectors.md`, plan next to it):
   - `build(..., ee1, ee_n)`: an optional module past m1, on the `m1_yaw` twist servo, and one past module N, rigid.
     Each is none, anchor, suction or thruster; so far they differ only in mass (placeholders in `make_chain.py`) and

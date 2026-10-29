@@ -20,6 +20,7 @@ import json
 import math
 import os
 import queue
+import re
 import socket
 import threading
 import time
@@ -28,7 +29,7 @@ import mujoco
 import numpy as np
 
 import setup_file
-from make_chain import FLIGHT, build
+from make_chain import FLIGHT, attach_point, build, leading_end, level_axis
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 AXES = dict(x=(1, 0, 0), y=(0, 1, 0), z=(0, 0, 1))  # world axes: x across the start pose, y along it, z vertical
@@ -37,6 +38,11 @@ STEP_DEG = 5.0      # keyboard nudge per press
 LOG_DT = 0.01       # seconds between log rows and between sequence target updates
 KEYS = dict(next=266, prev=267, pitch_up=265, pitch_down=264, yaw_up=262, yaw_down=263, pause=32)  # GLFW codes
 BASE_RGBA, SELECT_RGBA = (0.78, 0.78, 0.80, 1), (1.0, 0.6, 0.2, 1)
+CAPTURE = 0.015     # m: an anchor told to hold grabs when its grip face comes this close to something fixed
+PULL_IN = 0.2       # s: having grabbed short of the surface, the clamp pulls the face onto it gently for this long
+SOFT_SOLREF = (0.05, 1.0)  # the clamp's weld while it pulls in; then it's back to the stiff make_chain.CLAMP_SOLREF
+LOAD_TAU = 0.1      # s: end-effector loads are smoothed over this; the stiff clamp's raw force is spiky
+EE_COLUMN = re.compile(r"(ee\d+)_(grip|n[0-4])$")  # end-effector columns in a sequence CSV
 
 
 def actuator(model, name):
@@ -59,20 +65,16 @@ def stamp():
 
 def read_sequence(path, model):
     """Keyframes from a CSV as joint-servo targets (rad). Columns are degrees in the order m1_yaw, m1_pitch, ...,
-    mN_yaw, mN_pitch; an optional header row names them. mN_pitch has no servo, nor has m1_yaw without ee1: ignored."""
-    with open(path) as f:
-        rows = [r for r in csv.reader(f) if r and not r[0].lstrip().startswith("#")]
-    n, nj = modules(model), joint_servos(model)
-    names = [f"m{i}_{j}" for i in range(1, n + 1) for j in ("yaw", "pitch")]
-    try:
-        float(rows[0][0])
-    except ValueError:
-        names, rows = [c.strip() for c in rows[0]], rows[1:]
+    mN_yaw, mN_pitch; an optional header row names them. mN_pitch has no servo, nor has m1_yaw without ee1: ignored.
+    End-effector columns (ee1_grip, ...) are read_ee's."""
+    names, rows = csv_rows(path, modules(model))
+    nj = joint_servos(model)
     keys = []
     for r in rows:
-        assert len(r) == len(names), f"{path}: expected {len(names)} columns, got {len(r)}"
         q = np.zeros(nj)
         for name, val in zip(names, map(float, r)):
+            if EE_COLUMN.match(name):
+                continue
             a = actuator(model, name)
             if 0 <= a < nj:
                 q[a] = math.radians(val)
@@ -80,6 +82,72 @@ def read_sequence(path, model):
                 print(f"warning: {name} has no servo, ignoring {val:g} deg")
         keys.append(q)
     return np.array(keys)
+
+
+def csv_rows(path, n):
+    """A sequence CSV's column names and rows (strings), skipping # comments. Without a header row the columns are the
+    joints of an n-module chain."""
+    with open(path) as f:
+        rows = [r for r in csv.reader(f) if r and not r[0].lstrip().startswith("#")]
+    names = [f"m{i}_{j}" for i in range(1, n + 1) for j in ("yaw", "pitch")]
+    try:
+        float(rows[0][0])
+    except ValueError:
+        names, rows = [c.strip() for c in rows[0]], rows[1:]
+    for r in rows:
+        assert len(r) == len(names), f"{path}: expected {len(names)} columns, got {len(r)}"
+    return names, rows
+
+
+def read_ee(path, model):
+    """A sequence's end-effector columns, {"ee1_grip": array per row, ...}: grip 1 = hold, 0 = let go (anchor, suction);
+    n0-n4 = nozzle throttle 0-1 (thruster). A column the model can't act on is dropped with one warning."""
+    names, rows = csv_rows(path, modules(model))
+    out = {}
+    for k, name in enumerate(names):
+        found = EE_COLUMN.match(name)
+        if not found:
+            continue
+        end, what = found.groups()
+        able = (mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_EQUALITY, f"{end}_clamp") >= 0 or actuator(model, f"{end}_suck") >= 0
+                if what == "grip" else actuator(model, f"{end}_{what}") >= 0)
+        if able:
+            out[name] = np.array([float(r[k]) for r in rows])
+        else:
+            print(f"warning: {name}: there's no {'anchor or suction cup' if what == 'grip' else 'thruster'} on {end}, ignoring it")
+    return out
+
+
+def axis_rotation(axis, deg):
+    q, R = np.zeros(4), np.zeros(9)
+    mujoco.mju_axisAngle2Quat(q, np.asarray(axis, float), math.radians(deg))
+    mujoco.mju_quat2Mat(R, q)
+    return R.reshape(3, 3)
+
+
+class End:
+    """An end effector as the session sees it: what it is, what it's been told to do and what it's doing."""
+
+    def __init__(self, model, name):
+        find = lambda kind, what: mujoco.mj_name2id(model, kind, what)
+        self.name, self.body = name, model.body(name).id
+        self.clamp = find(mujoco.mjtObj.mjOBJ_EQUALITY, f"{name}_clamp")
+        self.suck = actuator(model, f"{name}_suck")
+        self.nozzles = [a for k in range(5) if (a := actuator(model, f"{name}_n{k}")) >= 0]
+        self.kind = "anchor" if self.clamp >= 0 else "suction" if self.suck >= 0 else "thruster" if self.nozzles else "plain"
+        self.tip = find(mujoco.mjtObj.mjOBJ_GEOM, f"{name}_tip")
+        self.mocap = model.body_mocapid[model.body(f"{name}_hold").id] if self.clamp >= 0 else -1
+        self.stiff = model.eq_solref[self.clamp].copy() if self.clamp >= 0 else None
+        self.reset()
+
+    def reset(self):
+        self.armed = self.clamped = self.held = False
+        self.load = self.torque = self.peak = 0.0  # N (clamp force or cup pull), N m (clamp torque), peak load
+        self.pops, self.pull_in_until = 0, None    # times it let go without being told to; end of a clamp's pull-in
+
+    def state(self):
+        return ("holding" if self.held else "ready to grab" if self.armed else "let go") if self.kind in ("anchor", "suction") \
+            else self.kind
 
 
 def target(keys, t, move, hold):
@@ -95,20 +163,20 @@ class Logger:
     """Writes time, chain COM, total angular momentum about the COM, max |actuator torque|, contacts, and what the
     flight IMU will report: its module's attitude (quaternion, world frame) and rotation rate (rad/s, its own frame)."""
 
-    def __init__(self, path, nj):
-        self.path, self.nj = path, nj  # nj: joint servos, the first nj actuators
+    def __init__(self, path, nj, extra=()):
+        self.path, self.nj = path, nj  # nj: joint servos, the first nj actuators. extra: more columns, at the end
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         self.f = open(path, "w", newline="")
         self.w = csv.writer(self.f)
         self.w.writerow(["time", "com_x", "com_y", "com_z", "L_x", "L_y", "L_z", "L_norm", "max_torque", "contacts",
-                         "imu_qw", "imu_qx", "imu_qy", "imu_qz", "imu_wx", "imu_wy", "imu_wz"])
+                         "imu_qw", "imu_qx", "imu_qy", "imu_qz", "imu_wx", "imu_wy", "imu_wz", *extra])
 
-    def __call__(self, data):
+    def __call__(self, data, extra=()):
         com, L = data.sensor("com").data, data.sensor("angmom").data
         self.w.writerow([f"{data.time:.3f}", *(f"{x:.7g}" for x in com), *(f"{x:.4g}" for x in L),
                          f"{np.linalg.norm(L):.4g}", f"{np.abs(data.actuator_force[:self.nj]).max():.4g}", data.ncon,
                          *(f"{x:.6g}" for x in data.sensor("imu_quat").data),
-                         *(f"{x:.4g}" for x in data.sensor("imu_gyro").data)])
+                         *(f"{x:.4g}" for x in data.sensor("imu_gyro").data), *extra])
 
     def close(self):
         self.f.close()
@@ -117,25 +185,141 @@ class Logger:
 class Session:
     """Simulation state shared by the keyboard, the control window and the main loop."""
 
-    def __init__(self, model, data, log_path=None):
+    def __init__(self, model, data, log_path=None, setup=None):
         self.m, self.d = model, data
         self.keys, self.seq_name, self.move, self.hold = None, "", 3.0, 1.0
         self.seq_t, self.playing, self.speed = 0.0, False, 1.0
+        self.playback = 1.0  # the viewer shows this many seconds of simulation per second; the physics doesn't change
         self.running = True  # False freezes the physics (time, motion, sequence clock, log)
         self.nj = joint_servos(model)  # sequences drive these; other actuators (end effectors) come after them
         self.mid = model.body(f"m{max(1, modules(model) // 2)}").id  # middle module (m6 of 12): its heading = "turned"
-        self.log = Logger(log_path, self.nj) if log_path else None
+        names = ("ee1", f"ee{modules(model)}")
+        self.ends = {e: End(model, e) for e in names if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, e) >= 0}
+        self.fixed = [g for g in range(model.ngeom) if model.geom_bodyid[g] == 0]  # floor, plates, rod, cage
+        self.setup, self.row0, self.ee_cols, self.ee_row = None, None, {}, None
+        self.log = Logger(log_path, self.nj, self.end_names()) if log_path else None
+        self.use_setup(setup) if setup else self.reset()
+
+    def end_names(self):
+        return [f"{e}_{c}" for e in self.ends for c in ("held", "load_N", "torque_Nm", "thrust_N")]
+
+    def end_columns(self):
+        return [x for e in self.ends.values() for x in
+                (int(e.held), f"{e.load:.4g}", f"{e.torque:.4g}", f"{self.thrust(e):.4g}")]
+
+    def thrust(self, e):
+        return float(np.sum(self.d.actuator_force[e.nozzles])) if e.nozzles else 0.0
+
+    def use_setup(self, setup):
+        """Start from this setup from now on (and on Reset pose): the chain in its sequence's first row, attached where
+        the setup says."""
+        self.setup = setup
+        self.row0 = read_sequence(setup["sequence"], self.m)[0] if setup["sequence"] else np.zeros(self.nj)
         self.reset()
 
+    def place(self):
+        """The setup's start pose: joints (and servo targets) at the sequence's first row; if an end is attached, the
+        chain moved so that end sits on its surface, holding on."""
+        m, d = self.m, self.d
+        for a in range(self.nj):
+            d.qpos[m.jnt_qposadr[m.actuator_trnid[a, 0]]] = d.ctrl[a] = self.row0[a]
+            if m.actuator_actadr[a] >= 0:
+                d.act[m.actuator_actadr[a]] = self.row0[a]
+        ends = [self.setup["ee1"], self.setup["ee_n"]]
+        lead = leading_end(ends)
+        if lead is not None:
+            e = self.ends[list(self.ends)[lead] if len(self.ends) == 2 else next(iter(self.ends))]
+            point, normal = attach_point(ends[lead]["attach"], self.setup["rod"])
+            n = np.array(normal, float)
+            x = axis_rotation(n, ends[lead]["attach"].get("roll_deg", 0.0)) @ np.array(level_axis(normal), float)
+            z = n if e.name == "ee1" else -n  # the end's +z points along the chain from ee1, away from it from ee_n
+            frame = np.column_stack([x, np.cross(z, x), z])
+            centre = np.array(point) + n * m.geom(f"{e.name}_sphere").size[0]
+            d.qpos[:3], d.qpos[3:7] = 0, (1, 0, 0, 0)  # m1 at the origin: the end's pose in m1's frame
+            mujoco.mj_kinematics(m, d)
+            R1 = frame @ d.xmat[e.body].reshape(3, 3).T
+            d.qpos[:3] = centre - R1 @ d.xpos[e.body]
+            mujoco.mju_mat2Quat(d.qpos[3:7], R1.flatten())
+            mujoco.mj_forward(m, d)
+            self.grip(e.name, True)
+            if e.kind == "anchor":
+                self.clamp(e)
+        mujoco.mj_forward(m, d)
+
+    def grip(self, name, on):
+        """Hold (grab whatever fixed thing the end touches, now or later) or let go."""
+        e = self.ends[name]
+        e.armed = bool(on)
+        if e.kind == "anchor" and not on and e.clamped:
+            self.d.eq_active[e.clamp], e.clamped, e.held = 0, False, False
+        if e.kind == "suction":
+            self.d.ctrl[e.suck] = float(bool(on))
+
+    def nozzle(self, name, k, throttle):
+        e = self.ends[name]
+        if k < len(e.nozzles):
+            self.d.ctrl[e.nozzles[k]] = min(1.0, max(0.0, float(throttle)))
+
+    def clamp(self, e, shift=np.zeros(3)):
+        """Weld the end where it is, moved by `shift` (onto the surface it's about to touch): its hold body goes there.
+        With a shift, the weld starts soft and pulls the end in over PULL_IN, like a latch closing."""
+        d = self.d
+        d.mocap_pos[e.mocap] = d.xpos[e.body] + shift
+        d.mocap_quat[e.mocap] = d.xquat[e.body]
+        soft = np.linalg.norm(shift) > 1e-4
+        self.m.eq_solref[e.clamp] = SOFT_SOLREF if soft else e.stiff
+        e.pull_in_until = d.time + PULL_IN if soft else None
+        d.eq_active[e.clamp], e.clamped, e.held = 1, True, True
+
+    def capture(self, e):
+        """The shift that puts the end's grip face on the nearest fixed geom within CAPTURE, or None if there's none."""
+        best, fromto = None, np.zeros(6)
+        for g in self.fixed:
+            dist = mujoco.mj_geomDistance(self.m, self.d, e.tip, g, CAPTURE, fromto)
+            if dist < CAPTURE and (best is None or dist < best[0]):
+                best = (dist, fromto[3:] - fromto[:3] if dist > 0 else np.zeros(3))
+        return None if best is None else best[1]
+
+    def update_ends(self):
+        """After each step: anchors told to hold grab what they touch; loads, smoothed over LOAD_TAU."""
+        m, d, a = self.m, self.d, 1 - math.exp(-LOG_DT / LOAD_TAU)
+        for e in self.ends.values():
+            force = torque = 0.0
+            if e.kind == "anchor":
+                if e.armed and not e.clamped and (shift := self.capture(e)) is not None:
+                    self.clamp(e, shift)
+                if e.pull_in_until is not None and d.time >= e.pull_in_until:
+                    m.eq_solref[e.clamp], e.pull_in_until = e.stiff, None
+                if e.clamped:
+                    rows = (d.efc_type == mujoco.mjtConstraint.mjCNSTR_EQUALITY) & (d.efc_id == e.clamp)
+                    f = d.efc_force[rows]
+                    force, torque = np.linalg.norm(f[:3]), np.linalg.norm(f[3:6])
+            e.load += a * (force - e.load)
+            e.torque += a * (torque - e.torque)
+            e.peak = max(e.peak, e.load)
+
+    def ee_command(self, column, value):
+        end, what = EE_COLUMN.match(column).groups()
+        if what == "grip":
+            self.grip(end, value > 0.5)
+        else:
+            self.nozzle(end, int(what[1]), value)
+
     def reset(self):
-        """Back to the floating start pose, straight, at rest; stops any sequence."""
+        """Back to the start pose (the setup's, or floating straight), at rest; stops any sequence."""
         mujoco.mj_resetData(self.m, self.d)
+        for e in self.ends.values():
+            e.reset()
+            if e.clamp >= 0:
+                self.m.eq_solref[e.clamp] = e.stiff
+        if self.setup:
+            self.place()
         mujoco.mj_forward(self.m, self.d)
         self.keys, self.playing = None, False
         self.com0, self.q0 = self.d.subtree_com[1].copy(), self.d.sensor("imu_quat").data.copy()
-        self.turned, self.heading_was = 0.0, self.heading()
+        self.turned, self.heading_was, self.done = 0.0, self.heading(), False
         if self.log:
-            self.log(self.d)
+            self.log(self.d, self.end_columns())
 
     def inertia(self):
         """Whole chain's inertia tensor about its centre of mass, world frame."""
@@ -179,6 +363,7 @@ class Session:
 
     def play(self, path, move=3.0, hold=1.0):
         self.keys, self.move, self.hold = read_sequence(path, self.m), move, hold
+        self.ee_cols, self.ee_row, self.done = read_ee(path, self.m), None, False
         self.seq_name, self.seq_t, self.playing = os.path.basename(path), 0.0, True
 
     def duration(self):
@@ -188,20 +373,26 @@ class Session:
         """Simulate LOG_DT seconds. Sequence targets update once per LOG_DT, like commands on a servo bus."""
         if self.keys is not None and self.playing:
             self.d.ctrl[:self.nj] = target(self.keys, self.seq_t, self.move, self.hold)
+            row = min(int(self.seq_t // (self.move + self.hold)), len(self.keys) - 1)  # whose hold has begun
+            if row != self.ee_row:
+                self.ee_row = row
+                for column, values in self.ee_cols.items():
+                    self.ee_command(column, values[row])
             self.seq_t += LOG_DT * self.speed
         mujoco.mj_step(self.m, self.d, nstep=max(1, round(LOG_DT / self.m.opt.timestep)))
         mujoco.mj_forward(self.m, self.d)  # sensors for the current state (mj_step leaves them one step behind)
+        self.update_ends()
         self.track_turn()
         if self.log:
-            self.log(self.d)
+            self.log(self.d, self.end_columns())
 
     def set_log(self, on):
         if self.log:
             self.log.close()
             self.log = None
         if on:
-            self.log = Logger(os.path.join(HERE, "logs", f"run_{stamp()}.csv"), self.nj)
-            self.log(self.d)
+            self.log = Logger(os.path.join(HERE, "logs", f"run_{stamp()}.csv"), self.nj, self.end_names())
+            self.log(self.d, self.end_columns())
 
     def command(self, c):
         """Apply one command from the control window, e.g. {"cmd": "play", "file": ".../sequences/fold_sequence.csv"}."""
@@ -213,13 +404,15 @@ class Session:
         elif cmd == "resume":
             self.playing = self.keys is not None
         elif cmd == "restart":
-            self.seq_t, self.playing = 0.0, self.keys is not None
+            self.seq_t, self.playing, self.ee_row = 0.0, self.keys is not None, None
         elif cmd in ("stop", "straighten"):
             self.keys, self.playing = None, False
             if cmd == "straighten":
                 self.d.ctrl[:self.nj] = 0
         elif cmd == "speed":
             self.speed = float(c["value"])
+        elif cmd == "playback":
+            self.playback = min(16.0, max(0.1, float(c["value"])))
         elif cmd == "gravity":
             self.m.opt.gravity[:] = (0, 0, -float(c["g"]))
         elif cmd == "physics":
@@ -230,12 +423,23 @@ class Session:
             self.reset()
         elif cmd == "log":
             self.set_log(c["on"])
+        elif cmd == "grip":
+            self.grip(c["end"], c["on"])
+        elif cmd == "nozzle":
+            self.nozzle(c["end"], int(c["n"]), 1.0 if c["on"] else 0.0)
 
     def summary(self):
         """One line on how the run went, printed when a headless run ends."""
         drift = np.linalg.norm(self.d.subtree_com[1] - self.com0) * 1000
-        return (f"turned {self.turned:+.1f} deg, IMU turn {self.imu_turn():.1f} deg, spin {self.spin_rate():+.1f} deg/s, "
+        line = (f"turned {self.turned:+.1f} deg, IMU turn {self.imu_turn():.1f} deg, spin {self.spin_rate():+.1f} deg/s, "
                 f"COM moved {drift:.3f} mm")
+        for e in self.ends.values():
+            if e.kind in ("anchor", "suction"):
+                line += f"; {e.name} peak load {e.peak:.1f} N, let go untold {e.pops}x"
+        if self.setup and self.setup["rod"]:
+            u = np.subtract(self.setup["rod"]["to"], self.setup["rod"]["from"])
+            line += f"; along the rod {(self.d.subtree_com[1] - self.com0) @ u / np.linalg.norm(u) * 1000:+.0f} mm"
+        return line
 
     def readouts(self):
         d, L = self.d, np.linalg.norm(self.d.sensor("angmom").data)
@@ -245,13 +449,20 @@ class Session:
             seq = f"{self.seq_name} {done:.0f}% ({'playing' if self.playing and done < 100 else 'paused' if not self.playing else 'done'})"
             secs = self.duration() / self.speed
             seq += f", {secs:.0f} s" + ("" if secs <= PARABOLA_S else f": longer than a {PARABOLA_S:g} s parabola")
+            if done >= 100 and not self.done:
+                self.done = True
+                print(f"{self.seq_name} done: {self.summary()}")
         return {"time": f"{d.time:.1f} s", "physics": "running" if self.running else "PAUSED", "sequence": seq,
                 "gravity": f"{-self.m.opt.gravity[2]:g} m/s^2",
                 "spin": f"{self.spin_rate():+.1f} deg/s", "turned": f"{self.turned:+.1f} deg",
                 "IMU turn": f"{self.imu_turn():.1f} deg",
                 "COM drift": f"{np.linalg.norm(d.subtree_com[1] - self.com0) * 1000:.3f} mm",
                 "|L|": f"{L:.1e} kg m^2/s", "max torque": f"{np.abs(d.actuator_force[:self.nj]).max():.2f} N m",
-                "contacts": str(d.ncon), "log": os.path.relpath(self.log.path, HERE) if self.log else "off"}
+                "contacts": str(d.ncon), "log": os.path.relpath(self.log.path, HERE) if self.log else "off",
+                **{e.name: f"{e.kind}, {e.state()}" + (f", {e.load:.1f} N, {e.torque:.2f} N m" if e.kind == "anchor" else
+                                                       f", pull {e.load:.1f} N" if e.kind == "suction" else
+                                                       f", {self.thrust(e):.2f} N" if e.kind == "thruster" else "")
+                   for e in self.ends.values()}}
 
 
 def connect_panel(port):
@@ -319,6 +530,7 @@ def run_viewer(s, panel_port=None):
 
     highlight()
     frame, next_readout = 2 * LOG_DT, 0.0  # 50 frames per second; readouts 5 times per second
+    steps, shown = 0.0, (time.time(), data.time)  # steps owed this frame (playback); when the rate was last measured
     with mujoco.viewer.launch_passive(model, data, key_callback=pressed.append) as viewer:
         with viewer.lock():  # the passive viewer ignores <visual><global azimuth/elevation>; apply them here
             mujoco.mjv_defaultFreeCamera(model, viewer.cam)
@@ -338,9 +550,15 @@ def run_viewer(s, panel_port=None):
                             s.command(c)
                         except Exception as e:  # a bad CSV must not kill the viewer
                             print(f"command {c} failed: {e}")
-                for _ in range(2 if s.running else 0):
+                steps += frame / LOG_DT * s.playback if s.running else 0
+                for _ in range(int(steps)):
                     s.advance()
+                steps -= int(steps)
                 info = s.readouts() if start >= next_readout else None
+                if info:  # what the playback actually reaches: a slow computer can fall short of a high one
+                    rate = (data.time - shown[1]) / max(1e-6, start - shown[0])
+                    info["playback"] = f"x{s.playback:g}" + (f" (reaching x{rate:.1f})" if s.running and rate < 0.9 * s.playback else "")
+                    shown = (start, data.time)
             viewer.sync()
             if info:
                 next_readout = start + 0.2
@@ -363,6 +581,8 @@ if __name__ == "__main__":
     ap.add_argument("--headless", action="store_true", help="no viewer; needs --seq")
     ap.add_argument("--gravity", type=float, help="m/s^2 downward, overriding the model (Earth: 9.81)")
     ap.add_argument("--speed", type=float, default=1.0, help="play the sequence this many times faster (e.g. 4)")
+    ap.add_argument("--playback", type=float, default=1.0,
+                    help="viewer: show the simulation this many times faster than real time; the physics doesn't change")
     ap.add_argument("--spin", type=float, nargs=3, metavar=("X", "Y", "Z"),
                     help="start spinning at this rate (deg/s) about world x, y, z: the leftover spin when it's let go")
     ap.add_argument("--air", action="store_true", help="cabin air drag on the shells (when building the model)")
@@ -372,9 +592,10 @@ if __name__ == "__main__":
     a = ap.parse_args()
     setup = setup_file.load(a.setup) if a.setup else None
     if setup:  # the setup's values become the defaults, so flags on the command line still win
-        ap.set_defaults(seq=setup["sequence"] or None, move=setup["move_s"], hold=setup["hold_s"], speed=setup["speed"],
-                        gravity=setup["gravity_m_s2"], air=setup["air"], cage=setup["cage"],
-                        spin=setup["spin_deg_s"] if any(setup["spin_deg_s"]) else None)
+        ap.set_defaults(move=setup["move_s"], hold=setup["hold_s"], speed=setup["speed"], gravity=setup["gravity_m_s2"],
+                        air=setup["air"], cage=setup["cage"], playback=setup["playback"])
+        if not a.panel:  # from the control window, the sequence (and its spin) waits for Play
+            ap.set_defaults(seq=setup["sequence"] or None, spin=setup["spin_deg_s"] if any(setup["spin_deg_s"]) else None)
         a = ap.parse_args()
 
     if a.model:
@@ -385,8 +606,8 @@ if __name__ == "__main__":
         model = mujoco.MjModel.from_xml_string(xml)
     if a.gravity is not None:
         model.opt.gravity[:] = (0, 0, -a.gravity)
-    session = Session(model, mujoco.MjData(model), a.log or None)
-    session.speed = a.speed
+    session = Session(model, mujoco.MjData(model), a.log or None, setup if setup and not a.model else None)
+    session.speed, session.playback = a.speed, a.playback
     for axis, rate in zip("xyz", a.spin or ()):
         session.spin(rate, axis)
     if a.seq:

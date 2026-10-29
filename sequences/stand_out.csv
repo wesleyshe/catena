@@ -1,0 +1,7 @@
+# Hanging straight down from m1_pitch (-90 deg), the chain is told to stand straight out (all joints 0).
+# With gravity, m1_pitch has to lift the whole chain: how far it gets shows the stall limit at that g.
+# Needs pitch axes level (an anchor on a wall, roll 0). 3 rows, 20 s at move 4 s, hold 4 s.
+m1_yaw,m1_pitch,m2_yaw,m2_pitch,m3_yaw,m3_pitch,m4_yaw,m4_pitch,m5_yaw,m5_pitch,m6_yaw,m6_pitch,m7_yaw,m7_pitch,m8_yaw,m8_pitch,m9_yaw,m9_pitch,m10_yaw,m10_pitch,m11_yaw,m11_pitch,m12_yaw,m12_pitch
+0,-90,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0

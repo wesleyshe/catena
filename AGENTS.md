@@ -44,7 +44,8 @@ These are confirmed by the team. Change one only together with the other areas, 
   - Both end modules carry the U2D2 and power hub.
 - **Sequence columns:** a fold sequence has 24 columns in the order `m1_yaw, m1_pitch, …, m12_yaw, m12_pitch`.
   `m12_pitch` is always 0. `m1_yaw` is 0 unless ee1 is fitted, when it drives ee1's twist servo, with the same sign
-  as every yaw.
+  as every yaw. Optional end-effector columns may follow (`ee1_grip`, `ee12_grip`, `ee1_n0` … `ee12_n4`); see
+  `sequences/README.md`.
 - **Numbers live in `hardware/spec.toml`:** module count, spacing (140 mm), shell (Ø139 mm), ranges (pitch ±124°,
   yaw ±150°), servo and masses. Code reads them from there; never copy them into code.
 - **Units:** degrees in sequence CSVs; SI (m, kg, s, N·m) in code; mm and g in CAD and the spec.

@@ -69,23 +69,59 @@ EE_TYPES = ("none", "anchor", "suction", "thruster")
 EE_MASS = dict(anchor=0.200, suction=0.200, thruster=0.250)  # kg; the thruster also carries nozzles, valves and gas
 EE_SERVO_MASS = 0.055   # kg, ee1's twist servo (an AX-12A), carried in ee1
 EE_RGBA = dict(anchor="0.80 0.25 0.25 1", suction="0.25 0.70 0.35 1", thruster="0.95 0.70 0.15 1")
+# Each end's settings: attach is where an anchor or cup starts attached ({} = floating, see setup_file.py); pull_N, cup_mm
+# and friction are the suction cup's pull limit, diameter and friction; thrust_N is each thruster nozzle's push.
+EE_DEFAULTS = dict(type="none", attach={}, pull_N=20.0, cup_mm=40.0, friction=0.8, thrust_N=0.1)
+TIP = (0.020, 0.004)    # m: an anchor's grip face, a disc on its outer pole (radius, thickness)
+CLAMP_SOLREF = "0.002 1"  # the clamp's weld: stiff (the default let a clamped end move 36 mm while the chain folded)
+FACINGS = {"up": (0, 0, 1), "down": (0, 0, -1), "+x": (1, 0, 0), "-x": (-1, 0, 0), "+y": (0, 1, 0), "-y": (0, -1, 0)}
+PLATE = (0.5, 0.005)    # m: half-size and half-thickness of the plate an end is attached to when it isn't the floor
+ROD_MM = 35             # default rod diameter (mm), about a handrail
 
 
 def v(*xs):
     return " ".join(f"{x:.6g}" for x in xs)
 
 
-def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=False, cage=False, ee1="none", ee_n="none"):
+def level_axis(normal):
+    """The pitch axis an attached end starts with, before its roll: level (world x, or world y on an x-facing wall)."""
+    return (0, 1, 0) if abs(normal[0]) > 0.5 else (1, 0, 0)
+
+
+def attach_point(attach, rod):
+    """Where an attach setting puts an end's tip: (point on the surface, outward normal). None if it floats."""
+    if not attach:
+        return None
+    normal = FACINGS[attach["facing"]]
+    if "at" in attach:
+        return tuple(attach["at"]), normal
+    a, b = rod["from"], rod["to"]
+    length = math.dist(a, b)
+    return tuple(a[k] + (b[k] - a[k]) * attach["rod_m"] / length + normal[k] * rod["diameter_mm"] / 2000
+                 for k in range(3)), normal
+
+
+def leading_end(ends):
+    """Which end sets where the chain starts: the first anchor or suction cup with an attach setting (0 = ee1, 1 = ee_n)."""
+    return next((k for k, e in enumerate(ends) if e["type"] in ("anchor", "suction") and e["attach"]), None)
+
+
+def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=False, cage=False, ee1="none", ee_n="none",
+          rod=None):
     """air: cabin air drag on the shells. cage: the net cage around the chain's start position (sizes in the spec).
-    ee1, ee_n: the end effector past m1 and past module N (ee12 on 12 modules), one of EE_TYPES."""
-    for kind in (ee1, ee_n):
-        if kind not in EE_TYPES:
-            raise ValueError(f"end effector {kind!r}: choose one of {', '.join(EE_TYPES)}")
+    ee1, ee_n: the end effector past m1 and past module N (ee12 on 12 modules): a type from EE_TYPES, or a dict like
+    EE_DEFAULTS. rod: {"from": [x, y, z], "to": [x, y, z], "diameter_mm": 35} for a fixed rod, or None."""
+    ends = [{**EE_DEFAULTS, **({"type": e} if isinstance(e, str) else e)} for e in (ee1, ee_n)]
+    for e in ends:
+        if e["type"] not in EE_TYPES:
+            raise ValueError(f"end effector {e['type']!r}: choose one of {', '.join(EE_TYPES)}")
+    lead = leading_end(ends)
+    spot = attach_point(ends[lead]["attach"], rod) if lead is not None else None
     p = PRESETS[preset]
     s = p["pitch"] / 0.140                       # geometric scale
     kp = p["torque"] / math.radians(KP_SATURATE)
     damping = p["torque"] / p["speed"]           # servo slows to its no-load speed at stall torque
-    span = n + (ee1 != "none") + (ee_n != "none")  # modules end to end, counting end effectors
+    span = n + sum(e["type"] != "none" for e in ends)  # modules end to end, counting end effectors
     height = span * p["pitch"] / 2 + 2 * R_SHELL * s  # float height: more than half the chain plus a shell
     roll = math.radians(CHAIN_ROLL)
     weighed = p.get("module_masses") or []
@@ -99,7 +135,8 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
     # hand estimate (quadratic drag, Cd ~0.45), so read it as an upper bound.
     fluid = dict(density=v(FLIGHT["cabin_air_kg_m3"]), viscosity=v(1.8e-5)) if air else {}
     ET.SubElement(root, "option", gravity=v(0, 0, -gravity), timestep=v(p["timestep"]), integrator="RK4", **fluid)
-    ET.SubElement(root, "statistic", center=v(0, 0, height), extent=v(span * p["pitch"]))  # viewer frames the whole chain
+    center = v(0, 0, height) if not spot else v(*(spot[0][k] + spot[1][k] * span * p["pitch"] / 2 for k in range(3)))
+    ET.SubElement(root, "statistic", center=center, extent=v(span * p["pitch"]))  # viewer frames the whole chain
     vis = ET.SubElement(root, "visual")
     ET.SubElement(vis, "global", offwidth="1600", offheight="1200", azimuth="0", elevation="-25")  # viewer starts side-on
     ET.SubElement(vis, "headlight", ambient="0.4 0.4 0.4", diffuse="0.6 0.6 0.6")
@@ -137,6 +174,13 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
                 size[k] = t
                 ET.SubElement(world, "geom", name=f"cage{k}{'-+'[sign > 0]}", type="box", pos=v(*pos), size=v(*size),
                               rgba="0.5 0.6 0.7 0.12", solref="0.05 1")
+    if spot and "at" in ends[lead]["attach"] and not (ends[lead]["attach"]["facing"] == "up" and spot[0][2] == 0):
+        point, normal = spot  # a wall, ceiling or table to be attached to (the floor is already there)
+        ET.SubElement(world, "geom", name="plate", type="box", size=v(PLATE[0], PLATE[0], PLATE[1]), zaxis=v(*normal),
+                      pos=v(*(point[k] - normal[k] * PLATE[1] for k in range(3))), rgba="0.55 0.60 0.65 1")
+    if rod:
+        ET.SubElement(world, "geom", name="rod", type="capsule", fromto=v(*rod["from"], *rod["to"]),
+                      size=v(rod["diameter_mm"] / 2000), rgba="0.72 0.72 0.76 1")
     imu = min(SPEC["imu"]["module"], n)
     parent = world
     yaw_limits = {} if slip_ring else dict(range=v(-math.radians(YAW_RANGE), math.radians(YAW_RANGE)))
@@ -171,7 +215,8 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
         parent = arm
 
     # end effectors go in after the chain, so the chain's body ids don't move (m1 stays body 1)
-    for name, end, side, kind in (("ee1", first, -1, ee1), (f"ee{n}", body, 1, ee_n)):
+    for name, end, side, e in (("ee1", first, -1, ends[0]), (f"ee{n}", body, 1, ends[1])):
+        kind = e["type"]
         if kind == "none":
             continue
         ee = ET.SubElement(end, "body", name=name, pos=v(0, 0, side * p["pitch"]))
@@ -181,12 +226,22 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
         ET.SubElement(ee, "geom", {"class": "visual", "type": "sphere", "size": v(R_SHELL * s), "rgba": EE_RGBA[kind],
                                    "name": f"{name}_visual"})
         ET.SubElement(ee, "geom", {"class": "collision", "name": f"{name}_sphere", "mass": v(mass), "shellinertia": "false"})
+        if kind == "anchor":  # its grip face; play.py clamps when the face is near something fixed and it's told to hold
+            ET.SubElement(ee, "geom", {"class": "visual", "type": "cylinder", "name": f"{name}_tip", "rgba": "0.15 0.15 0.15 1",
+                                       "size": v(TIP[0] * s, TIP[1] / 2 * s), "pos": v(0, 0, side * (R_SHELL - TIP[1] / 2) * s)})
+            # the clamp: a weld to a fixed (mocap) body that play.py moves to the end's pose when it grabs
+            ET.SubElement(world, "body", name=f"{name}_hold", mocap="true")
+            weld = dict(name=f"{name}_clamp", body1=name, body2=f"{name}_hold", relpose="0 0 0 1 0 0 0", active="false",
+                        solref=CLAMP_SOLREF)
+            if root.find("equality") is None:
+                ET.SubElement(root, "equality")
+            ET.SubElement(root.find("equality"), "weld", weld)
 
     # actuators in CSV order: m1_yaw, m1_pitch, ..., mN_yaw, mN_pitch (skipping mN_pitch, and m1_yaw without ee1)
     act = ET.SubElement(root, "actuator")
     for i in range(1, n + 1):
         for j, lim in ((f"m{i}_yaw", SLIP_RING_TARGETS if slip_ring else YAW_RANGE), (f"m{i}_pitch", PITCH_RANGE)):
-            if j != f"m{n}_pitch" and (j != "m1_yaw" or ee1 != "none"):
+            if j != f"m{n}_pitch" and (j != "m1_yaw" or ends[0]["type"] != "none"):
                 ET.SubElement(act, "position", name=j, joint=j, ctrlrange=v(-math.radians(lim), math.radians(lim)))
 
     contact = ET.SubElement(root, "contact")   # neighbours stay one pitch apart, never touch: skip them
