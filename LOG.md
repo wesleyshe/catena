@@ -4,6 +4,18 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- **`docs/design/2026-11-03-refactor-plan.md`:** a plan to split `simulation/` into files that each do one thing
+  (`play.py`, `make_chain.py` and `verify.py` mainly), keeping every contract in `simulation/AGENTS.md`, in 13 small
+  steps with checks. It also lists the stale lines found in the docs across the repo. A plan only: no code changed,
+  waiting for Wesley's go-ahead.
+- **Checked:** baseline on main (`69442e3`): `simulation/verify.py` ALL CHECKS PASSED; `fold_sequence.csv` and all 21
+  setups flown headless, twice: byte-identical logs both times; `build()` XML for 47 models hashed.
+- **Found while trying the guide's steps in the real window (by script):** with the default 5 s countdown, flying by
+  hand (Start the parabola, Let go, then Play) doesn't play the sequence. Play starts a fresh automatic parabola instead,
+  because the viewer's "not flying" readouts during the countdown make `panel.poll` clear its by-hand flag. With
+  Countdown s at 0 it works (sequence playing at T+4.8 s). Not fixed: this session changes no code.
+
+## 2026-11-03 · Wesley (Claude Code)
 - `experiments/findings.md`, "The flight box": the free-float setups renamed (`1b_from_net` new, `1c_spin_*`, `1d_roll`,
   `1e_turn_across`) and a finding: started on the net, the chain gets far less clean free-float time than held by
   strings. `experiments/README.md` and `sequences/README.md` updated to the new names.
