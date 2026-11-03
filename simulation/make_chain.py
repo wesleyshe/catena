@@ -13,7 +13,7 @@ Module 1 has no yaw servo and the last module has no pitch servo or arm, so N mo
 End effectors (optional, one module each, make_ends.py): ee1 one pitch before m1, on module 1's yaw servo m1_yaw (2N-1
 joints), and ee{N} one pitch past module N, rigid. Each is none, anchor, suction or thruster.
 The flight box (optional, make_box.py): the acrylic box on the plane with a net across it, and strings that hold the
-chain still in the middle until play.py lets them go at zero g, all on one body, "cabin", that turns with the plane.
+chain still in the middle until the run (flight.py) lets them go at zero g, all on one body, "cabin", that turns with the plane.
 """
 import argparse
 import math
@@ -83,7 +83,7 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
     in the flight box (its floor at z = 0, centred, the net across it), straight in the middle and rolled roll_deg about
     its length (90: the pitch axes across the cabin, along the plane's pitch axis), with four strings per listed module:
     to the top and bottom edges of the box's long sides, fanned out along the chain (STRING_FAN), the bottom ones through
-    the net. play.py holds and releases them."""
+    the net. flight.py holds and releases them."""
     ends = [{**EE_DEFAULTS, **({"type": e} if isinstance(e, str) else e)} for e in (ee1, ee_n)]
     for e in ends:
         if e["type"] not in EE_TYPES:

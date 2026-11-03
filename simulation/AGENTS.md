@@ -7,27 +7,27 @@ This folder is a MuJoCo model of the chain:
 - You can drive it from the control window, the viewer's keys and sliders, fold-sequence CSVs, or headless.
 - It's used to predict what the chain will do in the flight experiments (`../experiments/`).
 
-`README.md` here is the user guide. This file is for agents: status, map, contracts, decisions and open issues.
-History is in `LOG.md`.
+`GUIDE.md` is the user guide (for clicking), `README.md` the reference. This file is for agents: status, map,
+contracts, decisions and open issues. History is in `LOG.md`.
 
 ## Status (2026-11-03)
 - **Internally consistent, not yet checked against the real chain.**
-  - `verify.py` passes all 15 sections.
+  - `verify.py` passes all 16 sections.
   - Predictions hold for the numbers in `../hardware/spec.toml`, and some of those are placeholders.
   - An outside review found the core sound but not yet a flight prediction; see "Is the sim good enough for flight?"
     in `../experiments/findings.md`.
 - **It models the AX-12A chain in the current Rhino file.** The STS3032 flight build's Rhino model is due in the coming
   weeks, and comes in through "Incorporating a new design" in `../hardware/AGENTS.md`.
-- **End effectors and setups: all 6 phases built** (design and plans: `../docs/design/2026-10-2*-end-effectors*.md`).
-  Anchors, suction cups, thrusters, placement, the rod, grip and nozzle columns, the stall sweep, Playback x, the
-  countdown. 21 setups make the six class simulations (1a–1e, 2a–2c, 3a ×4, 4a–4b, 5a–5b, 6a); results in
-  `../experiments/findings.md`. The control window's seven demo buttons (1A, 1B, 2–6) fly one each.
-- **Every setup flies** (2026-11-03): its `[flight]` puts the chain in the acrylic box sized from the A310 cabin
-  (`../experiments/flight_space.md`), held by strings (or its anchor) through the 1.8 g pull-up, let go at T+1 s, the
-  sequence from T+1.5 s, the pull-out onto the net; the box turns with the plane's pitch. Play, a demo button or a
-  headless run flies it; the window also flies by hand (Start the parabola, Let go) and can watch from outside. All on
-  the 8.5 cm flight build, preset `feetech85`, scaled from the AX-12A chain (the spec stays on the AX-12A chain until the
-  STS3032 CAD exists). The perfect-zero-g 14 cm results live on in `findings.md` and in verify.py's own setups.
+- **End effectors** (anchors, suction cups, thrusters; `../docs/design/2026-10-2*-end-effectors*.md`) and **21 setups**
+  for the six class simulations (1a–1e, 2a–2c, 3a ×4, 4a–4b, 5a–5b, 6a; results in `../experiments/findings.md`). The
+  window's seven demo buttons (1A, 1B, 2–6) fly one each.
+- **Every setup flies** (2026-11-03) on the 8.5 cm build (`feetech85`, scaled from the AX-12A chain until the STS3032
+  CAD exists): in the A310 box (`../experiments/flight_space.md`), held by strings (or its anchor) through the 1.8 g
+  pull-up, let go at T+1 s, the sequence from T+1.5 s, the pull-out onto the net; the box turns with the plane. Play, a
+  demo button or a headless run flies it; the window also flies it by hand. The perfect-zero-g 14 cm results stay in
+  `findings.md` and in verify.py's own setups.
+- **Refactored** (2026-11-03, `../docs/design/2026-11-03-refactor-plan.md`) into files that each do one thing, with
+  every result byte-identical to before.
 - **Owner: Wesley.** Wesley double-clicks `Chain Sim.command` rather than using the shell, and uses the sim to answer
   the professor's physics questions (`../experiments/findings.md`).
 
@@ -35,6 +35,8 @@ History is in `LOG.md`.
 ```
 uv venv --python 3.11 .venv && uv pip install --python .venv/bin/python -r requirements.txt   # once
 .venv/bin/python verify.py                                   # all checks + renders/, ~100 s, opens no windows
+.venv/bin/python verify.py 15                                # one section (or several: verify.py 9 10)
+.venv/bin/python checks/same_as_before.py save DIR           # before a refactor; then: compare DIR (~3 min)
 .venv/bin/python make_chain.py [--preset feetech85] [-n 12] [--slip-ring] [--gravity 9.81] [--box]   # writes chain.xml
 .venv/bin/python play.py --seq ../sequences/fold_sequence.csv --headless                 # logs/run_log.csv
 .venv/bin/python play.py --seq ../sequences/reorient_loop.csv --headless --speed 4 --spin 0 0 1 --air   # flight-like
@@ -49,41 +51,38 @@ Default paths are relative to this folder, so the scripts also work when run fro
 ## Folder map
 | Path | What it is |
 |---|---|
-| `make_chain.py` | Parametric generator. The `PRESETS` table and constants at the top are what people edit. `build()` returns the XML: the world and the chain, then the parts below. |
+| **The model** (stdlib only) | |
+| `make_chain.py` | `build()` writes the model's XML: the world, the chain, plates and the rod, then the parts below. `PRESETS` and the chain's numbers are at the top: what people edit. Its command line writes `chain.xml`. |
 | `make_ends.py` | The end effectors in the model (`bodies`, `cup_pairs`), their placeholder numbers at the top, and where an end starts (`attach_point`, `leading_end`, `FACINGS`). |
 | `make_box.py` | The flight box in the model (`cabin`, `tie_ons`, `strings`, `held_height`), its numbers and look at the top. |
-| `spec.py` | Reads `../hardware/spec.toml` once (`SPEC`, `HW`, `SERVO`, `MASS`, `FLIGHT`); the folders (`SEQ_DIR`, `SETUP_DIR`); `v()` for numbers in the XML. |
-| `checks/same_as_before.py` | For refactors: `save DIR` before, `compare DIR` after (verify's printout, the fold log, every setup flown headless, the XML of 47 models, the window's commands via `checks/window_recorder.py`, the stdlib check). `--quick` skips the runs. |
-| `chain.xml` | Written by `make_chain.py` (git-ignored). Nothing else uses it: `play.py` builds the model fresh from the spec. |
-| `panel_setup.toml` | Git-ignored. **The panel writes its settings (laid over the loaded setup) here every time it opens the viewer**, and starts `play.py --setup panel_setup.toml`. |
-| `pole_climb_design.py` | Writes `../sequences/pole_climb.csv` for the 14 cm chain on a Ø100 mm pole (pole size, squeeze and stretch at the top); the angles fit any size with the pole scaled (5a: Ø61 mm). |
-| `stall_sweep.py` | Experiment A's stall length: the longest 14 cm chain that stands out level from a wall at Earth, Mars, Moon and zero g, in steady gravity (~1 min; its setup is built in the script). |
+| `spec.py` | Reads `../hardware/spec.toml` once (`SPEC`, `HW`, `SERVO`, `MASS`, `FLIGHT`); the folders (`SEQ_DIR`, `SETUP_DIR`); `v()`. |
+| `setup_file.py` | Setup files: `load` (refuses unknown keys), `save` (writes TOML by hand: `ALWAYS`, then only what differs from `DEFAULTS`), `about` (a file's first `#` line, setups and CSVs alike), `summary`, `users` (the setups that play a sequence), `build_args`, `single_axis_spin`; `DEMOS` (the demo buttons: label, setup). |
+| **The run** (MuJoCo) | |
 | `play.py` | The command line only: headless, or the viewer. It re-exports `Session`, `Parabola`, `Commands`, `read_sequence`, `target`, `joint_servos`, `modules`, `LOG_DT`, so `from play import ...` still works. |
-| `viewer.py` | The viewer window: `run_viewer` (the loop, keys, camera, big text, readouts to the panel), `Commands` (the countdown queue), screenshots; `KEYS` and `STEP_DEG` at the top. |
 | `session.py` | `Session` (state, start pose, sequence playback, spin and turn, commands, log columns, readouts, summary), `Logger`, `load_model()`. |
 | `flight.py` | `Parabola` (the g and the plane's pitch over time) and `FlightBox`: Session's flight-box methods (strings, the box turning, the gap, the landing, the flight readouts and banner), which Session inherits. |
-| `ends.py` | `End`: one end effector at run time (hold, let go, grab on touch, cups, nozzles, loads, its readout). `Session.grip`/`nozzle` pass to it. |
+| `ends.py` | `End`, one end effector at run time (hold, let go, grab on touch, cups, nozzles, loads, its readout line). `Session.grip` / `nozzle` pass to it. |
 | `sequence.py` | The fold-sequence format: `read_sequence`, `read_ee`, `target`, `EE_COLUMN`; `LOG_DT`; how actuators line up with the CSV (`actuator`, `modules`, `joint_servos`). |
-| `panel.py` | Tk control window: a separate process that drives `play.py` over a localhost socket. One `section_*` method per box in the window; `start_take()` is how every take starts. Its top row is the demo buttons (`setup_file.DEMOS`). Under Setup it shows the picked setup's line and `summary`; under Fold sequence, the CSV's first line and the setups that use it (`users`). |
+| `viewer.py` | The viewer window: `run_viewer` (the loop, keys, camera, big text, readouts to the panel), `Commands` (the countdown queue), screenshots; `KEYS` and `STEP_DEG` at the top. |
+| **The window** (stdlib only) | |
+| `panel.py` | The Tk control window, a separate process that drives `play.py` over a localhost socket. One `section_*` method per box; `start_take()` is how every take starts. Its top row is the demo buttons. |
 | `viewer_link.py` | The panel's link to the viewer: starts `play.py --setup FILE --panel PORT` under mjpython, sends commands, reads readouts. |
-| `setup_file.py` | Setup files: `load` (refuses unknown keys), `save` (writes TOML by hand: `ALWAYS`, then only what differs from `DEFAULTS`), `about` (a file's first `#` line, setups and CSVs alike), `summary` (what's in a setup, one line), `users` (the setups that play a sequence), `build_args`, `single_axis_spin`; `DEMOS` (the demo buttons: label, setup). |
-| `setups/` | The class simulations as flights, named `{demo}{version}_{what}` (e.g. `5a_pole_climb`). `verify.py` checks every file in it loads and builds, and that every `DEMOS` setup exists. |
 | `Chain Sim.command` | Finder double-click launcher for `panel.py`. A Terminal window stays open while it runs. |
-| `verify.py` | Regression checks and renders; see "Verification". |
-| `export_meshes.py` | 3dm → `meshes/`: one STL per rigid body, module frame, metres, under 20k triangles. |
-| `inspect_3dm.py` | 3dm summary: units, layers, objects, tight mesh bounding boxes. |
+| **Checks and tools** | |
+| `verify.py`, `checks/` | `verify.py` runs the 16 sections in `checks/` (one file per subject); see "Verification". `checks/same_as_before.py` (with `window_recorder.py`) is for refactors: verify's printout, the fold log, every setup flown headless, the XML of 47 models, every button's commands and the window's layout, the stdlib check. |
+| `stall_sweep.py` | Experiment A's stall length: the longest 14 cm chain that stands out level from a wall at Earth, Mars, Moon and zero g, in steady gravity (~1 min; its setups are built in the script). |
+| `pole_climb_design.py` | Writes `../sequences/pole_climb.csv` for the 14 cm chain on a Ø100 mm pole; the angles fit any size with the pole scaled (5a: Ø61 mm). |
+| `export_meshes.py`, `inspect_3dm.py` | 3dm → `meshes/` (one STL per rigid body, module frame, metres, under 20k triangles); a 3dm's summary (units, layers, objects, tight mesh boxes). |
+| **Data and output** | |
+| `setups/` | The class simulations as flights, named `{demo}{version}_{what}` (e.g. `5a_pole_climb`). `verify.py` checks each loads and builds, and that every `DEMOS` setup exists. |
 | `meshes/` | `base_first.stl` (module 1), `base_mid.stl` (2–11), `base_last.stl` (12), `arm.stl` (1–11). Generated, but committed. `SOURCE.txt` records the CAD file name and SHA-256 they came from. |
-| `renders/` | PNGs written by `verify.py` (git-ignored: they differ slightly between computers). |
-| `logs/`, `screenshots/` | Run output (git-ignored). The shell default log is `logs/run_log.csv`; the panel writes `logs/run_<stamp>.csv`. |
-| `.venv/` | This folder's Python 3.11 environment (uv, git-ignored). |
+| Git-ignored | `chain.xml` (nothing reads it: `play.py` builds the model fresh); `panel_setup.toml` (**the panel writes its settings, laid over the loaded setup, here every time it opens the viewer**, and starts `play.py --setup` with it); `renders/` (verify.py's PNGs); `logs/` (`run_log.csv` from the shell, `run_<stamp>.csv` from the panel), `screenshots/`; `.venv/`. |
 
 Fold sequences live in `../sequences/` because the robot software shares them. The CAD is in `../hardware/cad/`.
 
-**Staying on the latest hardware:**
-- `make_chain.py` reads the real chain's numbers from `../hardware/spec.toml`: module count, pitch, shell size,
-  ranges, servo and masses. `original14` *is* that spec. Don't copy those numbers into code.
-- `verify.py` fails if `meshes/` weren't exported from the current CAD file.
-- The meshes are visual only, so stale meshes give a wrong picture but the same physics. The physics follows the spec.
+**Staying on the latest hardware:** the real chain's numbers come from `../hardware/spec.toml` (`original14` *is* that
+spec; don't copy them into code), and `verify.py` fails if `meshes/` weren't exported from the current CAD. The meshes
+are visual only: stale ones give a wrong picture but the same physics.
 
 ## How the pieces connect
 ```
@@ -91,12 +90,14 @@ Fold sequences live in `../sequences/` because the robot software shares them. T
                                                                                      ^ JSON lines over 127.0.0.1
 Chain Sim.command --> panel.py (Tk) -- writes panel_setup.toml, spawns `mjpython play.py --setup it --panel PORT` --+
 setups/*.toml --setup_file.py--> build() args + run settings --> play.py --setup, or the panel's fields (Load / Save as)
-verify.py builds models in memory with make_chain.build() and drives play.Session headless.
+the model: spec.py --> make_ends.py, make_box.py --> make_chain.build()  (stdlib only, so the panel can import it)
+the run:   sequence.py, ends.py, flight.py --> session.Session --> viewer.run_viewer, or play.py --headless
+verify.py runs checks/, which build models with session.load_model() and drive session.Session headless.
 ```
 
 ## Working with Wesley
 - **Clicking, not typing.** Wesley prefers clicking to typing commands.
-- **Reopen after code changes.** After editing `play.py`, `panel.py` or `make_chain.py`, tell Wesley to close the
+- **Reopen after code changes.** After editing any of the `.py` files here, tell Wesley to close the
   Chain Sim window and reopen it, because running processes keep the old code. Clicking Rebuild isn't enough: the open
   panel has already loaded the old `make_chain`.
 - **Done means verified:** run `verify.py` and do a real run before saying something is done.
@@ -104,39 +105,36 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
 ## Contracts (other files rely on these; keep them through any refactor)
 - **Regression suite.**
   - Run `.venv/bin/python verify.py` before and after. It must end with `ALL CHECKS PASSED`.
-  - Key numbers for original14:
-    - Centre of mass moves ≤ 0.005 mm in the random-motion test, and |L| stays below 1e-7 of the summed body momenta.
-    - Spin 20 → 20.0 deg/s.
-    - An L fold → 31.9 deg/s.
-    - m11_pitch 90° from rest → turned −2.2°.
+  - Key numbers for original14: the centre of mass moves ≤ 0.005 mm in the random-motion test and |L| stays below
+    1e-7 of the summed body momenta; Spin 20 → 20.0 deg/s; an L fold → 31.9 deg/s; m11_pitch 90° from rest → −2.2°.
   - **Log columns:** `time, com_x/y/z, L_x/y/z, L_norm, max_torque, contacts, imu_qw/qx/qy/qz, imu_wx/wy/wz`.
     Software and experiments read these, so add columns at the end rather than reordering. `max_torque` is over joint
     servos only. After the end-effector columns, a model with the flight box adds `g_x, g_y, g_z` (the g applied, in g),
     `box_gap_mm` and `string_N` (`Session.log_names`).
   - For a pure refactor, the headless run (`play.py --seq ../sequences/fold_sequence.csv --headless --log FILE`) must
-    give a byte-identical log before and after.
+    give a byte-identical log before and after; `checks/same_as_before.py` checks that and every setup's log.
 - **Names in the model** (`make_chain.build`):
   - Bodies are `m{i}` and `m{i}_arm`.
   - Joints and actuators are `m{i}_yaw` and `m{i}_pitch`.
   - Actuator order is the CSV column order, minus `m{N}_pitch`, and minus `m1_yaw` unless ee1 is fitted. Any other
-    actuators (end effectors, later) come after the joint servos; `play.joint_servos` counts these, `play.modules` the
-    modules.
+    actuators (end effectors, later) come after the joint servos; `sequence.joint_servos` counts these, `sequence.modules`
+    the modules.
   - End effectors: bodies `ee1` (child of m1, on hinge `m1_yaw`, axis −Z so + turns the m12 side +, like every yaw) and
     `ee{N}` (rigid child of m{N}), with geoms `ee{k}_visual` and `ee{k}_sphere`. They're added after the chain, so the
     chain's body ids don't move. Both none → `build()` is byte-identical to before they existed.
   - An anchor adds geom `ee{k}_tip` (the grip face; collides with nothing), mocap body `ee{k}_hold` and weld
     `ee{k}_clamp` (to the hold, inactive). A suction cup adds body and geom `ee{k}_cup` (collides with nothing by
     itself; explicit contact pairs with every world geom) and adhesion actuator `ee{k}_suck`. A thruster adds sites and
-    actuators `ee{k}_n0` … `n4` (push against the site's z; the site lights up while firing). `play.End` tells the
+    actuators `ee{k}_n0` … `n4` (push against the site's z; the site lights up while firing). `ends.End` tells the
     types apart by these names. World geoms: `plate` (an attach point off the floor) and `rod`.
-  - Geoms: `m{i}_visual`, which `play.py` recolours for keyboard selection, and `m{i}_sphere`, whose radius `verify.py`
+  - Geoms: `m{i}_visual`, which `viewer.py` recolours for keyboard selection, and `m{i}_sphere`, whose radius `verify.py`
     reads.
   - Sensors `com`, `com_vel` and `angmom` sit on body `m1`.
   - Sensors `imu_quat` (`framequat`) and `imu_gyro` sit on site `imu`, at the centre of the module named in `[imu]` in
     the spec. The `Logger` and `Session.imu_turn` read them.
   - `m1` must stay body id 1, with the free joint: `Session` uses `d.xpos[1]`, `subtree_com[1]` and `qvel[:6]`.
-- **`play.py` API used elsewhere:**
-  - `verify.py` uses `Session` (`advance`, `command`, `readouts`, `spin`, `spin_rate`, `imu_turn`, `inertia`, `turned`,
+- **The run's API used elsewhere** (in `session.py`, `flight.py`, `sequence.py`, `viewer.py`; `play.py` re-exports it):
+  - `verify.py` (`checks/`) uses `Session` (`advance`, `command`, `readouts`, `spin`, `spin_rate`, `imu_turn`, `inertia`, `turned`,
     `d`), plus `read_sequence`, `target`, `joint_servos`, `LOG_DT`, `Commands` and `Parabola`.
   - `make_chain.build(preset, n, slip_ring, gravity, air, ee1, ee_n, rod, flight)`. `air` takes its density from
     `[flight]` in the spec; `ee1`/`ee_n` are a type from `EE_TYPES` or a dict like `EE_DEFAULTS`; `flight` is a
@@ -145,14 +143,14 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
     chain's) carrying massless geoms `box_lid`, `box_floor`, `box_wall_±x/±y`, `net`, `cabin_floor`, `plate` (a deck
     for an attach facing up) and `rod`, visual-only `frame*`, `net_frame*`, `mesh_*`, `door_*`, `foot*` (group 1),
     camera `cabin`, and sites `m{i}_string{k}_end`; sites `m{i}_string{k}` on the modules; tendons `m{i}_string{k}`
-    (k = 0–3), limited, range set by `play.py`. With None, `build()` is byte-identical to before the box existed. A
+    (k = 0–3), limited, range set by the session. With None, `build()` is byte-identical to before the box existed. A
     suction cup is a square box geom `ee{k}_cup` (side `cup_mm`).
   - `Session(model, data, log_path, setup)`: with a setup, `reset()` (Reset pose) goes to its start pose. `Session.ends`
     maps `ee1`/`ee{N}` to `End` (kind, armed, clamped, held, load, torque, peak, pops); `grip(end, on)`,
     `nozzle(end, k, throttle)`. Per fitted end the log appends `ee{k}_held, ee{k}_load_N, ee{k}_torque_Nm, ee{k}_thrust_N`.
   - Flight: `Session.fly(path, move, hold, release_s, start_s, hyper_s, jitter, spin, manual)` (call `reset()`
     first; missing values come from the setup's `[flight]`), `let_go()`, `fly_t` (None unless flying), `parabola`
-    (`play.Parabola(hyper_s, jitter, seed, level).at(t)` → phase, g in the box's frame, T, pitch; `.free` names the
+    (`flight.Parabola(hyper_s, jitter, seed, level).at(t)` → phase, g in the box's frame, T, pitch; `.free` names the
     reduced-g phase), `released`, `release_spin`, `liftoff` and `on_net()` (a `[flight] on_net` start), `touch` (counted
     once it's been clear of everything), `gap_min`, `landing`, `dip`, `manual`, `flight_result()`, `banner()`;
     `strings_on(on)`, `tension()`, `box_gap()`, `box_frame()`, `box_com()`, `com0_box`. Each step the session sets
@@ -165,7 +163,7 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
   - The panel is the socket server, on a port the OS picks. It passes `--panel PORT --log ""` to `play.py`.
   - Commands are JSON lines `{"cmd": ...}`. The panel's Play sends reset first when a take has already run (and
     Restart always does), then speed, playback, countdown (unless Countdown s is 0), spin (if "spin when Play
-    starts" is ticked) and play. `play.Commands` holds the commands sent after a countdown, and the viewer holds the
+    starts" is ticked) and play. `viewer.Commands` holds the commands sent after a countdown, and the viewer holds the
     physics, until it ends; pause, stop, straighten, reset or quit during it call the take off. Pause, stop and
     straighten turn the nozzles off; resume re-applies the current row:
     play {file, move, hold}, pause, resume, restart, stop, speed {value}, playback {value}, grip {end, on},
@@ -190,15 +188,15 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
     each CSV's first `#` line says what it does (the panel shows it; `verify.py` checks it's there).
 - **Paths:**
   - Everything resolves from the script folder (`HERE`): `meshes/`, `logs/`, `screenshots/`, `chain.xml`.
-  - Sequences come from `../sequences/`, `export_meshes.py` reads `../hardware/cad/`, and `make_chain.py` reads
-    `../hardware/spec.toml` when it's imported. The spec is read with `tomllib`, which is stdlib, so the stdlib-only
-    rule still holds.
+  - Sequences come from `../sequences/`, `export_meshes.py` reads `../hardware/cad/`, and `spec.py` reads
+    `../hardware/spec.toml` (with `tomllib`, which is stdlib) when it's imported.
   - `Chain Sim.command` expects `panel.py` and `.venv/` next to it.
 - **Coupled physics settings; change them together.**
   - The RK4 timestep, `armature`, `kv` and the masses: see "Physics choices" in `README.md` for the stability rule.
   - `SERVO_LAG` (5 ms) and `LOG_DT` (10 ms target updates).
   - `mj_forward` after `mj_step`, before reading sensors.
-- **`README.md` is the user guide.** Keep its commands and control-window tables in sync with the code.
+- **`GUIDE.md` is the user guide, `README.md` the reference.** Keep GUIDE's steps and README's commands and tables in
+  sync with the code, and check a GUIDE step in the real window before changing it.
 
 ## Open issues / next steps
 1. **Key-reset report (unresolved).** On 2026-10-17 Wesley reported that Fn + Left/Right "reset everything".
@@ -206,61 +204,43 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
    To reproduce: in your own viewer, press Space, then Right, and watch `time`. Likely fix: move pause off Space or the
    yaw nudges off Left/Right; ask Wesley which keys.
 2. **Dock app (offered, never answered):** a "Chain Sim.app" with no Terminal window (a bundle or `osacompile` applet).
-3. **Placeholder parameters** (`../hardware/AGENTS.md` lists what to measure):
-   - In `../hardware/spec.toml`: masses of 200 g per base and 30 g per arm, with the end modules equal to the middle
-     ones. Once the modules are weighed, `module_g` takes each module's weight.
-   - Also in the spec: the IMU module (`[imu]`), the box size and the net (`[flight]`). The `feetech85` masses are
-     scaled estimates.
-   - In `make_chain.py`: the 7 cm preset masses are rough; `armature`, `kv`, `GEAR_FRICTION` are tuned estimates;
-     `ROLLING_RESISTANCE = 0.03` is tuned for settling, not measured; `KP_SATURATE = 10°`.
+3. **Placeholder parameters** (`../hardware/AGENTS.md` lists what to measure). In the spec: 200 g per base and 30 g per
+   arm (end modules equal to the middle ones; `module_g` takes each weighed module), the IMU module, the box and net.
+   In `make_chain.py`: the `feetech85` and 7 cm masses are scaled estimates; `armature`, `kv`, `GEAR_FRICTION` are
+   tuned; `ROLLING_RESISTANCE = 0.03` is tuned for settling, not measured; `KP_SATURATE = 10°`.
 4. **Sliders and drift.** Slider drags are instant target jumps (one 200 s session drifted 0.68 mm; acceptable).
 5. **Window placement.** The control window is always on top and covers part of the viewer's left panel.
 6. **`turned` and `spin` are about the vertical only** (the box's, in the flight box): the axis pitch folds turn about,
    since `CHAIN_ROLL = 0` makes the pitch axes vertical. For 3D, use `IMU turn` and the `imu_*` log columns.
 7. **Rotor momentum isn't modelled.** `armature` adds the motors' inertia but not their spin momentum,
    ~(armature/254)·q̇. It cancels over a closed shape loop; for the slip-ring reaction-wheel finding it's ~3%.
-8. **Experiment support.** `../experiments/README.md` lists what the flight experiments still need from the sim:
-   prediction ranges over release errors, and the aircraft's own rotation.
-9. **Small things from the phase 1 review** (the rest was fixed in phase 2): `joint_servos` doesn't assert the joint
-   servos come first; the setup's about line follows the picker before Load, and Save as prefills it.
-10. **The servo model is tuned, not identified.** `kv` (no AX-12A counterpart) makes joints lag their targets (7.6° at
+8. **The servo model is tuned, not identified.** `kv` (no AX-12A counterpart) makes joints lag their targets (7.6° at
    default timing, 2.2° without it); net turns barely depend on it (±50% on any servo setting moves a 4-loop turn by
-   ≤ 1.2°), joint timing and peak torque do. Fix: bench step-response and speed-under-load tests, then fit `kp`, `kv`,
-   `armature`, friction.
-11. **The flight, not yet modelled:** strings letting go at different times, a cloth net (the sim's net is a spring
-   for landings, a few mm deep at rest), Novespace's measured attitude and acceleration record in place of the smooth
-   pitch and jitter waves, and the plane's roll and yaw. Next worth trying: the chain lined up across the cabin, so the
-   plane's pitch rate adds to the turn instead of spoiling it (`../experiments/findings.md`, "The flight box").
+   ≤ 1.2°), joint timing and peak torque do. Fix: bench step-response and speed-under-load tests, then fit them.
+9. **Not modelled yet** (`../experiments/README.md` lists what the experiments need): prediction ranges over release
+   errors; strings letting go at different times; a cloth net (the sim's is a spring, a few mm deep at rest); the
+   plane's measured attitude and acceleration record, its roll and yaw.
+10. **Small things from the phase 1 review** (the rest was fixed in phase 2): `joint_servos` doesn't assert the joint
+   servos come first; the setup's about line follows the picker before Load, and Save as prefills it.
 
-## Physics choices
-The reasons behind the servo model, masses, integrator, floor, world layout, end effectors and flight options are
-in "Physics choices" at the end of `README.md`. Read them before changing any of those.
-
-## Interface details
-How `spin`, the readouts, timing, screenshots and the viewer keys work is in "Interface details" at the end of
-`README.md`.
+## Physics choices and interface details
+In `README.md`, at the end: why the servo model, masses, integrator, floor, world layout, end effectors and flight are
+built as they are (read before changing any of them), and how `spin`, the readouts, timing, screenshots and keys work.
 
 ## Gotchas for agents
 - **macOS viewer:** it needs `mjpython`. Tk can't run inside mjpython because both need the main thread; that's why
   the panel is a separate process.
 - **Don't touch other people's windows.** Check `ps` for `panel.py|play.py` first, and launch your own instance to test.
-- **The viewer window (macOS)** reopens where it was (GLFW's `COCOA_FRAME_NAME` hint). Its UI size is fixed when it
-  opens, and MuJoCo's Python API can't change it. See "Interface details" in `README.md`.
+- **The viewer window (macOS)** reopens where it was, with its UI size fixed when it opens ("Interface details").
 - **The passive viewer ignores `<visual><global azimuth/elevation>`.** `run_viewer` calls `mjv_defaultFreeCamera`
   instead, and `statistic extent` = the chain length, so the whole chain fits.
 - **Screenshots (macOS):** screen tools can see the mjpython viewer but not the Tk panel; the throwaway-bundle
   workaround is in "Interface details" in `README.md`. Offscreen renders (`mujoco.Renderer`) need no permission.
 - **Scripted GUI tests can press real buttons:** find the `ttk.Button` by its text, call `.invoke()`, and run with
   `python -u`.
-- **End-effector actuators must override the servo defaults.** `<default><position kp kv forcerange timeconst>` sets
-  every actuator's defaults, so a bare `<general>` (a nozzle) gets a 5 ms filter and a kp/kv bias that acts as a
-  damper. Give them `biastype="none" dyntype="none"` (and their own `forcerange`).
-- **Suction cups and MuJoCo's contact gap.** In MuJoCo 3.16 a contact's `includemargin` is its margin even with
-  `gap` set, so a cup with a 10 mm margin hovered 9 mm up and pushed itself off when not sucking. Cups therefore have
-  a 1 mm margin (`CUP_MARGIN`) and must be pressed on to stick: gaits aim a landing foot ~15 mm into the surface.
-- **Clean up after experiments:**
-  - `MUJOCO_LOG.TXT` appears when a run goes unstable; delete it afterwards.
-  - Remove `__pycache__/` after test runs.
+- **End effectors in MuJoCo:** their actuators must override the servo defaults, and a cup's contact margin is its
+  reach even with `gap` set (why `CUP_MARGIN` is 1 mm). Both are in README's "Physics choices", under End effectors.
+- **Clean up after experiments:** delete `MUJOCO_LOG.TXT` (written when a run goes unstable) and `__pycache__/`.
 
 ## Verification
 `verify.py` has 16 sections, from compiling against the current CAD to a parabola in the flight box and the setup

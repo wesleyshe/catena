@@ -219,7 +219,7 @@ cabin's camera sees, "space" what the IMU sees):
 | `4b_walk_let_go` | floats off, touches an end wall at T+12.1 s |
 | `5a_pole_climb` (Ø61 mm pole, floor to lid) | 273 mm up, touches nothing |
 | `5b_rod_crawl` (Ø25 mm rail across the box) | 595 mm along it, no slips; brushes the lid at T+19.7 s |
-| `6a_skater` | turns 315° in the box; touches nothing in zero g |
+| `6a_skater` | turns 315° in the box; touches the lid at T+19.5 s, near the end of zero g |
 
 - **Let go from the box, the chain keeps the plane's pitch rate**, −2.7 to −2.9°/s about the across axis, and the
   speed of the point it was held at (7.5 mm/s, held 0.15 m off the box's middle). No holder fixed to the cabin avoids

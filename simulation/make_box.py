@@ -1,6 +1,6 @@
 """The flight box in the model: the acrylic box on the plane with a net across it, and strings that hold the chain still
-in the middle until play.py lets them go at zero g. The box, its net, the strings' far ends and a cabin camera are all
-on one body, "cabin", on a hinge about x (across the cabin), which play.py drives with the plane's pitch; the world is a
+in the middle until flight.py lets them go at zero g. The box, its net, the strings' far ends and a cabin camera are all
+on one body, "cabin", on a hinge about x (across the cabin), which flight.py drives with the plane's pitch; the world is a
 frame moving with the box but not turning, so the chain feels the plane's rotation for itself. make_chain.build() calls
 cabin(), tie_ons() and strings(). Stdlib only, like make_chain.py.
 """
@@ -93,7 +93,7 @@ def cabin(box_m, rolling):
     # the net is a soft block from the box floor up to its height, so a chain that lands hard sinks into it and, if it
     # gives all the way, meets the box floor.
     # A real body, not mocap: a mocap body has no velocity, so whatever rested on the box would slide as it turned.
-    # It's so heavy the chain can't move it, and play.py sets its angle and rate every step
+    # It's so heavy the chain can't move it, and flight.py sets its angle and rate every step
     body = ET.Element("body", name="cabin", pos=v(0, 0, tall / 2))
     ET.SubElement(body, "inertial", pos="0 0 0", mass="1e4", diaginertia="1e4 1e4 1e4")
     ET.SubElement(body, "joint", name="cabin_pitch", type="hinge", axis="1 0 0", damping="0", armature="0",
@@ -128,7 +128,7 @@ def tie_ons(module, i, n, pitch, box_m, roll, r_shell, s):
 
 
 def strings(root, cabin_body, flight, n, pitch):
-    """The strings: four spatial tendons per held module, from its tie-ons to sites on the box's edges. play.py sets each
+    """The strings: four spatial tendons per held module, from its tie-ons to sites on the box's edges. flight.py sets each
     string's length (holding) or makes it endless (let go)."""
     tendon = ET.SubElement(root, "tendon")
     tall = flight["box_m"][2]

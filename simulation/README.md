@@ -7,6 +7,9 @@ sequences, and log how its centre of mass and angular momentum behave. On its ow
 plane: in the flight box, held by strings through the 1.8 g pull-up, let go in zero g, and caught by the net (see
 Flight below).
 
+**New to Chain Sim? Start with [GUIDE.md](GUIDE.md)**, a walk through the control window for clicking. This README is
+the reference: commands, the setups, the model and the physics choices behind it.
+
 ![one module](../docs/images/module.png)
 
 ## Setup (once)
@@ -119,6 +122,8 @@ Setups are named `{demo}{version}_{what}`: the number is the class demo it belon
 | Flight-like: 4× faster, let go with 1 deg/s of spin, cabin air | `.venv/bin/python play.py --seq ../sequences/reorient_loop.csv --headless --speed 4 --spin 0 0 1 --air` |
 | Run a whole setup and log: with `[flight]` (every setup in `setups/`), one whole parabola in the flight box, ~1 min | `.venv/bin/python play.py --setup setups/1a_turn.toml --headless` |
 | Run all checks and renders | `.venv/bin/python verify.py` |
+| Run one section of the checks (or several) | `.venv/bin/python verify.py 15` |
+| Before and after a refactor: is everything the same? | `.venv/bin/python checks/same_as_before.py save DIR`, then `... compare DIR` |
 | Control window (same as double-clicking `Chain Sim.command`) | `.venv/bin/python panel.py` |
 
 `play.py` options: `--model FILE.xml` (without it, the model is built fresh from `../hardware/spec.toml`), `--seq FILE`, `--move 3` (seconds between rows), `--hold 1` (seconds per row),
@@ -156,7 +161,7 @@ cabin's camera sees, "space" what the IMU sees. In perfect zero g on the 14 cm c
 | | `4b_walk_let_go` | The same, letting go too early | floats off, touches an end wall at T+12.1 s |
 | 5. Pole climb | `5a_pole_climb` | Wrapped round a Ø61 mm pole from the box's floor to its lid, it climbs by squeezing | 273 mm up, touches nothing |
 | | `5b_rod_crawl` | Clamps on both ends crawl along a Ø25 mm rail across the box | 595 mm along it, no slips |
-| 6. Skater | `6a_skater` | Let go with 20°/s more about the vertical: faster folded, slower straight | turns 315° in the box; touches nothing in zero g |
+| 6. Skater | `6a_skater` | Let go with 20°/s more about the vertical: faster folded, slower straight | turns 315° in the box; touches the lid at T+19.5 s, near the end of zero g |
 
 Every landing at the pull-out is 0.1–2.5 m/s and sinks at most 90 mm of the 300 mm under the net.
 
@@ -173,7 +178,7 @@ gravity (about a minute). Results and what they mean are in `../experiments/find
 | Space | pause / resume the physics (the viewer's own Pause button is greyed out) |
 
 You can also drag the sliders in the viewer's **Control** panel on the right. While a sequence is playing, the sequence
-overrides both the keys and the sliders. If a key clashes with a viewer shortcut, change `KEYS` at the top of `play.py`.
+overrides both the keys and the sliders. If a key clashes with a viewer shortcut, change `KEYS` at the top of `viewer.py`.
 
 ## Gravity and the floor
 
@@ -219,7 +224,9 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
 | `export_meshes.py` | Writes `meshes/*.stl`, one per rigid body, in the module frame, in metres, under 20k triangles. |
 | `meshes/` | `base_first.stl` (module 1), `base_mid.stl` (2–11), `base_last.stl` (12), `arm.stl` (1–11). |
 | `../hardware/spec.toml` | The real chain's numbers, shared with the robot software. `make_chain.py` reads them. |
-| `make_chain.py` | Parametric generator for `chain.xml`. |
+| `make_chain.py` | Builds the model (`build()`, or `chain.xml` from the command line): the world and the chain. `PRESETS` and the chain's numbers are at the top. |
+| `make_ends.py`, `make_box.py` | The end effectors' and the flight box's parts of the model, each with its numbers at the top. |
+| `spec.py` | Reads `../hardware/spec.toml` once, for everything else. |
 | `chain.xml` | Generated model, written by `make_chain.py`. Not in git. |
 | `meshes/SOURCE.txt` | Which CAD file the meshes were exported from; `verify.py` fails if the CAD has changed since. |
 | `Chain Sim.command` | Double-click launcher for the control window. |
@@ -228,12 +235,15 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
 | `panel_setup.toml` | What the control window last opened the viewer with (it starts `play.py --setup` with it). Not in git. |
 | `stall_sweep.py` | The stall length at Earth, Mars, Moon and zero g, on the 14 cm chain in steady gravity (it builds its own setups; the 2b setups fly the same in parabolas). |
 | `pole_climb_design.py` | Designs the pole climb (pole size, squeeze, stretch) and writes `../sequences/pole_climb.csv`. |
-| `play.py` | Viewer, keyboard, sequence playback, logging, live readouts; takes commands from `panel.py`. |
+| `play.py` | The command line: a run headless, or in the viewer. |
+| `session.py`, `flight.py`, `ends.py`, `sequence.py` | The run: `Session` (the state, the start pose, playback, spin, readouts, the log), the parabola and the flight box, the end effectors, the fold-sequence format. |
+| `viewer.py` | The viewer window: keyboard, countdown, camera, readouts; takes commands from `panel.py`. |
 | `../sequences/` | Fold-sequence CSVs, shared with the robot software; the control window lists these. Its README splits them into those that play on the bare chain and those written for a setup. Add your own here. |
 | `logs/` | Run logs: `run_log.csv` from the shell, `run_<date>_<time>.csv` from the control window. |
 | `screenshots/` | Written by the control window's **Screenshot** button. |
-| `verify.py` | Checks plus PNG renders in `renders/`. |
+| `verify.py`, `checks/` | Checks plus PNG renders in `renders/`: `verify.py` runs the 16 sections in `checks/`. `checks/same_as_before.py` is for refactors. |
 | `renders/` | Written by `verify.py`, not in git: `module.png`, `module_pitch60.png`, `chain12.png`, `fold_L.png`, `fold_zigzag.png`, `gravity_drop.png`. |
+| `GUIDE.md` | How to use the control window, for first-timers. |
 | `AGENTS.md`, `LOG.md` | Decisions behind the model (for coding agents), and the history of changes. Measurements are in `../hardware/AGENTS.md`. |
 
 ## The model in brief
@@ -261,7 +271,7 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
   no pitch servo or arm. Both of these come from `complete chain.3dm`.
 - **End effectors** (optional): one module-sized sphere (Ø139 mm) one pitch past m1 and/or past m12. The one past m1
   turns on `m1_yaw` (±150°, the same sign as every yaw); the one past m12 is rigid. Masses are placeholders in
-  `make_chain.py`: anchor and suction cup 200 g, thruster 250 g, plus 55 g for the twist servo.
+  `make_ends.py`: anchor and suction cup 200 g, thruster 250 g, plus 55 g for the twist servo.
   - **Anchor:** a clamp that never slips (a weld to a fixed body moved to where the end is). Told to hold, it grabs
     when its Ø40 mm tip face comes within 15 mm of something fixed, pulling the face onto it over 0.2 s.
   - **Suction cup:** a square pad on the tip (side `cup_mm`) that only ever touches fixed things, sucking with its pull limit. It holds by
@@ -331,7 +341,8 @@ columns per end follow: `ee{k}_held` (0/1), `ee{k}_load_N` (clamp force or cup p
 - End effectors: every type at either end compiles and leaves the 12 modules exactly as they were; `m1_yaw` twists
   about the chain axis; with both ends fitted the centre of mass still moves ≤ 0.006 mm in 12 s of random motion.
 - Setup files refuse misspelt keys and missing sequences, and Save as then Load gives the same setup back. Every
-  setup loads, every demo button has its setup, and every sequence says what it does in its first line.
+  setup loads, every demo button has its setup, and every sequence says what it does in its first line. The shortest
+  1.8 g phase a setup may ask for matches the parabola's ramps, and the control window imports only the stdlib.
 - **What it doesn't check:** anything against the real chain. These are consistency checks, not validation.
 
 ## Physics choices
@@ -350,14 +361,20 @@ Why the model is built the way it is. Kept here so `AGENTS.md` stays short; read
     - Three additions: `frictionloss` = `GEAR_FRICTION` (7%) × stall torque, a per-preset `armature` (0.002 / 0.0002
       kg·m²), and actuator `kv` (1.0 / 0.25).
     - `kv` acts whenever the servo isn't saturated, which in smooth moves is nearly all the time. It's a stand-in for
-      damping the model doesn't otherwise capture, not something the AX-12A does; see open issue 10 in `AGENTS.md`.
+      damping the model doesn't otherwise capture, not something the AX-12A does; see "The servo model is tuned, not identified" under Open issues in `AGENTS.md`.
     - Effect on a 60° step at m6: before, 9.5° overshoot, 15 swings, 3.5 s to settle, 8° flex. After, 1°, 2 swings,
       0.5 s, 2.7°.
     - **`armature` is what makes `kv` possible** at a 0.5 ms timestep; without it the light twist mode goes unstable.
     - All three are internal, so momentum is conserved and the zero-g split is unchanged.
 - **End effectors:** each collides as one sphere and carries its mass as a solid sphere (placeholder masses are
-  `EE_MASS` and `EE_SERVO_MASS` in `make_chain.py`, × s³ for the 7 cm presets; not in the spec until one is designed).
+  `EE_MASS` and `EE_SERVO_MASS` in `make_ends.py`, × s³ for the 7 cm presets; not in the spec until one is designed).
   With any fitted, the float height and `statistic extent` count them as modules.
+  - Their actuators override the servo defaults: `<default><position kp kv forcerange timeconst>` sets every
+    actuator's defaults, so a bare `<general>` (a nozzle) would get a 5 ms filter and a kp/kv bias that acts as a
+    damper. They get `biastype="none" dyntype="none"` and their own force limits.
+  - A suction cup's contact margin is 1 mm (`CUP_MARGIN`). In MuJoCo 3.16 a contact's `includemargin` is its margin
+    even with `gap` set, so a cup with a 10 mm margin hovered 9 mm up and pushed itself off when not sucking. So cups
+    must be pressed on to stick: gaits aim a landing foot ~15 mm into the surface.
 - **7 cm presets:** lengths × 0.5. Printed mass × 0.5³ plus real servo masses (XL330 18 g, STS3032 about 20 g).
 - **Integrator: RK4.**
   - implicitfast drifted the centre of mass 135 mm in 12 s of random motion; RK4 drifts 0.005 mm.
@@ -387,7 +404,7 @@ Why the model is built the way it is. Kept here so `AGENTS.md` stays short; read
     plane is level. The strings hold the chain straight, along it, in the middle of the room above the net (1.1 m up),
     and are tied on whenever it's back at the start. Its look (visual only): 40 mm aluminium extrusion on every edge and
     up the long sides' middles, the net's own frame and 50 mm mesh, a door in the aisle-side panel, feet on the seat
-    tracks (`box_looks`).
+    tracks (`make_box.looks`).
   - **The deck:** an attach that faces up in the box becomes a deck across it (50 mm thick, over the net), for the
     suction walk.
   - **Suction cups are square pads** (side = `cup_mm`). A disc on a box surface got contacts that couldn't resist the
@@ -404,7 +421,7 @@ Why the model is built the way it is. Kept here so `AGENTS.md` stays short; read
     shell to the top and bottom edges of the box's long sides, fanned out along the chain (`STRING_FAN`). Straight up
     and down they held it vertically but let the leftover g swing it ~10 mm sideways. Holding sets each limit to the
     string's length at the start; letting go makes it endless and hides it.
-  - **The parabola** (`play.Parabola`): level 1 g, a 3 s ramp to 1.8 g, a 4 s ramp to 0 g, `parabola_s` of zero g, the
+  - **The parabola** (`flight.Parabola`): level 1 g, a 3 s ramp to 1.8 g, a 4 s ramp to 0 g, `parabola_s` of zero g, the
     same back, cosine ramps. The pitch: in zero g the plane flies a free-fall arc, nose up `pitch_deg` to nose down
     `pitch_deg`, so pitch = atan(tan(`pitch_deg`) (1 − 2T / `parabola_s`)), turning fastest over the top; the pull-up and
     pull-out join that arc smoothly to level (cubic Hermite). A Moon or Mars parabola (`level_g`) holds that g instead

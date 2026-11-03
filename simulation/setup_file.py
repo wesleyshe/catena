@@ -73,7 +73,7 @@ ENDS = ("ee1", "ee_n")  # in a setup dict; in the file they're the tables [ee1] 
 TABLES = ENDS + ("rod", "flight")
 FLIGHT_DEFAULTS = dict(box_m=[x / 1000 for x in FLIGHT["box_mm"]], strings=None, on_net=False, roll_deg=0.0, level_g=0.0, release_s=1.0,
                        start_s=1.5, hyper_s=float(FLIGHT["hypergravity_s"]), jitter=True, seed=1)  # strings None: default_strings
-RAMPS_S = 7.0  # the 1 -> 1.8 g and 1.8 -> 0 g ramps (play.Parabola): a 1.8 g phase can't be shorter
+RAMPS_S = 7.0  # the 1 -> 1.8 g and 1.8 -> 0 g ramps (flight.Parabola): a 1.8 g phase can't be shorter
 SETTINGS = dict(none=(), anchor=("attach",), suction=("attach", "pull_N", "cup_mm", "friction"), thruster=("thrust_N",))
 ALWAYS = ("sequence", "move_s", "hold_s")  # save() writes these; the other keys only where they differ from DEFAULTS
 DEMOS = [("1A  Free float (held)", "1a_turn"), ("1B  Free float (from the net)", "1b_from_net"),  # the control window's

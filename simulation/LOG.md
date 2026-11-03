@@ -3,7 +3,19 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
-- **Refactor, phase 4: the checks.** `verify.py` (796 lines) is now 39 lines that run `checks/` in order: `model.py`
+- **Refactor, phase 5: the docs.** `AGENTS.md` describes the new layout (the folder map in groups, how the pieces
+  connect, the contracts' new homes: `sequence.joint_servos`, `ends.End`, `flight.Parabola`, `viewer.Commands`) and is
+  back to 250 lines (from 270): the two end-effector gotchas moved to README's Physics choices, the open issues the
+  experiments list were merged. README: the new files, `verify.py 15`, `checks/same_as_before.py`, `KEYS` now in
+  `viewer.py`, the end effectors' numbers in `make_ends.py`, a link to the guide. Code comments that pointed at
+  `play.py` for what `ends.py` and `flight.py` now do were corrected.
+  - README's setups table (and `../experiments/findings.md`): 6a "touches nothing in zero g" was out of date: the headless
+    flight, before the refactor and after, first touches the lid at T+19.5 s.
+- **Checked:** every file name the docs mention exists; nothing still names a moved function; quick compare the same
+  (XML, window, stdlib) after the comment changes.
+
+## 2026-11-03 · Wesley (Claude Code)
+- **Refactor, phase 4: the checks.** `verify.py` (796 lines) is now 40 lines that run `checks/` in order: `model.py`
   (sections 1, 2, 4), `physics.py` (3, 5, 6, 13), `in_flight.py` (7, 15), `renders.py` (8), `end_effectors.py`
   (9–12), `controls.py` (14, 16), helpers in `common.py`. `verify.py 15` runs one section.
   - New section 16, "setup files": the setup-file checks that sat in section 9, plus two new ones: the shortest 1.8 g

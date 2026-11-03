@@ -366,3 +366,18 @@ Each phase is about one session's work.
 4. **Fix the stale docs now, as a separate docs-only change, rather than in step 12?** My pick: now, because they
    mislead today.
 5. **Keep the two untracked PDFs out of git?** My pick: yes.
+
+## As built (2026-11-03)
+Wesley said go ("your plan looks good. Carry on"), and all five phases are done: commits `2e49a22` (0–1), `075697b` (2),
+`603dabb` (3), `d06771b` (4) and the docs after them. Each phase compared 48 of 48 the same as the baseline
+(`checks/same_as_before.py`). Where it differs from the plan above:
+- **The flight's methods moved as a block, not into a `Flight` object.** A `Flight` would have needed most of
+  `Session`'s insides (spin, inertia, play, the ends, the shells, the sequence's state), which tripped the stop rule in
+  step 7. They're in `flight.py` as `FlightBox`, which `Session` inherits, so every contract name stays on `Session`
+  with no forwarding properties.
+- **`LOG_DT` is at the top of `sequence.py`**, not `session.py`, so `ends.py` and `flight.py` can use it without
+  importing `session.py`. The actuator helpers (`actuator`, `modules`, `joint_servos`) are there too.
+- **`play.run_viewer` kept its name** (in `viewer.py`), and `load_model()` returns just the model.
+- **`checks/window_recorder.py` also records the window's layout** (every widget's name, place and size), so the
+  panel tidy is checked for looks as well as commands.
+- **Section 16 also checks** that `setup_file.RAMPS_S` matches `Parabola`'s ramps (planned for step 5).

@@ -4,6 +4,13 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- **The refactor of `simulation/` is built** (`docs/design/2026-11-03-refactor-plan.md`, with an "As built" section):
+  same commands, same results byte for byte. `README.md` links the new `simulation/GUIDE.md`.
+- `experiments/findings.md`, "The flight box": 6a touches the lid at T+19.5 s, near the end of zero g (it said it
+  touched nothing; the code before the refactor gives T+19.5 s too, so the line was already out of date).
+- **Checked:** `simulation/checks/same_as_before.py`: 48 of 48 the same at every phase; details in `simulation/LOG.md`.
+
+## 2026-11-03 · Wesley (Claude Code)
 - **Stale docs fixed** (the list in the refactor plan, section 6): `README.md`'s map rows for `simulation/` and `docs/`;
   `sequences/README.md` (4a walks on a deck over the net, not the lid); `experiments/README.md` (5b uses anchors, 5a has
   no end effectors). Hardware's and the sim's lines are in their own logs.

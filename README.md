@@ -36,7 +36,8 @@ uv pip install --python .venv/bin/python -r requirements.txt
 ```
 
 The last command should end with `ALL CHECKS PASSED`. On a Mac, double-click `simulation/Chain Sim.command` to get the
-control window and 3D viewer. More is in `simulation/README.md`.
+control window and 3D viewer. `simulation/GUIDE.md` walks through it for first-timers; `simulation/README.md` is the
+reference.
 
 ## Working with a coding agent
 - **`AGENTS.md` files** tell coding agents (Claude Code, Codex, Cursor, Copilot, ...) how this repo works. There's one

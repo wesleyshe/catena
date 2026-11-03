@@ -1,7 +1,7 @@
 """The end effectors in the model: an extra module past m1 (ee1, on module 1's twist servo m1_yaw) and/or past the last
 module (ee{N}, rigid). Each is none, an anchor (a clamp), a suction cup or a thruster (five nozzles). make_chain.build()
 calls bodies() and cup_pairs(); where an end starts (attach_point, leading_end) is also used by setup_file.py and
-play.py. Stdlib only, like make_chain.py.
+session.py. Stdlib only, like make_chain.py.
 """
 import math
 import xml.etree.ElementTree as ET
@@ -22,7 +22,7 @@ CLAMP_SOLREF = "0.002 1"  # the clamp's weld: stiff (the default let a clamped e
 CUP_T = 0.002           # m: half-thickness of a suction cup (its diameter is a setting)
 NOZZLES = ((0, 0, 1), (1, 0, 0), (0, 1, 0), (-1, 0, 0), (0, -1, 0))  # n0-n4 exhausts, in the end's frame (n0's z flips
                         # to point away from the chain at ee1); each pushes the opposite way
-NOZZLE_RGBA = ("0.35 0.25 0.10 1", "1 0.55 0.1 1")  # off, firing (play.py swaps them)
+NOZZLE_RGBA = ("0.35 0.25 0.10 1", "1 0.55 0.1 1")  # off, firing (ends.py swaps them)
 CUP_MARGIN = 0.001      # m: a cup's contact margin: it pulls (and pushes) from this far away. Bigger makes it hover
                         # (MuJoCo 3.16 doesn't let gap switch the push off), so a cup has to be pressed on to stick
 FACINGS = {"up": (0, 0, 1), "down": (0, 0, -1), "+x": (1, 0, 0), "-x": (-1, 0, 0), "+y": (0, 1, 0), "-y": (0, -1, 0)}
@@ -68,10 +68,10 @@ def bodies(root, world, ends, first, last, n, pitch, r_shell, s, yaw_limits):
         ET.SubElement(ee, "geom", {"class": "visual", "type": "sphere", "size": v(r_shell * s), "rgba": EE_RGBA[kind],
                                    "name": f"{name}_visual"})
         ET.SubElement(ee, "geom", {"class": "collision", "name": f"{name}_sphere", "mass": v(mass), "shellinertia": "false"})
-        if kind == "anchor":  # its grip face; play.py clamps when the face is near something fixed and it's told to hold
+        if kind == "anchor":  # its grip face; ends.py clamps when the face is near something fixed and it's told to hold
             ET.SubElement(ee, "geom", {"class": "visual", "type": "cylinder", "name": f"{name}_tip", "rgba": "0.15 0.15 0.15 1",
                                        "size": v(TIP[0] * s, TIP[1] / 2 * s), "pos": v(0, 0, side * (r_shell - TIP[1] / 2) * s)})
-            # the clamp: a weld to a fixed (mocap) body that play.py moves to the end's pose when it grabs
+            # the clamp: a weld to a fixed (mocap) body that ends.py moves to the end's pose when it grabs
             ET.SubElement(world, "body", name=f"{name}_hold", mocap="true")
             weld = dict(name=f"{name}_clamp", body1=name, body2=f"{name}_hold", relpose="0 0 0 1 0 0 0", active="false",
                         solref=CLAMP_SOLREF)
