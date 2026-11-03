@@ -12,6 +12,6 @@ roll_deg = -90.0
 level_g = 0.0
 release_s = 1.0
 start_s = 1.5
-hyper_s = 23.0
+hyper_s = 10.0
 jitter = true
 seed = 1

@@ -13,7 +13,8 @@ import tkinter as tk
 from tkinter import filedialog, simpledialog, ttk
 
 import setup_file
-from make_chain import EE_DEFAULTS, EE_TYPES, FACINGS, N_MODULES, PRESETS
+from make_chain import N_MODULES, PRESETS
+from make_ends import EE_DEFAULTS, EE_TYPES, FACINGS
 from setup_file import DEMOS, FLIGHT_DEFAULTS, SEQ_DIR, SETUP_DIR, default_strings
 from viewer_link import ViewerLink
 
@@ -138,7 +139,7 @@ class Panel:
         self.played = False  # a take has run since the viewer opened or Reset pose: the next Play starts from the start
         self.autoplay = False  # a demo button was clicked: play as soon as the viewer connects
         self.loaded_flight = False  # the open viewer has the flight box: Play flies the parabola
-        self.manual = False  # a parabola started by hand is running: Play plays the sequence now, Let go lets go
+        self.manual = False  # a parabola started by hand is flying: Play plays the sequence now (poll keeps this up to date)
 
         self.preset, self.modules, self.slip = tk.StringVar(value="original14"), tk.IntVar(value=N_MODULES), tk.BooleanVar()
         self.seq, self.move, self.hold = tk.StringVar(), tk.DoubleVar(value=3.0), tk.DoubleVar(value=1.0)
@@ -162,19 +163,38 @@ class Panel:
         left.grid(row=0, column=0, sticky="n")
         right.grid(row=0, column=1, sticky="n")
 
-        def frame(title, side=left):
-            f = ttk.LabelFrame(side, text=title, padding=6)
-            f.pack(fill="x", padx=8, pady=4)
-            return f
+        self.section_demos(left)
+        self.section_setup(left)
+        self.section_model(left)
+        self.section_ends(left)
+        self.section_sequence(left)
+        self.section_world(left)
+        self.section_spin(right)
+        self.section_flight(right)
+        self.section_record(right)
+        self.section_readouts(right)
 
-        f = frame("The demos, each on the flight: one click opens it and flies it with its sequence (Play for another take)")
+        self.open_viewer()
+        self.poll()
+
+    def frame(self, title, side):
+        """One section of the window: a titled box in the left or right column."""
+        f = ttk.LabelFrame(side, text=title, padding=6)
+        f.pack(fill="x", padx=8, pady=4)
+        return f
+
+    def section_demos(self, side):
+        """The demo buttons: one click loads a class simulation's setup and flies it."""
+        f = self.frame("The demos, each on the flight: one click opens it and flies it with its sequence (Play for another take)", side)
         places = [(0, 0), (0, 1)] + [(1 + j // 3, j % 3) for j in range(len(DEMOS) - 2)]  # 1A and 1B side by side, then 2-6
         for (label, name), (row, col) in zip(DEMOS, places):
             ttk.Button(f, text=label, command=lambda name=name: self.demo(name)).grid(row=row, column=col, sticky="we")
         for col in range(3):
             f.columnconfigure(col, weight=1)
 
-        f = frame("Setup (a whole run, from setups/)")
+    def section_setup(self, side):
+        """Setup: pick a whole run from setups/, Load it into every field below, or Save as a new one."""
+        f = self.frame("Setup (a whole run, from setups/)", side)
         self.setup_box = ttk.Combobox(f, textvariable=self.setup_name, values=self.setups(), state="readonly", width=24,
                                       postcommand=lambda: self.setup_box.configure(values=self.setups()))
         self.setup_box.grid(row=0, column=0, sticky="we")
@@ -185,7 +205,9 @@ class Panel:
         f.columnconfigure(0, weight=1)
         self.about.set("Pick a setup and click Load (it fills everything below), then Play.")
 
-        f = frame("Model")
+    def section_model(self, side):
+        """Model: the preset, the number of modules, the slip ring, air drag and the rod."""
+        f = self.frame("Model", side)
         ttk.Label(f, text="Preset").grid(row=0, column=0, sticky="w")
         ttk.Combobox(f, textvariable=self.preset, values=list(PRESETS), state="readonly", width=12).grid(row=0, column=1)
         ttk.Label(f, text="Modules").grid(row=0, column=2, padx=(8, 0))
@@ -196,13 +218,17 @@ class Panel:
         spinbox(f, self.rod_mm, 10, 100, 5, 4).grid(row=2, column=4, sticky="w")
         f.columnconfigure(4, weight=1)
 
-        f = frame("End effectors (a module on each end)")
+    def section_ends(self, side):
+        """End effectors: one row per end, then the Rebuild button, which applies them and Model."""
+        f = self.frame("End effectors (a module on each end)", side)
         self.ends = [EndBox(self, f, "ee1", "Past m1 (twist servo)"), EndBox(self, f, "ee_n", "Past the last module")]
         self.show_ends()
-        ttk.Button(left, text="Rebuild + open viewer  (applies Model and End effectors)",
+        ttk.Button(side, text="Rebuild + open viewer  (applies Model and End effectors)",
                    command=self.open_viewer).pack(fill="x", padx=8, pady=(0, 4))
 
-        f = frame("Fold sequence")
+    def section_sequence(self, side):
+        """Fold sequence: the CSV, its timing, Play / Pause / Resume / Restart / Stop, and the countdown."""
+        f = self.frame("Fold sequence", side)
         self.seq_box = ttk.Combobox(f, textvariable=self.seq, values=self.sequences(), width=28,
                                     postcommand=lambda: self.seq_box.configure(values=self.sequences()))
         self.seq.trace_add("write", lambda *a: self.show_seq_about())
@@ -231,7 +257,9 @@ class Panel:
         ttk.Label(f, text="Speed x makes the moves faster (the physics changes); Playback x only shows the "
                           "simulation faster than real time.", wraplength=430, foreground="gray40").grid(row=5, column=0, columnspan=5, sticky="w")
 
-        f = frame("World")
+    def section_world(self, side):
+        """World: gravity, Straighten, Reset pose and Pause physics."""
+        f = self.frame("World", side)
         ttk.Checkbutton(f, text="Gravity", variable=self.gravity, command=self.send_gravity).grid(row=0, column=0)
         spinbox(f, self.g, 0, 30, 0.5, 5, command=self.send_gravity).grid(row=0, column=1)
         ttk.Label(f, text="m/s²  ").grid(row=0, column=2)
@@ -241,17 +269,21 @@ class Panel:
         self.physics_btn.grid(row=1, column=0, columnspan=5, sticky="we", pady=(6, 0))
         f.columnconfigure(4, weight=1)
 
-        f = frame("Spin (through the centre of mass; also: leftover spin when it's let go)", right)
+    def section_spin(self, side):
+        """Spin: a spin through the centre of mass, now or when Play starts."""
+        f = self.frame("Spin (through the centre of mass; also: leftover spin when it's let go)", side)
         spinbox(f, self.spin_rate, -360, 360, 0.5).grid(row=0, column=0)
         ttk.Label(f, text="deg/s about").grid(row=0, column=1, padx=(4, 4))
         ttk.Combobox(f, textvariable=self.spin_axis, values=SPIN_AXES, state="readonly", width=15).grid(row=0, column=2)
         ttk.Button(f, text="Spin", command=lambda: self.send("spin", rate=self.spin_rate.get(),
-                                                             axis=self.spin_axis.get()[-2])).grid(row=0, column=3, padx=(6, 0))
+                                                             axis=self.axis())).grid(row=0, column=3, padx=(6, 0))
         ttk.Button(f, text="Stop spin", command=lambda: self.send("spin", rate=0.0, axis="all")).grid(row=0, column=4, padx=6)
         ttk.Checkbutton(f, text="Also spin like this when Play starts (the spin at release)",
                         variable=self.spin_at_play).grid(row=1, column=0, columnspan=5, sticky="w", pady=(4, 0))
 
-        f = frame("Flight: the box on the plane, and one parabola (Novespace A310)", right)
+    def section_flight(self, side):
+        """Flight: the box, the strings, the parabola's timing, flying it by hand, and the camera."""
+        f = self.frame("Flight: the box on the plane, and one parabola (Novespace A310)", side)
         box = ttk.Frame(f)
         box.grid(row=0, column=0, sticky="w")
         ttk.Checkbutton(box, text="In the flight box, m:", variable=self.box_on).pack(side="left")
@@ -285,16 +317,17 @@ class Panel:
                           "The box and the strings need Rebuild; the times apply at Play.", wraplength=470,
                   foreground="gray40").grid(row=5, column=0, sticky="w", pady=(4, 0))
 
-        f = frame("Record", right)
+    def section_record(self, side):
+        """Record: the log, a screenshot, and this folder in Finder."""
+        f = self.frame("Record", side)
         ttk.Checkbutton(f, text="Log to logs/", variable=self.logging, command=lambda: self.send("log", on=self.logging.get())).grid(row=0, column=0)
         ttk.Button(f, text="Screenshot", command=lambda: self.send("screenshot")).grid(row=0, column=1, padx=6)
         ttk.Button(f, text="Open folder", command=lambda: subprocess.run(["open", HERE])).grid(row=0, column=2)
 
-        f = frame("Readouts", right)
+    def section_readouts(self, side):
+        """Readouts: what the viewer reports, 5 times a second."""
+        f = self.frame("Readouts", side)
         ttk.Label(f, textvariable=self.status, font=("Menlo", 11), justify="left").pack(anchor="w")
-
-        self.open_viewer()
-        self.poll()
 
     def sequences(self):
         return sorted(os.path.basename(p) for p in glob.glob(os.path.join(SEQ_DIR, "*.csv")))
@@ -328,12 +361,21 @@ class Panel:
             for box in self.ends:
                 box.show(other_placed=self.ends[0].placed())
 
-    def current(self):
-        """The loaded setup with every field of this window laid over it."""
-        s, seq = copy.deepcopy(self.loaded), self.seq.get()
+    def axis(self):
+        """The Spin box's axis, as the viewer takes it: the letter before ")" in the choice (x, y or z)."""
+        return self.spin_axis.get()[-2]
+
+    def spin_vector(self):
+        """The spin a take gives at Play (in the flight box, as the strings let go), [x, y, z] deg/s: the Spin box's
+        rate about its axis if "Also spin like this when Play starts" is ticked, else none."""
         spin = [0.0, 0.0, 0.0]
         if self.spin_at_play.get():
-            spin["xyz".index(self.spin_axis.get()[-2])] = float(self.spin_rate.get())
+            spin["xyz".index(self.axis())] = float(self.spin_rate.get())
+        return spin
+
+    def current(self):
+        """The loaded setup with every field of this window laid over it."""
+        s, seq, spin = copy.deepcopy(self.loaded), self.seq.get(), self.spin_vector()
         s.update(sequence=os.path.join(SEQ_DIR, seq) if seq else "", move_s=float(self.move.get()),
                  hold_s=float(self.hold.get()), speed=float(self.speed.get()), playback=float(self.playback.get()),
                  gravity_m_s2=float(self.g.get()) if self.gravity.get() else 0.0, spin_deg_s=spin, air=self.air.get(),
@@ -451,16 +493,9 @@ class Panel:
         if (fresh or self.played) and not self.manual:  # by hand, mid-parabola: play it now, from where it is
             self.send("reset")
         self.played = True
-        self.send("speed", value=self.speed.get())
-        self.send_playback()
-        try:
-            count = self.countdown.get()
-        except tk.TclError:  # the box is empty or being typed into
-            count = COUNTDOWN_S
-        if count > 0 and not self.manual:  # the viewer holds the spin and play, and the physics, until T-0 (not mid-flight)
-            self.send("countdown", s=count)
+        self.start_take(countdown=not self.manual)  # by hand, mid-flight: no countdown, which would hold the physics
         if self.spin_at_play.get() and not self.manual:  # by hand, the spin comes with Let go instead
-            self.send("spin", rate=self.spin_rate.get(), axis=self.spin_axis.get()[-2])
+            self.send("spin", rate=self.spin_rate.get(), axis=self.axis())
         self.send("play", file=os.path.join(SEQ_DIR, path), move=self.move.get(), hold=self.hold.get())  # abs path stays
 
     def fly(self, manual=False):
@@ -475,23 +510,26 @@ class Panel:
             self.status.set(str(e))
             return
         self.manual = manual
-        spin = [0.0, 0.0, 0.0]
-        if self.spin_at_play.get():  # in the box, the spin is added as the strings let go
-            spin["xyz".index(self.spin_axis.get()[-2])] = float(self.spin_rate.get())
+        spin = self.spin_vector()  # in the box, the spin is added as the strings let go
         self.send("reset")
         self.played = True
-        self.send("speed", value=self.speed.get())
-        self.send_playback()
-        try:
-            count = self.countdown.get()
-        except tk.TclError:
-            count = COUNTDOWN_S
-        if count > 0:
-            self.send("countdown", s=count)
+        self.start_take()
         seq = self.seq.get()
         self.send("fly", file=os.path.join(SEQ_DIR, seq) if seq and not manual else "", move=self.move.get(),
                   hold=self.hold.get(), release=f["release_s"], start=f["start_s"], hyper=f["hyper_s"], jitter=f["jitter"],
                   spin=spin, manual=manual)
+
+    def start_take(self, countdown=True):
+        """How every take starts: the speed, the playback rate, then the countdown (unless Countdown s is 0), during
+        which the viewer holds the commands that follow and the physics."""
+        self.send("speed", value=self.speed.get())
+        self.send_playback()
+        try:
+            count = self.countdown.get()
+        except tk.TclError:  # the box is empty or being typed into
+            count = COUNTDOWN_S
+        if count > 0 and countdown:
+            self.send("countdown", s=count)
 
     def reset_pose(self):
         self.send("reset")
@@ -524,8 +562,9 @@ class Panel:
                 self.play()
         if info:
             self.status.set("\n".join(f"{k:<11}{v}" for k, v in info.items()))
-            if info.get("flight", "").startswith(("done", "not flying")):
-                self.manual = False  # that parabola is over: the next Play flies a fresh one
+            # by hand while the viewer says so: it has a "by hand" line only while a parabola started by hand is flying,
+            # so not during its countdown (which reads "not flying") and not once it's over or stopped
+            self.manual = "by hand" in info
             self.sim_running = info["physics"] == "running"  # also follows the Space key in the viewer
             self.physics_btn.configure(text="⏸  Pause physics" if self.sim_running else "▶  Resume physics")
         if closed:

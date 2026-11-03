@@ -110,7 +110,8 @@ All in the module frame: the origin is where the yaw and pitch axes cross, which
 - **Estimated smallest shells:** SCS0009 about 73 mm, STS3032 about 79 mm, XL330/XC330 about 96 mm.
   - So 5.5 cm modules can't fit two servos, and the 7 cm sim presets (`dyna7`, `feetech7`) are optimistic what-ifs.
   - These estimates come from reseller dimensions plus assumed shaft offsets. No STEP files were checked.
-- **Outcome (2026-10-22):** the STS3032 build at about 80 mm, matching the 79 mm estimate above.
+- **Outcome (2026-10-22):** the STS3032 build at about 80 mm, matching the 79 mm estimate above. Since 2026-11-03 it's
+  Ø85 mm shells 0.5 mm apart (see Status).
 - **Before sizing a mini module:**
   - Confirm the servo choice, and whether about 7.3–8 cm is acceptable.
   - Going smaller needs a layout change, so ask first.

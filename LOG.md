@@ -4,6 +4,38 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- `experiments/findings.md`, "The flight box": the setups now fly 10 s 1.8 g phases (Wesley, to wait less in the
+  demos); the section's results stay those of the A310's 23 s, with what 10 s changes beside them (zero g mostly the
+  same; 1b's lift-off and the clamps' pull-up loads differ). Details in `simulation/LOG.md`.
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED.
+
+## 2026-11-03 · Wesley (Claude Code)
+- **The refactor of `simulation/` is built** (`docs/design/2026-11-03-refactor-plan.md`, with an "As built" section):
+  same commands, same results byte for byte. `README.md` links the new `simulation/GUIDE.md`.
+- `experiments/findings.md`, "The flight box": 6a touches the lid at T+19.5 s, near the end of zero g (it said it
+  touched nothing; the code before the refactor gives T+19.5 s too, so the line was already out of date).
+- **Checked:** `simulation/checks/same_as_before.py`: 48 of 48 the same at every phase; details in `simulation/LOG.md`.
+
+## 2026-11-03 · Wesley (Claude Code)
+- **Stale docs fixed** (the list in the refactor plan, section 6): `README.md`'s map rows for `simulation/` and `docs/`;
+  `sequences/README.md` (4a walks on a deck over the net, not the lid); `experiments/README.md` (5b uses anchors, 5a has
+  no end effectors). Hardware's and the sim's lines are in their own logs.
+- `.gitignore`: Novespace's ITF and the example ESDP in `docs/` stay local; the repo is public and they aren't ours.
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED.
+
+## 2026-11-03 · Wesley (Claude Code)
+- **`docs/design/2026-11-03-refactor-plan.md`:** a plan to split `simulation/` into files that each do one thing
+  (`play.py`, `make_chain.py` and `verify.py` mainly), keeping every contract in `simulation/AGENTS.md`, in 13 small
+  steps with checks. It also lists the stale lines found in the docs across the repo. A plan only: no code changed,
+  waiting for Wesley's go-ahead.
+- **Checked:** baseline on main (`69442e3`): `simulation/verify.py` ALL CHECKS PASSED; `fold_sequence.csv` and all 21
+  setups flown headless, twice: byte-identical logs both times; `build()` XML for 47 models hashed.
+- **Found while trying the guide's steps in the real window (by script):** with the default 5 s countdown, flying by
+  hand (Start the parabola, Let go, then Play) doesn't play the sequence. Play starts a fresh automatic parabola instead,
+  because the viewer's "not flying" readouts during the countdown make `panel.poll` clear its by-hand flag. With
+  Countdown s at 0 it works (sequence playing at T+4.8 s). Not fixed: this session changes no code.
+
+## 2026-11-03 · Wesley (Claude Code)
 - `experiments/findings.md`, "The flight box": the free-float setups renamed (`1b_from_net` new, `1c_spin_*`, `1d_roll`,
   `1e_turn_across`) and a finding: started on the net, the chain gets far less clean free-float time than held by
   strings. `experiments/README.md` and `sequences/README.md` updated to the new names.
