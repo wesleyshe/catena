@@ -3,6 +3,18 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- **Refactor, phase 4: the checks.** `verify.py` (796 lines) is now 39 lines that run `checks/` in order: `model.py`
+  (sections 1, 2, 4), `physics.py` (3, 5, 6, 13), `in_flight.py` (7, 15), `renders.py` (8), `end_effectors.py`
+  (9–12), `controls.py` (14, 16), helpers in `common.py`. `verify.py 15` runs one section.
+  - New section 16, "setup files": the setup-file checks that sat in section 9, plus two new ones: the shortest 1.8 g
+    phase a setup may ask for (`setup_file.RAMPS_S`) matches `Parabola`'s ramps, and `panel.py` and what it imports use
+    only the stdlib (read from their imports, so it runs on GitHub too).
+  - Section 7 puts back the preset it borrows even if the build fails (`try`/`finally`).
+- **Checked:** `verify.py` ALL CHECKS PASSED; its printout matched the baseline line for line before section 16, and
+  after it differs only by the six lines that moved from 9 to 16 and the two new checks. `verify.py 14 16` runs just
+  those. Not checked: the `verify` check on GitHub (it runs when the pull request is opened).
+
+## 2026-11-03 · Wesley (Claude Code)
 - **Refactor, phase 3: the windows.** The viewer window (`run_viewer`, `Commands`, screenshots, the keys) moved from
   `play.py` to `viewer.py`; `play.py` is now 92 lines of command line. `panel.py`: one `section_*` method per box
   instead of a 167-line `__init__`, `start_take()` shared by Play and the parabola, and `spin_vector()` / `axis()` in

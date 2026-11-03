@@ -23,7 +23,7 @@ import xml.etree.ElementTree as ET
 import make_box
 import make_ends
 from make_ends import EE_DEFAULTS, EE_TYPES, attach_point, leading_end
-from spec import FLIGHT, HW, MASS, SERVO, SPEC, SPEC_FILE, v
+from spec import FLIGHT, HW, MASS, SERVO, SPEC, v
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEIGHED = [g / 1000 for g in MASS.get("module_g", [])]  # whole modules (base + arm, kg), once they've been weighed

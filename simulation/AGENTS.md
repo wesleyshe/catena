@@ -263,6 +263,8 @@ How `spin`, the readouts, timing, screenshots and the viewer keys work is in "In
   - Remove `__pycache__/` after test runs.
 
 ## Verification
-`verify.py` has 15 sections, from compiling against the current CAD to a parabola in the flight box. Its
-perfect-zero-g checks build their own setups in code (13, the pole climb) rather than reading `setups/`, which fly. Its docstring
-says what each checks, and the key numbers are under Contracts.
+`verify.py` has 16 sections, from compiling against the current CAD to a parabola in the flight box and the setup
+files. The sections are in `checks/`, one file per subject (`model`, `physics`, `in_flight`, `renders`,
+`end_effectors`, `controls`, with helpers in `common`); `verify.py` runs them in order, and `verify.py 15` (or
+`verify.py 9 10`) runs just those. Its perfect-zero-g checks build their own setups in code (13, the pole climb) rather
+than reading `setups/`, which fly. Its docstring says what each checks, and the key numbers are under Contracts.
