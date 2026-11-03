@@ -101,6 +101,13 @@ The format is in the root `AGENTS.md`.
 - **Checked:** `roll_loop.csv` at three speeds: 0 contacts, peak servo torque at most 0.99 of 1.5 N·m, CG fixed.
 
 ## 2026-10-22 · Wesley (Claude Code)
+- **The repo is now public** (Wesley's decision). It includes the course syllabus and the proposal, which names all 8
+  team members.
+- **Turned on automatic deletion of branches after their pull request is merged.**
+- **Root `AGENTS.md`:** now says public, and has a new rule never to commit secrets, personal data or files that aren't
+  the team's to share.
+
+## 2026-10-22 · Wesley (Claude Code)
 - **Published as a private GitHub repo:** https://github.com/wesleyshe/catena.
 - **Squash-merge only.**
 - **New `verify` check** (`.github/workflows/verify.yml`): runs `simulation/verify.py` on Ubuntu, with software OpenGL
