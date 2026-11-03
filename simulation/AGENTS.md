@@ -20,7 +20,7 @@ History is in `LOG.md`.
   weeks, and comes in through "Incorporating a new design" in `../hardware/AGENTS.md`.
 - **End effectors and setups: all 6 phases built** (design and plans: `../docs/design/2026-10-2*-end-effectors*.md`).
   Anchors, suction cups, thrusters, placement, the rod, grip and nozzle columns, the stall sweep, Playback x, the
-  countdown. 20 setups make the six class simulations (1a–1d, 2a–2c, 3a ×4, 4a–4b, 5a–5b, 6a); results in
+  countdown. 21 setups make the six class simulations (1a–1e, 2a–2c, 3a ×4, 4a–4b, 5a–5b, 6a); results in
   `../experiments/findings.md`. The control window's six demo buttons fly one each.
 - **Every setup flies** (2026-11-03): its `[flight]` puts the chain in the acrylic box sized from the A310 cabin
   (`../experiments/flight_space.md`), held by strings (or its anchor) through the 1.8 g pull-up, let go at T+1 s, the
@@ -145,7 +145,8 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
   - Flight: `Session.fly(path, move, hold, release_s, start_s, hyper_s, jitter, spin, manual)` (call `reset()`
     first; missing values come from the setup's `[flight]`), `let_go()`, `fly_t` (None unless flying), `parabola`
     (`play.Parabola(hyper_s, jitter, seed, level).at(t)` → phase, g in the box's frame, T, pitch; `.free` names the
-    reduced-g phase), `released`, `release_spin`, `touch`, `gap_min`, `landing`, `dip`, `flight_result()`;
+    reduced-g phase), `released`, `release_spin`, `liftoff` and `on_net()` (a `[flight] on_net` start), `touch` (counted
+    once it's been clear of everything), `gap_min`, `landing`, `dip`, `manual`, `flight_result()`, `banner()`;
     `strings_on(on)`, `tension()`, `box_gap()`, `box_frame()`, `box_com()`, `com0_box`. Each step the session sets
     gravity to the pitch-turned g and the cabin hinge's angle and rate. `turned` is in the box's frame about the
     chain's starting pitch axis (`turn_axis`), `turned_space` the same in space; `inertia()` sums the chain only

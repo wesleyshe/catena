@@ -11,6 +11,7 @@ attach = { at = [0.0, -1.0, 0.85], facing = "+y", roll_deg = 0.0 }
 [flight]
 box_m = [2.0, 1.3, 1.9]
 strings = [1, 5, 8, 12]
+on_net = false
 roll_deg = 0.0
 level_g = 0.0
 release_s = 1.0

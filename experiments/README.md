@@ -34,7 +34,8 @@ Measured sim results so far are in `findings.md`.
     from the A310 cabin, `flight_space.md`) with a net across it, held by strings that let go at zero g. Play runs 1.8 g,
     zero g with the leftover g, 1.8 g, with the box turning with the plane's pitch. Every class simulation in
     `../simulation/setups/` flies this way now; results in `findings.md`, "The flight box": the plane's pitch rate at
-    release spoils the 30° turn unless the chain's pitch axes lie across the cabin (`1d_turn_across`).
+    release spoils the 30° turn unless the chain's pitch axes lie across the cabin (`1e_turn_across`); started on the
+    net instead of held by strings (`1b_from_net`), it gets far less clean free-float time.
   - `reorient_loop.csv` turns the chain about 7.4° per loop with zero angular momentum, about the vertical only.
   - `roll_loop.csv` turns it about its long axis, about 32° per loop. Turning in 3D needs a twist as well as pitch
     folds.

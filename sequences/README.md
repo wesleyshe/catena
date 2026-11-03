@@ -18,8 +18,8 @@ use the 8.5 cm flight build.
 | File | What it does | Setups that use it |
 |---|---|---|
 | `fold_sequence.csv` | Straight → L → straight → zig-zag → straight. `verify.py` uses it, so don't change it without re-running the checks. | `6a_skater` |
-| `reorient_loop.csv` | Turns the whole chain about 30° with no push: 4 shape loops that each end straight, keeping angular momentum at 0 (the "falling cat"). At default timing this takes 65 s. At `--speed 4` it takes 16 s, fitting one parabola: it turns about 31°, with servos peaking at 1.28 of 1.5 N·m. | `1a_turn`, `1b_spin_*`, `1d_turn_across` (at flight timing, move 1 s, hold 0.25 s) |
-| `roll_loop.csv` | Rolls the whole chain about its own long axis with no push: 2 loops of an m4 pitch fold plus an m8 twist (a 3D "falling cat"), about 64° in total. Default timing takes 33 s; `--speed 2` fits one parabola (16.5 s, 63.4°). Reverse the steps to roll the other way. | `1c_roll` |
+| `reorient_loop.csv` | Turns the whole chain about 30° with no push: 4 shape loops that each end straight, keeping angular momentum at 0 (the "falling cat"). At default timing this takes 65 s. At `--speed 4` it takes 16 s, fitting one parabola: it turns about 31°, with servos peaking at 1.28 of 1.5 N·m. | `1a_turn`, `1b_from_net`, `1c_spin_*`, `1e_turn_across` (at flight timing, move 1 s, hold 0.25 s) |
+| `roll_loop.csv` | Rolls the whole chain about its own long axis with no push: 2 loops of an m4 pitch fold plus an m8 twist (a 3D "falling cat"), about 64° in total. Default timing takes 33 s; `--speed 2` fits one parabola (16.5 s, 63.4°). Reverse the steps to roll the other way. | `1d_roll` |
 
 ### Written for a setup: they need its end effectors or world
 | File | Setup | Needs | What it does |

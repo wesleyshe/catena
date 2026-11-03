@@ -219,7 +219,8 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
         along, across, tall = flight["box_m"]
         if span * p["pitch"] > along or 2 * R_SHELL * s > min(across, tall):
             raise ValueError(f"the chain ({span * p['pitch']:.2f} m) doesn't fit in a {along:g} x {across:g} x {tall:g} m box")
-        height = held_height(flight["box_m"])  # held in the middle of the room above the net
+        height = (FLIGHT["net_height_mm"] / 1000 + R_SHELL * s + 0.002 if flight.get("on_net")  # lying on the net
+                  else held_height(flight["box_m"]))  # held in the middle of the room above the net
     roll = math.radians(CHAIN_ROLL + (flight.get("roll_deg", 0.0) if flight else 0.0))  # in the box it can roll
     weighed = p.get("module_masses") or []
     if weighed and len(weighed) != n:
@@ -283,7 +284,9 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
             ET.SubElement(cabin, "geom", name=name, type="box", pos=v(*pos), size=v(*size), rgba=ACRYLIC_RGBA, mass="0")
         net_z = FLIGHT["net_height_mm"] / 1000
         ET.SubElement(cabin, "geom", name="net", type="box", pos=v(0, 0, -h + net_z / 2), size=v(x, y, net_z / 2),
-                      rgba=NET_RGBA, mass="0", **net_contact(FLIGHT["net_sag_mm"]))  # the cabin is moved, never pushed: no mass
+                      rgba=NET_RGBA, mass="0", condim="6", friction=v(1, 0.005, ROLLING_RESISTANCE * R_SHELL * s),
+                      **net_contact(FLIGHT["net_sag_mm"]))  # rolling resistance like the floor's: lying on it, the
+                      # lopsided modules would rock and roll sideways; the cabin is moved, never pushed: no mass
         ET.SubElement(cabin, "geom", name="cabin_floor", type="box", pos=v(0, 0, -h - 2 * t - 0.045), size="4 4 0.005",
                       material="grid", contype="0", conaffinity="0", mass="0")  # what the cabin camera sees under the box
         box_looks(cabin, x + t, y + t, h + t, -h + net_z)

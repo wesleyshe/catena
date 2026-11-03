@@ -4,6 +4,12 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- `experiments/findings.md`, "The flight box": the free-float setups renamed (`1b_from_net` new, `1c_spin_*`, `1d_roll`,
+  `1e_turn_across`) and a finding: started on the net, the chain gets far less clean free-float time than held by
+  strings. `experiments/README.md` and `sequences/README.md` updated to the new names.
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED; details in `simulation/LOG.md`.
+
+## 2026-11-03 · Wesley (Claude Code)
 - **The class simulations fly:** `experiments/findings.md`, "The flight box", now has every setup's result on the flight
   (box, strings, parabola, the plane's pitch, the fall to the net). With its pitch axes across the cabin, the turn is
   predictable from the spin at release; vertical, the plane's spin spoils it. The 2.0 m box is tight for 20 s of free

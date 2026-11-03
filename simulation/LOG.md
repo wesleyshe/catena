@@ -3,6 +3,24 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- **By hand, say what's next** (Wesley: "when I click start the parabola... I am not seeing anything"; it was working,
+  but for ~30 s nothing moves in the cabin view and the sequence waits for Play). The viewer's big text now counts down
+  to zero g ("1.8 g pull-up - zero g in 12") after the T-5 countdown, then says "Let go when ready" and "Play: the
+  sequence"; a **by hand** readout line says the same.
+- **1b starts on the net** (Wesley: a free float "from the net, not in the middle held by the cables"): `[flight]
+  on_net` lays the chain on the net with no strings, and the window has an **or starts on the net** tick. The
+  free-float setups move up a letter: `1b_from_net`, `1c_spin_0.5` / `1c_spin_1`, `1d_roll`, `1e_turn_across`.
+  - The net now has the floor's rolling resistance: lying on its side, the chain rolled ~60 mm onto its heavy side
+    (each module's servo block is off its axis). 1b starts in that resting roll (`roll_deg = -90`, pitch axes across).
+  - `liftoff` records when and how fast it leaves the net; touches count only once the chain has been clear.
+  - Finding: the leftover g pulls it off the net at T+2.4 s at 210 mm/s, into the lid at T+6 s; with no jitter it
+    still drifts into an end wall by T+9 s (the net is 0.65 m below the box's turning centre). Held in the middle by
+    strings it first touches at T+20.9 s.
+- **Checked:** `verify.py` ALL CHECKS PASSED. All 21 setups flown headless (landings now sink at most 90 mm). The window
+  by script: 1b loads with the tick on and hands the viewer exactly its setup. The new prompts read right in a headless
+  by-hand flight (countdown to zero g, Let go, Play). Not seen in the live viewer.
+
+## 2026-11-03 · Wesley (Claude Code)
 - **Every setup flies** (Wesley: "modify all the current experiments... add the flight sequence and the box into them";
   ~20 s of experiment after a few seconds to let go, then the fall to the net). All 20 setups are flights on
   `feetech85`, held by strings (or their anchor) through 1.8 g, let go at T+1 s, the sequence from T+1.5 s. Per demo:

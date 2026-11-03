@@ -289,6 +289,7 @@ class Session:
         self.shells = [g for g in range(model.ngeom) if model.geom(g).name.endswith("_sphere")  # on purpose: not touches
                        and not model.geom(g).name.startswith(grips or ("-",))]
         self.strings = [t for t in range(model.ntendon) if "_string" in model.tendon(t).name]
+        self.net = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "net")
         self.setup, self.row0, self.ee_cols, self.ee_row = None, None, {}, None
         self.flight, self.fly_t = None, None  # the setup's [flight], and the time into a parabola while flying
         self.turn_axis = self.pitch_axis(0.0)  # what turned is about: the pitch axes as the chain starts
@@ -519,7 +520,7 @@ class Session:
         if manual:
             self.release_s, self.pending = math.inf, None
         self.fly_t, self.released, self.touch, self.gap_min, self.landing, self.dip = 0.0, None, None, 1.0, None, 0.0
-        self.fell, self.flown, self.release_spin = 0.0, True, 0.0
+        self.fell, self.flown, self.release_spin, self.manual, self.liftoff, self.clear = 0.0, True, 0.0, manual, None, False
         self.strings_on(True)
 
     def end_flight(self, keep_g=False):
@@ -555,6 +556,10 @@ class Session:
         self.fly_t += LOG_DT
         return phase, T
 
+    def on_net(self):
+        """Is any shell touching the net?"""
+        return any(self.net in (self.d.contact.geom1[i], self.d.contact.geom2[i]) for i in range(self.d.ncon))
+
     def let_go(self):
         """The strings let go (now, or at T+release_s), and any extra spin at release is added."""
         if self.fly_t is None or self.released is not None:
@@ -571,7 +576,13 @@ class Session:
     def flown_through(self, phase, T):
         """After each step: the gap to the box while free in zero g, then the landing on the net."""
         net = next((b for b in self.box if self.m.geom(b).name == "net"), None)
-        if phase == self.parabola.free and self.released is not None:
+        if self.flight.get("on_net") and self.liftoff is None and T >= 0 and not self.on_net():  # it floats off the net
+            c, w = self.d.xpos[self.cabin], self.d.qvel[self.cabin_v]
+            v = self.box_frame().T @ (self.d.sensor("com_vel").data - np.cross((w, 0, 0), self.d.subtree_com[1] - c))
+            self.liftoff = (T, v)
+        free = self.liftoff is not None if self.flight.get("on_net") else self.released is not None  # nothing holds it
+        self.clear = self.clear or (free and self.gap > 10 * TOUCH)  # touches count once it's been clear of everything
+        if phase == self.parabola.free and self.clear:
             self.gap_min = min(self.gap_min, self.gap)
             if self.touch is None and self.gap < TOUCH:
                 self.touch = (T, self.box_gap()[1])
@@ -750,7 +761,10 @@ class Session:
         return line
 
     def flight_result(self):
-        free = ("no strings, " if not self.strings else
+        off = self.liftoff
+        free = (f"started on the net, left it at T+{off[0]:.1f} s ({off[1][2] * 1000:+.0f} mm/s up, {np.linalg.norm(off[1]) * 1000:.0f} mm/s in all), "
+                if self.flight.get("on_net") and off else "started on the net, never left it, " if self.flight.get("on_net") else
+                "no strings, " if not self.strings else
                 f"let go at T+{self.released:.1f} s spinning {self.release_spin:+.1f} deg/s with the plane, "
                 if self.released is not None else "never let go, ")
         touch = f"first touched the {self.touch[1]} at T+{self.touch[0]:.1f} s" if self.touch else "touched nothing in zero g"
@@ -793,6 +807,10 @@ class Session:
                 f" ({FLIGHT['parabola_s'] - T:.1f} s of {self.parabola.free} left)" if phase == self.parabola.free else "")
             out["strings"] = (f"holding ({len(self.strings)}), pulling up to {self.tension():.1f} N" if self.released is None
                               else f"let go at T+{self.released:.1f} s")
+            if self.manual:
+                out["by hand"] = ("the strings hold until you click Let go (zero g from T+0)" if self.released is None and self.strings
+                                  else "Play runs the sequence now, or drive it with the keys" if self.keys is None
+                                  else f"playing {self.seq_name}")
             out["box gap"] += f", least {max(0.0, self.gap_min) * 1000:.0f} mm since let go" if self.released is not None else ""
         elif self.flown:
             out["flight"] = "done: " + self.flight_result()
@@ -805,7 +823,11 @@ class Session:
         if self.fly_t is None:
             return ""
         phase, g, T, _ = self.parabola.at(self.fly_t)
-        return f"{self.parabola.free}  T+{T:.0f}" if phase == self.parabola.free else f"{-g[2]:.1f} g  {phase}"
+        hint = "  Let go when ready" if self.manual and self.released is None and self.strings else \
+               "  Play: the sequence" if self.manual and self.keys is None else ""
+        if T < 0:  # counting down to zero g through the level flight and the pull-up
+            return f"{-g[2]:.1f} g  {phase}  -  {self.parabola.free} in {math.ceil(-T)}" + (" (by hand)" if self.manual else "")
+        return f"{self.parabola.free}  T+{T:.0f}{hint}" if phase == self.parabola.free else f"{-g[2]:.1f} g  {phase}"
 
     def end_readout(self, e):
         if e.kind == "anchor":

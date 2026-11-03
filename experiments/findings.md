@@ -145,8 +145,8 @@ masses and limits are placeholders. All are in zero g unless the table says othe
 | Simulation | Setup | What it shows in zero g | Measured |
 |---|---|---|---|
 | 1. Free float | `1a_turn` | turning with no push (fold loops at flight timing) | turned −30.3° in 20 s |
-| | `1b_spin_0.5`, `1b_spin_1` | the spin at release swamps it | −15.2°; 0.0° |
-| | `1c_roll` | rolling about its own length (a fold plus a twist) | IMU turn 63.4° in 16.5 s |
+| | `1c_spin_0.5`, `1c_spin_1` | the spin at release swamps it | −15.2°; 0.0° |
+| | `1d_roll` | rolling about its own length (a fold plus a twist) | IMU turn 63.4° in 16.5 s |
 | 2. One end anchored | `2a_arm` | an arm on a wall; the clamp takes the reaction | peak clamp load 4.0 N |
 | | `2b_stall_1g` / `_mars` / `_moon` / `_0g` | why zero g matters: m1_pitch lifting the hanging chain | lifts 12.6° / 24.4° / 44.3° / all the way (level) |
 | | `2c_let_go` | let go mid-swing: it keeps the momentum the wall was taking | drifts off at 150 mm/s, spinning |
@@ -178,7 +178,7 @@ tipping: the number to size a real cup by.
 **The side nozzles roll the chain a little.** Every nozzle's push passes through the chain's axis, but each module's
 centre of mass sits ~4.8 mm off it (the servo block isn't centred in the shell). So the nozzles along the end's ±y turn
 it with no roll, while those along ±x also roll it, ~12.8°/s after 2 s of 0.1 N, because a straight chain is very easy
-to roll about its length. Rolling on purpose still needs the fold-and-twist loop (`1c_roll`).
+to roll about its length. Rolling on purpose still needs the fold-and-twist loop (`1d_roll`).
 
 **Letting go only carries momentum if the chain is moving.** Sequences stop at every row, so `2c_let_go` swings fast
 (0.5 s per move): the servos are still catching up when the clamp opens, and that motion is what it drifts off with.
@@ -207,9 +207,10 @@ cabin's camera sees, "space" what the IMU sees):
 | Setup | On the flight |
 |---|---|
 | `1a_turn` (pitch axes vertical) | let go with the plane's −2.8°/s about the across axis, it rolls instead of turning: +2.5° in the box, IMU 90°; touches an end wall at T+20.9 s |
-| `1b_spin_0.5`, `1b_spin_1` | +34° and +25° in the box |
-| `1c_roll` | IMU 132° (the plane's spin on top of the roll) |
-| `1d_turn_across` (pitch axes across the cabin) | −131.5° in space with the jitter, −118.1° without: exactly what a free chain let go at the same −2.85°/s does (−118.2°) |
+| `1b_from_net` (lying on the net, no strings) | the leftover g pulls it off the net at T+2.4 s (210 mm/s), into the lid at T+6.0 s; with no jitter it floats off at 1 mm/s but drifts into an end wall by T+9.1 s |
+| `1c_spin_0.5`, `1c_spin_1` | +34° and +25° in the box |
+| `1d_roll` | IMU 132° (the plane's spin on top of the roll) |
+| `1e_turn_across` (pitch axes across the cabin) | −131.5° in space with the jitter, −118.1° without: exactly what a free chain let go at the same −2.85°/s does (−118.2°) |
 | `2a_arm` (clamped to the end wall) | reaching sideways after its quarter turn, the 1.1 m arm touches a side wall at T+7.6 s |
 | `2b_stall_0g` / `_moon` / `_mars` / `_1g` | stands level / lifts 28° / 15° / 5° from hanging |
 | `2c_let_go` | lets go mid-swing, drifts, touches the end wall at T+6.8 s |
@@ -234,7 +235,7 @@ cabin's camera sees, "space" what the IMU sees):
   | 2.7°/s (the plane's rate) | +17.2° | 143° |
 
   The same at half the timestep, and on the 14 cm chain, so it's physics, not numerics.
-- **With the pitch axes across the cabin, the spin just adds to the turn** (`1d_turn_across`): one clean rotation, IMU
+- **With the pitch axes across the cabin, the spin just adds to the turn** (`1e_turn_across`): one clean rotation, IMU
   angle = turn, and predictable from the spin measured at release. That's the orientation to fly the turn experiment
   in; predict from the IMU's rate at release.
 - **Holding through 1.8 g is easy.** Strings: the chain stays within 0.4 mm of its place in the box (3 mm rolled across
@@ -245,7 +246,12 @@ cabin's camera sees, "space" what the IMU sees):
   The arm, reaching sideways, needs more than 1.3 m across.
 - **Reduced-g parabolas** (`level_g`): 2b at the Moon's 0.16 g and Mars' 0.38 g, the plane pitching over less (31.8° nose
   up for Mars). The 8.5 cm chain lifts itself 28° and 15° from hanging; it stalls like the 14 cm one.
-- **The landing.** At the pull-out it lands on the net at 0.5–2.5 m/s and sinks at most 115 mm of the 300 mm under the
+- **Starting on the net gives much less free time than the strings.** Lying on the net (`1b_from_net`), it leaves with
+  whatever the leftover g gives it (here 210 mm/s up, into the lid 4 s later), and it carries the net's own motion: the
+  net is 0.65 m below the box's turning centre, so even with no jitter it drifts into an end wall by T+9 s. Held in the
+  middle (`1a_turn`) it first touches at T+20.9 s. Lying on its side it also rolls onto its heavy side (pitch axes
+  across the cabin), so that's the orientation it starts in.
+- **The landing.** At the pull-out it lands on the net at 0.1–2.5 m/s and sinks at most 90 mm of the 300 mm under the
   net. Net numbers are placeholders (20 mm of sag at 1 g).
 - **Size doesn't change the turn.** In perfect zero g, released at rest, the 8.5 cm chain turns the same −30.3° as the
   14 cm one: the turn follows the shape and where the mass sits, not the size.

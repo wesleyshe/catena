@@ -153,6 +153,7 @@ class Panel:
         self.release, self.start = tk.DoubleVar(value=FLIGHT_DEFAULTS["release_s"]), tk.DoubleVar(value=FLIGHT_DEFAULTS["start_s"])
         self.hyper = tk.DoubleVar(value=FLIGHT_DEFAULTS["hyper_s"])
         self.cabin_cam = tk.BooleanVar(value=True)  # the viewer watches from the cabin, turning with the plane
+        self.on_net = tk.BooleanVar()  # it starts lying on the net, no strings
         self.setup_name, self.about, self.about_text = tk.StringVar(), tk.StringVar(), ""
         self.seq_about = tk.StringVar()  # what the picked sequence does, and which setups it was written for
         self.spin_at_play = tk.BooleanVar()
@@ -262,6 +263,7 @@ class Panel:
         ttk.Label(held, text="1.8 g phases, s").pack(side="left", padx=(6, 2))
         spinbox(held, self.hyper, 7, 60, 1, 4).pack(side="left")
         ttk.Checkbutton(held, text="g-jitter", variable=self.jitter).pack(side="left", padx=(8, 0))
+        ttk.Checkbutton(held, text="or starts on the net", variable=self.on_net).pack(side="left", padx=(8, 0))
         times = ttk.Frame(f)
         times.grid(row=2, column=0, sticky="w", pady=(4, 0))
         ttk.Label(times, text="Let go at T+").pack(side="left")
@@ -345,7 +347,8 @@ class Panel:
             strings = sorted(int(x) for x in self.strings_text.get().replace(",", " ").split())
         except ValueError:
             raise ValueError(f"Strings hold modules: {self.strings_text.get()!r}: module numbers, e.g. 1 5 8 12") from None
-        return dict(box_m=[float(v.get()) for v in self.box_m], strings=strings, release_s=float(self.release.get()),
+        return dict(box_m=[float(v.get()) for v in self.box_m], strings=[] if self.on_net.get() else strings,
+                    on_net=self.on_net.get(), release_s=float(self.release.get()),
                     start_s=float(self.start.get()), hyper_s=float(self.hyper.get()), jitter=self.jitter.get())
 
     def demo(self, name):
@@ -369,7 +372,8 @@ class Panel:
         f = {**FLIGHT_DEFAULTS, "strings": default_strings(s["modules"]), **s["flight"]}
         for var, x in zip(self.box_m, f["box_m"]):
             var.set(x)
-        self.strings_text.set(" ".join(map(str, f["strings"]))), self.jitter.set(f["jitter"])
+        self.strings_text.set(" ".join(map(str, f["strings"] or default_strings(s["modules"])))), self.jitter.set(f["jitter"])
+        self.on_net.set(f["on_net"])
         self.release.set(f["release_s"]), self.start.set(f["start_s"]), self.hyper.set(f["hyper_s"])
         if s["rod"]:
             self.rod_mm.set(s["rod"]["diameter_mm"])
