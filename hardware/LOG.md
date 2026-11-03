@@ -3,6 +3,12 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- `spec.toml` `[flight]`: `box_mm` 2500 → 2000 along the cabin (Wesley: "a reasonable size that can be carried onto the
+  plane"); it still needs building on board from parts, since it's bigger than the door (`experiments/flight_space.md`).
+  New `pitch_deg` = 45: the plane's nose-up as zero g begins (typical; check Novespace's attitude data).
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED.
+
+## 2026-11-03 · Wesley (Claude Code)
 - **The flight build's module is Ø85 mm, 0.5 mm apart** (Wesley). Until its CAD exists the sim scales the AX-12A module
   to it (preset `feetech85`); the spec's `[chain]` stays on the AX-12A chain.
 - **`spec.toml` `[flight]`, from the Novespace A310 interface document** (`docs/ITF-2025-01-Interfaces-EN.pdf`):

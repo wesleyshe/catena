@@ -3,6 +3,25 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- **The plane's pitch is modelled** (Wesley: "model the flight angle etc too"). The box, net, string ends and a cabin
+  camera are one mocap body, `cabin`, turned about the across axis with the plane's pitch (nose up ~49°, over the top at
+  up to 5.2°/s, nose down), and gravity is turned with it; the world moves with the box but doesn't turn. The viewer
+  starts on the cabin camera. `turned` is in the box's frame; `inertia()` sums the chain only (the cabin's box geoms
+  had taken a density's mass and swamped it: the cabin's geoms are massless now).
+- **A flight setup flies on Play** (Wesley: the experiment "written into the sequence, pre-recorded"): its `[flight]`
+  holds the release and start times, so Play, Restart, a demo button or a headless run fly the whole parabola. The
+  separate Fly button and `--fly` are gone. New demo button **✈ On the flight** (`1d_flight_turn`).
+- Box 2.0 × 1.3 × 1.9 m (spec and `1d_flight_turn`).
+- **Finding:** let go from the turning box, the chain keeps the plane's pitch rate (−2.7°/s about the across axis),
+  and folding turns that into roll about its length: the 30° turn comes out at −5°. A free chain at 0.5°/s about that
+  axis already turns −20.9° instead of −30.3° (same at half the timestep and on the 14 cm chain). In
+  `../experiments/findings.md`, "The flight box".
+- **Checked:** `verify.py` ALL CHECKS PASSED, 15 sections (15 now checks the chain stays within 1.1 mm in the box as the
+  plane pitches up, leaves turning with the plane to 0.3°/s, lands above the box floor, and the 0.5°/s across-axis
+  turn of −20.9°). Logs byte-identical for `fold_sequence.csv` and the 19 older setups. The control window by script
+  (viewer stubbed). Not run in the live viewer.
+
+## 2026-11-03 · Wesley (Claude Code)
 - **The flight box and a whole parabola** (Wesley: an acrylic box with a net beneath, the chain held still in the middle
   by "a few string tethers... releasing upon we hit zero g"):
   - `make_chain.build(flight=)`: the box (stiff walls and lid) with its floor at z = 0, the net as a soft block from the

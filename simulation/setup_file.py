@@ -37,7 +37,8 @@ All the keys:
   box_m = [2.5, 1.3, 1.9]          # inside: along the chain (the cabin), across, height (default: the spec's box_mm)
   strings = [1, 5, 8, 12]          # modules held still in the middle, each by a string up and one down (default:
                                    # both ends and two in between; [] = none, it floats free in the box)
-  release_s = 1.0                  # play.py --fly / the Fly button: the strings let go this long after zero g begins
+  release_s = 1.0                  # Play (and a headless run) flies the parabola: the strings let go this long after
+                                   # zero g begins
   start_s = 1.5                    # ... and the sequence starts this long after
   hyper_s = 23.0                   # each 1.8 g phase, ramps included (the spec's hypergravity_s); at least 7
   jitter = true                    # the leftover g in zero g (the spec's jitter_g), the same every take for one seed
@@ -74,7 +75,8 @@ RAMPS_S = 7.0  # the 1 -> 1.8 g and 1.8 -> 0 g ramps (play.Parabola): a 1.8 g ph
 SETTINGS = dict(none=(), anchor=("attach",), suction=("attach", "pull_N", "cup_mm", "friction"), thruster=("thrust_N",))
 ALWAYS = ("sequence", "move_s", "hold_s")  # save() writes these; the other keys only where they differ from DEFAULTS
 DEMOS = [("1  Free float", "1a_turn"), ("2  Anchored", "2a_arm"), ("3  Thrusters", "3a_U"),  # the control window's
-         ("4  Suction walk", "4a_walk"), ("5  Pole climb", "5a_pole_climb"), ("6  Skater", "6a_skater")]  # buttons: setup
+         ("4  Suction walk", "4a_walk"), ("5  Pole climb", "5a_pole_climb"), ("6  Skater", "6a_skater"),  # buttons: setup
+         ("✈  On the flight: the turn, in the box", "1d_flight_turn")]
 KINDS = dict(anchor="anchor (clamp)", suction="suction cup", thruster="thruster")
 
 

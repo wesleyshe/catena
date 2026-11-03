@@ -95,8 +95,8 @@ All in the module frame: the origin is where the yaw and pitch axes cross, which
     its own for `arm_g`.
   - It's where the weight sits that changes the predicted turn (a battery at the ends: 9%), not the total.
 - **Placeholders for the flight** (in `spec.toml`): which module carries the IMU (`[imu]`); the experiment box's size
-  (`box_mm`: the largest that fits one side of the A310 cabin, `../experiments/flight_space.md`) and the net's height
-  and sag (`[flight]`).
+  (`box_mm`, 2.0 × 1.3 × 1.9 m: fits one side of the A310 cabin with the aisle clear, built on board from parts,
+  `../experiments/flight_space.md`), the net's height and sag, and the plane's pitch (`pitch_deg`) (`[flight]`).
 - **Gearbox behaviour** (in `simulation/make_chain.py`): friction (7% of stall torque), motor inertia and braking are
   tuned estimates. There are no measured AX-12A values.
 

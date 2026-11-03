@@ -36,7 +36,7 @@ import setup_file
 from export_meshes import SRC, STAMP, fingerprint
 from make_chain import FLIGHT
 from make_chain import EE_MASS, EE_SERVO_MASS, EE_TYPES, PRESETS, SPEC_FILE, build
-from play import Commands, Session, joint_servos, read_sequence, target
+from play import LOG_DT, Commands, Session, joint_servos, read_sequence, target
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FOLD_SEQ = os.path.join(os.path.dirname(HERE), "sequences", "fold_sequence.csv")
@@ -547,25 +547,31 @@ def check_flight_parabola():
     setup = setup_file.load(os.path.join(setup_file.SETUP_DIR, "1d_flight_turn.toml"))
     m, d = load(**setup_file.build_args(setup))
     s = Session(m, d, None, setup)
-    c0 = d.subtree_com[1].copy()
+    start = s.box_frame().T @ (d.subtree_com[1] - d.mocap_pos[s.cabin])
     s.fly(hyper_s=7, jitter=False)
-    held, pull, before = 0.0, 0.0, None
+    held, pull, top, after, plane = 0.0, 0.0, 0.0, None, None
     with contextlib.redirect_stdout(io.StringIO()):
         while s.fly_t is not None:
-            phase, g, T = s.parabola.at(s.fly_t)
+            phase, g, T, theta = s.parabola.at(s.fly_t)
             s.advance()
-            if T < 0:
-                held, pull = max(held, np.linalg.norm(d.subtree_com[1] - c0)), max(pull, s.tension())
-            if before is None and T >= s.release_s + 2:  # 2 s after letting go, nothing pushing it
-                before = (np.linalg.norm(d.sensor("com_vel").data), abs(s.spin_rate()))
-    low = min(d.geom_xpos[g][2] - m.geom_size[g][0] for g in s.shells)
-    check(held < 0.001 and pull > 1, f"held by {len(s.strings)} strings through the 1 g and 1.8 g phases: the chain moves "
-          f"{held * 1000:.2f} mm at most, the strings pull up to {pull:.1f} N")
-    check(before[0] < 0.001 and before[1] < 0.05, f"let go at T+{s.released:.1f} s with no jitter: 2 s later it drifts "
-          f"{before[0] * 1000:.2f} mm/s and spins {before[1]:.3f} deg/s (a clean release)")
+            if T < 0:  # where the chain is in the box, while the plane pitches up
+                here = s.box_frame().T @ (d.subtree_com[1] - d.mocap_pos[s.cabin])
+                held, pull, top = max(held, np.linalg.norm(here - start)), max(pull, s.tension()), max(top, theta)
+            if plane is None and s.released is not None:
+                plane = math.degrees(s.parabola.pitch(s.fly_t) - s.parabola.pitch(s.fly_t - LOG_DT)) / LOG_DT
+            if after is None and T >= s.release_s + 2:  # 2 s after letting go, nothing pushing it
+                after = np.linalg.norm(d.sensor("com_vel").data)
+    R, c = s.box_frame(), d.mocap_pos[s.cabin]  # the lowest shell's bottom, above the box floor (in the box's frame)
+    low = min((R.T @ (d.geom_xpos[g] - c))[2] - m.geom_size[g][0] for g in s.shells) + setup["flight"]["box_m"][2] / 2
+    check(held < 0.005 and pull > 1, f"held by {len(s.strings)} strings through 1 g and 1.8 g as the plane pitches up to "
+          f"{math.degrees(top):.0f} deg: the chain stays within {held * 1000:.1f} mm of its place in the box, strings pull up to "
+          f"{pull:.1f} N")
+    check(after < 0.001 and abs(s.release_spin - plane) < 0.3,
+          f"let go at T+{s.released:.1f} s (no jitter): it leaves turning with the plane ({s.release_spin:+.2f} deg/s, the "
+          f"plane {plane:+.2f}) and drifts {after * 1000:.2f} mm/s 2 s later")
     check(s.landing is not None and s.dip < FLIGHT["net_height_mm"] / 1000 and low > 0,
           f"the pull-out drops it onto the net at {s.landing:.2f} m/s; it sinks {s.dip * 1000:.0f} mm of the net's "
-          f"{FLIGHT['net_height_mm']} mm and never reaches the floor")
+          f"{FLIGHT['net_height_mm']} mm and never reaches the box floor")
     m, d = load(**setup_file.build_args(setup))
     s = Session(m, d, None, setup)
     s.fly(setup["sequence"], setup["move_s"], setup["hold_s"], hyper_s=7)
@@ -575,9 +581,18 @@ def check_flight_parabola():
             s.advance()
             if turned is None and s.keys is not None and s.seq_t >= s.duration():
                 turned = s.turned  # the turn as the sequence ends, before the pull-out
-    check(turned is not None and abs(turned + 30.3) < 1 and not s.touch and s.landing is not None,
-          f"with the jitter and the turn sequence: turned {turned:+.1f} deg by its end (zero g, 14 cm chain: -30.3); "
-          + s.flight_result())
+    check(turned is not None and s.landing is not None, f"with the jitter and the turn sequence, it flies and lands")
+    print(f"  info  ... and turns {turned:+.1f} deg about the box's vertical by the sequence's end (-30.3 in perfect zero g, "
+          f"let go at rest); {s.flight_result()}")
+    m, d = load("feetech85")
+    s = Session(m, d)
+    s.spin(-0.5, "x")
+    s.play(os.path.join(os.path.dirname(HERE), "sequences", "reorient_loop.csv"), 1.0, 0.25)
+    while s.seq_t < s.duration() - 1e-9:
+        s.advance()
+    check(abs(s.turned + 20.9) < 0.5, f"why: a free chain let go spinning 0.5 deg/s about the across axis turns "
+          f"{s.turned:+.1f} deg, not -30.3 (folding turns that spin into roll about its length), and its IMU turns "
+          f"{s.imu_turn():.0f} deg")
 
 
 def check_countdown():

@@ -21,11 +21,12 @@ History is in `LOG.md`.
 - **End effectors and setups: all 6 phases built** (design and plans: `../docs/design/2026-10-2*-end-effectors*.md`).
   Anchors, suction cups, thrusters, placement, the rod, grip and nozzle columns, the stall sweep, Playback x, the
   countdown. 19 setups make the six class simulations (1a–1c, 2a–2c, 3a ×4, 4a–4b, 5a–5b, 6a); results in
-  `../experiments/findings.md`. The control window's six demo buttons play one each.
+  `../experiments/findings.md`. The control window's demo buttons play one each, and a seventh flies `1d_flight_turn`.
 - **The flight box and a whole parabola** (2026-11-03): a setup's `[flight]` puts the chain in the acrylic box sized
-  from the A310 cabin (`../experiments/flight_space.md`), held by strings that let go at zero g; Fly a parabola /
-  `--fly` runs the ITF's g profile. The 8.5 cm flight build is preset `feetech85`, scaled from the AX-12A chain (the
-  spec stays on the AX-12A chain until the STS3032 CAD exists). Setup `1d_flight_turn`.
+  from the A310 cabin (`../experiments/flight_space.md`), held by strings that let go at zero g. Play (or a headless
+  run) of such a setup flies the ITF's g profile, the box turning with the plane's pitch. The 8.5 cm flight build is
+  preset `feetech85`, scaled from the AX-12A chain (the spec stays on the AX-12A chain until the STS3032 CAD exists).
+  Setup `1d_flight_turn`.
 - **Owner: Wesley.** Wesley double-clicks `Chain Sim.command` rather than using the shell, and uses the sim to answer
   the professor's physics questions (`../experiments/findings.md`).
 
@@ -36,7 +37,7 @@ uv venv --python 3.11 .venv && uv pip install --python .venv/bin/python -r requi
 .venv/bin/python make_chain.py [--preset feetech85] [-n 12] [--slip-ring] [--gravity 9.81] [--box]   # writes chain.xml
 .venv/bin/python play.py --seq ../sequences/fold_sequence.csv --headless                 # logs/run_log.csv
 .venv/bin/python play.py --seq ../sequences/reorient_loop.csv --headless --speed 4 --spin 0 0 1 --air   # flight-like
-.venv/bin/python play.py --setup setups/1d_flight_turn.toml --headless --fly   # one whole parabola in the flight box
+.venv/bin/python play.py --setup setups/1d_flight_turn.toml --headless   # a [flight] setup: one whole parabola
 .venv/bin/python play.py --setup setups/1a_turn.toml --headless   # a whole run from a setup file; flags given win
 .venv/bin/mjpython play.py                                   # viewer only (macOS needs mjpython)
 .venv/bin/python panel.py                                    # control window + viewer (= double-click Chain Sim.command)
@@ -130,16 +131,19 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
     `d`), plus `read_sequence` and `target`.
   - `make_chain.build(preset, n, slip_ring, gravity, air, ee1, ee_n, rod, flight)`. `air` takes its density from
     `[flight]` in the spec; `ee1`/`ee_n` are a type from `EE_TYPES` or a dict like `EE_DEFAULTS`; `flight` is a
-    setup's `[flight]` (`box_m`, `strings`) or None. With it: world geoms `box_lid`, `box_wall_±x/±y`, `net`; sites
-    `m{i}_string{k}` and `m{i}_string{k}_end`; tendons `m{i}_string{k}` (k = 0–3), limited, range set by `play.py`.
-    With None, `build()` is byte-identical to before the box existed.
+    setup's `[flight]` (`box_m`, `strings`) or None. With it: no world floor; a mocap body `cabin` (after the chain, so
+    m1 stays body 1) carrying massless geoms `box_lid`, `box_floor`, `box_wall_±x/±y`, `net`, `cabin_floor`, camera
+    `cabin`, and sites `m{i}_string{k}_end`; sites `m{i}_string{k}` on the modules; tendons `m{i}_string{k}` (k = 0–3),
+    limited, range set by `play.py`. With None, `build()` is byte-identical to before the box existed.
   - `Session(model, data, log_path, setup)`: with a setup, `reset()` (Reset pose) goes to its start pose. `Session.ends`
     maps `ee1`/`ee{N}` to `End` (kind, armed, clamped, held, load, torque, peak, pops); `grip(end, on)`,
     `nozzle(end, k, throttle)`. Per fitted end the log appends `ee{k}_held, ee{k}_load_N, ee{k}_torque_Nm, ee{k}_thrust_N`.
   - Flight: `Session.fly(path, move, hold, release_s, start_s, hyper_s, jitter)` (call `reset()` first; missing values
     come from the setup's `[flight]`), `fly_t` (None unless flying), `parabola` (`play.Parabola.at(t)` → phase, g
     vector, T), `released`, `touch`, `gap_min`, `landing`, `dip`, `flight_result()`; `strings_on(on)`, `tension()`,
-    `box_gap()`. `reset()` and Stop let the strings go and put gravity back to the setup's.
+    `box_gap()`, `box_frame()`, `release_spin`. `play.Parabola.at(t)` → phase, g (box frame), T, pitch; the session sets
+    gravity to the pitch-turned g and the cabin's mocap pose. `turned` is in the box's frame when there's a cabin;
+    `inertia()` sums the chain only (bodies rooted at m1). `reset()` and Stop let the strings go and put gravity back.
   - `Session.mid` is module n//2, which is m6 of 12. `turned` tracks its heading. `Session.nj` is the joint-servo count:
     sequences write `ctrl[:nj]`. `Session.summary()` is the headless run's last line.
 - **Panel ↔ viewer protocol:**
@@ -152,8 +156,8 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
     play {file, move, hold}, pause, resume, restart, stop, speed {value}, playback {value}, grip {end, on},
     nozzle {end, n, on},
     gravity {g}, straighten, reset, log {on}, screenshot, physics {run}, spin {rate, axis: "x" | "y" | "z" | "all"},
-    countdown {s}, fly {file, move, hold, release, start, hyper, jitter}, quit. Fly a parabola sends reset, speed,
-    playback, countdown, fly.
+    countdown {s}, fly {file, move, hold, release, start, hyper, jitter}, quit. With a flight box, Play and Restart send
+    reset, speed, playback, countdown, fly instead of play.
   - Readouts are JSON lines of display strings, sent 5 times a second. The panel shows them all and reads
     `info["physics"]` to label its pause button.
 - **Keep `make_chain.py`, `setup_file.py` and `panel.py` stdlib-only.** `panel.py` imports only the stdlib plus those
@@ -184,26 +188,20 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
    Hypothesis: our Space (physics pause) also pauses MuJoCo's viewer, whose Left/Right then step through its history.
    To reproduce: in your own viewer, press Space, then Right, and watch `time`. Likely fix: move pause off Space or the
    yaw nudges off Left/Right; ask Wesley which keys.
-2. **Dock app (offered, never answered).** A "Chain Sim.app" with no Terminal window: a bundle running
-   `.venv/bin/python panel.py`, or an `osacompile` AppleScript applet that starts it in the background, logging to
-   `logs/`.
+2. **Dock app (offered, never answered):** a "Chain Sim.app" with no Terminal window (a bundle or `osacompile` applet).
 3. **Placeholder parameters** (`../hardware/AGENTS.md` lists what to measure):
    - In `../hardware/spec.toml`: masses of 200 g per base and 30 g per arm, with the end modules equal to the middle
      ones. Once the modules are weighed, `module_g` takes each module's weight.
    - Also in the spec: the IMU module (`[imu]`), the box size and the net (`[flight]`). The `feetech85` masses are
      scaled estimates.
-   - In `make_chain.py`: the 7 cm preset masses are rough.
-   - `armature`, `kv` and `GEAR_FRICTION` are tuned estimates.
-   - `ROLLING_RESISTANCE = 0.03` is tuned for settling, not measured. `KP_SATURATE = 10°`.
+   - In `make_chain.py`: the 7 cm preset masses are rough; `armature`, `kv`, `GEAR_FRICTION` are tuned estimates;
+     `ROLLING_RESISTANCE = 0.03` is tuned for settling, not measured; `KP_SATURATE = 10°`.
 4. **Sliders and drift.** Slider drags are instant target jumps (one 200 s session drifted 0.68 mm; acceptable).
 5. **Window placement.** The control window is always on top and covers part of the viewer's left panel.
-6. **`turned` and `spin` are about the world vertical only.**
-   - That's the axis pitch folds turn about, because `CHAIN_ROLL = 0` makes the pitch axes vertical.
-   - For 3D, use `IMU turn` and the `imu_*` log columns.
-7. **Rotor momentum isn't modelled.**
-   - MuJoCo's `armature` adds the motors' inertia but not their spin momentum, about (armature/254)·q̇.
-   - Over a closed shape loop it cancels.
-   - For the slip-ring reaction-wheel finding it's about 3% of module 12's own momentum, so treat that result as ±3%.
+6. **`turned` and `spin` are about the vertical only** (the box's, in the flight box): the axis pitch folds turn about,
+   since `CHAIN_ROLL = 0` makes the pitch axes vertical. For 3D, use `IMU turn` and the `imu_*` log columns.
+7. **Rotor momentum isn't modelled.** `armature` adds the motors' inertia but not their spin momentum,
+   ~(armature/254)·q̇. It cancels over a closed shape loop; for the slip-ring reaction-wheel finding it's ~3%.
 8. **Experiment support.** `../experiments/README.md` lists what the flight experiments still need from the sim:
    prediction ranges over release errors, and the aircraft's own rotation.
 9. **Small things from the phase 1 review** (the rest was fixed in phase 2): `joint_servos` doesn't assert the joint
@@ -216,9 +214,10 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
    - **Fix:** step-response and speed-under-load tests of one joint on the bench, then fit `kp`, `kv`, `armature` and
      friction.
 
-11. **The flight, not yet modelled:** the plane's own rotation (~90° per parabola; the chain keeps that spin when it's
-   let go), strings letting go at different times, a cloth net (the sim's net is a spring for landings, a few mm deep
-   at rest), and Novespace's measured acceleration record in place of the jitter waves.
+11. **The flight, not yet modelled:** strings letting go at different times, a cloth net (the sim's net is a spring
+   for landings, a few mm deep at rest), Novespace's measured attitude and acceleration record in place of the smooth
+   pitch and jitter waves, and the plane's roll and yaw. Next worth trying: the chain lined up across the cabin, so the
+   plane's pitch rate adds to the turn instead of spoiling it (`../experiments/findings.md`, "The flight box").
 
 ## Physics choices
 The reasons behind the servo model, masses, integrator, floor, world layout, end effectors and flight options are

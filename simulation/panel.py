@@ -164,9 +164,11 @@ class Panel:
             f.pack(fill="x", padx=8, pady=4)
             return f
 
-        f = frame("The six demos: one click opens and plays it (Play again for another take)")
+        f = frame("The demos: one click opens and plays it (Play again for another take)")
         for k, (label, name) in enumerate(DEMOS):
-            ttk.Button(f, text=label, command=lambda name=name: self.demo(name)).grid(row=k // 3, column=k % 3, sticky="we")
+            span = 3 if k == 6 else 1  # the flight one gets a row of its own
+            ttk.Button(f, text=label, command=lambda name=name: self.demo(name)).grid(row=k // 3, column=k % 3, columnspan=span,
+                                                                                    sticky="we")
             f.columnconfigure(k % 3, weight=1)
 
         f = frame("Setup (a whole run, from setups/)")
@@ -267,10 +269,10 @@ class Panel:
         ttk.Label(times, text="s, sequence at T+").pack(side="left", padx=(4, 0))
         spinbox(times, self.start, 0, 20, 0.5, 4).pack(side="left")
         ttk.Label(times, text="s (T+0: zero g begins)").pack(side="left", padx=(4, 0))
-        ttk.Button(f, text="✈  Fly a parabola", command=self.fly).grid(row=3, column=0, sticky="we", pady=(6, 0))
-        ttk.Label(f, text="The box and the strings need Rebuild; the rest applies at Fly. Fly runs 1 g, the 1.8 g pull-up "
-                          "(held by the strings), zero g, the pull-out onto the net.", wraplength=470,
-                  foreground="gray40").grid(row=4, column=0, sticky="w")
+        ttk.Label(f, text="In the box, Play flies the whole parabola: 1 g, the 1.8 g pull-up (held by the strings, the plane "
+                          "pitching up), zero g (let go, the sequence plays), the pull-out onto the net. The box and the "
+                          "strings need Rebuild; the times apply at Play.", wraplength=470,
+                  foreground="gray40").grid(row=3, column=0, sticky="w", pady=(4, 0))
 
         f = frame("Record", right)
         ttk.Checkbutton(f, text="Log to logs/", variable=self.logging, command=lambda: self.send("log", on=self.logging.get())).grid(row=0, column=0)
@@ -425,7 +427,10 @@ class Panel:
             self.status.set("viewer not connected: click 'Rebuild + open viewer'")
 
     def play(self, fresh=False):
-        """Play the sequence. A second take (or Restart) starts again from the start pose, so every take is the same."""
+        """Play the sequence (in the flight box: fly the parabola). A second take (or Restart) starts again from the start
+        pose, so every take is the same."""
+        if self.loaded_flight:
+            return self.fly()
         path = self.seq.get()
         if not path:
             self.status.set("pick a fold sequence first")
@@ -447,9 +452,6 @@ class Panel:
 
     def fly(self):
         """Fly one parabola: a fresh start (held by the strings), the countdown, then the viewer runs it all."""
-        if not self.loaded_flight:
-            self.status.set("the viewer has no flight box: tick 'In the flight box', then 'Rebuild + open viewer'")
-            return
         try:
             f = self.flight_fields()
         except (ValueError, tk.TclError) as e:

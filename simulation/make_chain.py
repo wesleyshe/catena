@@ -13,7 +13,9 @@ Module 1 has no yaw servo and the last module has no pitch servo or arm, so N mo
 End effectors (optional, one module each): ee1 one pitch before m1, on module 1's yaw servo m1_yaw (2N-1 joints), and
 ee{N} one pitch past module N, rigid. Each is none, anchor, suction or thruster.
 The flight box (optional): the acrylic box on the plane with a net across it, and strings that hold the chain still in
-the middle until play.py lets them go at zero g.
+the middle until play.py lets them go at zero g. The box, its net, the strings' far ends and a cabin camera are all on
+one mocap body, "cabin", which play.py turns with the plane's pitch; the world is a frame moving with the box but not
+turning, so the chain feels the plane's rotation for itself.
 """
 import argparse
 import math
@@ -215,18 +217,29 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
 
     world = ET.SubElement(root, "worldbody")
     ET.SubElement(world, "light", directional="true", pos="0 0 3", dir="0 0 -1", diffuse="0.5 0.5 0.5")
-    ET.SubElement(world, "geom", name="floor", type="plane", size="0 0 0.05", material="grid", condim="6",  # 20 cm squares
-                  friction=v(1, 0.005, ROLLING_RESISTANCE * R_SHELL * s))
-    if flight:  # acrylic walls and lid; the net is a soft block from the box floor up to its height, so a chain that
-        # lands hard sinks into it and, if it gives all the way, meets the box floor (the plane's floor)
-        x, y, z, t = across / 2, along / 2, tall, ACRYLIC_T
-        for name, pos, size in (("box_lid", (0, 0, z + t), (x, y, t)), ("box_wall_-x", (-x - t, 0, z / 2), (t, y, z / 2)),
-                                ("box_wall_+x", (x + t, 0, z / 2), (t, y, z / 2)), ("box_wall_-y", (0, -y - t, z / 2), (x, t, z / 2)),
-                                ("box_wall_+y", (0, y + t, z / 2), (x, t, z / 2))):
-            ET.SubElement(world, "geom", name=name, type="box", pos=v(*pos), size=v(*size), rgba=ACRYLIC_RGBA)
+    if not flight:  # in the flight box, the cabin's own floor turns with the plane instead
+        ET.SubElement(world, "geom", name="floor", type="plane", size="0 0 0.05", material="grid", condim="6",  # 20 cm squares
+                      friction=v(1, 0.005, ROLLING_RESISTANCE * R_SHELL * s))
+    if flight:  # the cabin: centred on the box, which has its floor at z = 0 while the plane is level. Acrylic walls, lid
+        # and floor; the net is a soft block from the box floor up to its height, so a chain that lands hard sinks into
+        # it and, if it gives all the way, meets the box floor
+        cabin = ET.Element("body", name="cabin", mocap="true", pos=v(0, 0, tall / 2))  # joins the world after the chain
+        x, y, h, t = across / 2, along / 2, tall / 2, ACRYLIC_T
+        for name, pos, size in (("box_lid", (0, 0, h + t), (x, y, t)), ("box_floor", (0, 0, -h - t), (x, y, t)),
+                                ("box_wall_-x", (-x - t, 0, 0), (t, y, h)), ("box_wall_+x", (x + t, 0, 0), (t, y, h)),
+                                ("box_wall_-y", (0, -y - t, 0), (x, t, h)), ("box_wall_+y", (0, y + t, 0), (x, t, h))):
+            ET.SubElement(cabin, "geom", name=name, type="box", pos=v(*pos), size=v(*size), rgba=ACRYLIC_RGBA, mass="0")
         net_z = FLIGHT["net_height_mm"] / 1000
-        ET.SubElement(world, "geom", name="net", type="box", pos=v(0, 0, net_z / 2), size=v(x, y, net_z / 2), rgba=NET_RGBA,
-                      **net_contact(FLIGHT["net_sag_mm"]))
+        ET.SubElement(cabin, "geom", name="net", type="box", pos=v(0, 0, -h + net_z / 2), size=v(x, y, net_z / 2),
+                      rgba=NET_RGBA, mass="0", **net_contact(FLIGHT["net_sag_mm"]))  # the cabin is moved, never pushed: no mass
+        ET.SubElement(cabin, "geom", name="cabin_floor", type="box", pos=v(0, 0, -h - 2 * t - 0.005), size="4 4 0.005",
+                      material="grid", contype="0", conaffinity="0", mass="0")  # what the cabin camera sees under the box
+        eye = (x + 1.6, -y - 1.6, 0.5)  # a camera on the cabin, outside the box at one corner, looking at its middle
+        back = [c / math.sqrt(sum(e * e for e in eye)) for c in eye]
+        right = [-back[1], back[0], 0]
+        right = [c / math.hypot(*right) for c in right]
+        up = [back[1] * right[2] - back[2] * right[1], back[2] * right[0] - back[0] * right[2], back[0] * right[1] - back[1] * right[0]]
+        ET.SubElement(cabin, "camera", name="cabin", pos=v(*eye), xyaxes=v(*right, *up), fovy="60")
     if spot and "at" in ends[lead]["attach"] and not (ends[lead]["attach"]["facing"] == "up" and spot[0][2] == 0):
         point, normal = spot  # a wall, ceiling or table to be attached to (the floor is already there)
         ET.SubElement(world, "geom", name="plate", type="box", size=v(PLATE[0], PLATE[0], PLATE[1]), zaxis=v(*normal),
@@ -311,6 +324,9 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
                                                      ctrlrange="0 1", gainprm=v(e["thrust_N"]), biastype="none",
                                                      dyntype="none", forcelimited="false")))
 
+    if flight:
+        world.append(cabin)  # after the chain and its end effectors, so m1 stays body 1
+
     # actuators in CSV order: m1_yaw, m1_pitch, ..., mN_yaw, mN_pitch (skipping mN_pitch, and m1_yaw without ee1)
     act = ET.SubElement(root, "actuator")
     for i in range(1, n + 1):
@@ -325,7 +341,7 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
         ET.SubElement(contact, "exclude", body1=f"m{i}", body2=f"m{i + 1}")
     for name, e in (("ee1", ends[0]), (f"ee{n}", ends[1])):
         if e["type"] == "suction":  # a cup touches only fixed things: the floor, plates, the rod, the flight box
-            for g in world.findall("geom"):
+            for g in world.findall("geom") + (cabin.findall("geom") if flight else []):
                 ET.SubElement(contact, "pair", geom1=f"{name}_cup", geom2=g.get("name"), condim="3", margin=v(CUP_MARGIN),
                               friction=v(e["friction"], e["friction"], 0.005, 0.0001, 0.0001))
 
@@ -333,7 +349,7 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
         tendon = ET.SubElement(root, "tendon")
         for i in flight["strings"]:
             for k, (end, _) in enumerate(string_ends(i, n, p["pitch"], flight["box_m"])):
-                ET.SubElement(world, "site", name=f"m{i}_string{k}_end", pos=v(*end), size=v(0.005))
+                ET.SubElement(cabin, "site", name=f"m{i}_string{k}_end", pos=v(end[0], end[1], end[2] - tall / 2), size=v(0.005))
                 string = ET.SubElement(tendon, "spatial", name=f"m{i}_string{k}", limited="true", range="0 100",
                                        width="0.0015", rgba=STRING_RGBA, solreflimit=STRING_SOLREF)
                 ET.SubElement(string, "site", site=f"m{i}_string{k}_end")

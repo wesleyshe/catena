@@ -31,9 +31,9 @@ Measured sim results so far are in `findings.md`.
   - The IMU's view: its module's 3D attitude and rotation rate in the log (`imu_*` columns) and the `IMU turn` readout.
   - Cabin air drag (`--air`), and a flag when a sequence is longer than one parabola (`--speed` to fit).
   - **The flight box and a whole parabola:** a setup with a `[flight]` table puts the chain in the acrylic box (sized
-    from the A310 cabin, `flight_space.md`) with a net across it, held by strings that let go at zero g; **Fly a
-    parabola** (or `play.py --fly`) runs 1.8 g, zero g with the leftover g, 1.8 g. Setup `1d_flight_turn`; results in
-    `findings.md`, "The flight box".
+    from the A310 cabin, `flight_space.md`) with a net across it, held by strings that let go at zero g. Play runs 1.8 g,
+    zero g with the leftover g, 1.8 g, with the box turning with the plane's pitch. Setup `1d_flight_turn`; results in
+    `findings.md`, "The flight box": the plane's pitch rate at release spoils the 30° turn.
   - `reorient_loop.csv` turns the chain about 7.4° per loop with zero angular momentum, about the vertical only.
   - `roll_loop.csv` turns it about its long axis, about 32° per loop. Turning in 3D needs a twist as well as pitch
     folds.
@@ -44,10 +44,11 @@ Measured sim results so far are in `findings.md`.
 - **Not in the sim yet:**
   - **Prediction ranges.** Repeated runs over release spin, masses and servo settings, so success tier 2 has a
     tolerance.
-  - **The aircraft's own rotation:** its ~90° pitch-over (for video, and the spin the chain keeps when it's let go).
-    The 1.8 g phases and the leftover g are in (above).
+  - **The plane's measured attitude and acceleration record** in place of the smooth profile (the pitch-over, the
+    1.8 g phases and the leftover g are in, above).
 - **Flight plan must cover:**
-  - Recording the IMU's rate at release. Even 1°/s cancels the whole 30° turn.
+  - Recording the IMU's rate at release. Even 1°/s cancels the whole 30° turn, and a chain let go from the box keeps
+    the plane's pitch rate (~2.7°/s), which spoils it (`findings.md`, "The flight box").
   - Stowing the chain before the 1.8 g pull-out. Two modules held out sideways already exceed the servo torque.
   - Sequences inside one parabola, about 20 s.
 

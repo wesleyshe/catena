@@ -4,6 +4,15 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- `experiments/flight_space.md`: people can walk past (the box stays outside the first track, leaving a 0.9 m aisle
+  against the 0.508 m needed); the default box is now 2.0 × 1.3 × 1.9 m, built on board from parts no wider than 1 m
+  (the door is 1.06 × 1.80 m); the plane's pitch-over added to the g levels.
+- `experiments/findings.md`, "The flight box", redone with the plane's pitch modelled: let go from the box, the chain
+  keeps the plane's ~2.7°/s and the 30° turn comes out at −5°; the turn's sensitivity to spin about the across axis.
+  `experiments/README.md`'s flight plan says so.
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED; details in `simulation/LOG.md`.
+
+## 2026-11-03 · Wesley (Claude Code)
 - **`experiments/flight_space.md`:** how big a box fits on the Novespace A310 (from `docs/ITF-2025-01-Interfaces-EN.pdf`).
   2.5 × 2.5 × 2.5 m doesn't; the largest on one side of the aisle is ~2.5 × 1.3 × 1.9 m (along, across, high), and a
   one-piece box through the door ~2.5 × 1.0 × 1.75 m. Also the g profile and leftover g the sim now uses.
