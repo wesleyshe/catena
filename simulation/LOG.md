@@ -3,6 +3,18 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- **Refactor, phase 2: the run in five files.** `play.py` (1,066 lines) is now `sequence.py` (the CSV format, `LOG_DT`),
+  `ends.py` (`End` with its behaviour: hold, latch, capture, cups, nozzles, loads), `flight.py` (`Parabola` and
+  `FlightBox`), `session.py` (`Session`, `Logger`, `load_model`) and `play.py` (265 lines: the command line and the
+  viewer). `verify.py` and `stall_sweep.py` import from the new files and use `load_model`.
+  - Not as planned: `Flight` as a separate object would have needed most of `Session`'s insides (spin, inertia, play,
+    the ends, the shells, the sequence state), so by the plan's stop rule its methods moved as a block, `FlightBox`,
+    which `Session` inherits. Every contract name stays on `Session` with no forwarding.
+- **Checked:** `checks/same_as_before.py compare`: 48 of 48 the same (verify ALL CHECKS PASSED, fold and 21 setup logs
+  byte-identical, XML, window, stdlib). `stall_sweep.py`: 3 / 4 / 6 / 12+ modules at Earth / Mars /
+  Moon / zero g, as in `../experiments/findings.md`.
+
+## 2026-11-03 · Wesley (Claude Code)
 - **Refactor, phases 0 and 1** (`../docs/design/2026-11-03-refactor-plan.md`; Wesley: "your plan looks good. Carry on").
   - `checks/same_as_before.py` (with `checks/window_recorder.py`): save a snapshot before a change, compare after.
   - The model in three files: `make_chain.py` keeps `PRESETS`, the chain's numbers and `build()`; the end effectors'

@@ -1,5 +1,6 @@
 """Press every button of the control window, with its link to the viewer replaced by a recorder, and write down what it
-sent: the command lines, and the setup file each (re)opening of the viewer would start from. No viewer opens.
+sent: the command lines, and the setup file each (re)opening of the viewer would start from; also the window's layout
+(every widget's place and size) as it opens and with end effectors shown. No viewer opens.
 
   .venv/bin/python checks/window_recorder.py OUT.txt       # used by same_as_before.py; needs a display (a Mac)
 """
@@ -75,7 +76,20 @@ def load(name):
     lines.append(f"  about: {p.about.get()}")
 
 
+def layout():
+    """Every widget: its name (which follows the order it was made in), text, placement and size."""
+    root.update_idletasks()
+    for w in widgets(root):
+        manager = w.winfo_manager()
+        info = w.grid_info() if manager == "grid" else w.pack_info() if manager == "pack" else {}
+        info = {k: str(v) for k, v in info.items() if k != "in"}
+        text = w.cget("text") if "text" in w.keys() else ""
+        lines.append(f"  {w} {w.winfo_class()} {text!r} {manager} {info} {w.winfo_reqwidth()}x{w.winfo_reqheight()}")
+
+
 lines.insert(0, "startup")
+lines.append("layout")
+layout()
 for label, _ in setup_file.DEMOS:
     press(label)
 for text in ("Play", "Restart", "Pause", "Resume", "Stop", "Straighten", "Reset pose", "Spin", "Stop spin"):
@@ -95,11 +109,15 @@ press("Screenshot")
 press("Gravity")
 press("Gravity")
 load("2a_arm")
+layout()
 press("Hold")
 press("Let go")
 load("3a_U")
+layout()
 press("n0")
 press("n0")
+load("4a_walk")
+layout()
 for name in p.setups():
     load(name)
     press("Play")

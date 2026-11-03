@@ -35,11 +35,13 @@ from PIL import Image
 import setup_file
 from export_meshes import SRC, STAMP, fingerprint
 from make_box import held_height
-from make_chain import PRESETS, build
+from make_chain import PRESETS
 from make_ends import EE_MASS, EE_SERVO_MASS, EE_TYPES
 from spec import FLIGHT, SPEC_FILE
-from play import LOG_DT, Commands, Session, joint_servos, read_sequence, target
-from play import Parabola as Play_parabola
+from flight import Parabola as Play_parabola
+from play import Commands
+from sequence import LOG_DT, joint_servos, read_sequence, target
+from session import Session, load_model
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FOLD_SEQ = os.path.join(os.path.dirname(HERE), "sequences", "fold_sequence.csv")
@@ -53,8 +55,7 @@ def check(ok, msg):
 
 
 def load(preset="original14", n=12, slip_ring=False, **opts):
-    xml = build(preset, n, slip_ring, **opts).replace('meshdir="meshes"', f'meshdir="{HERE}/meshes"')
-    m = mujoco.MjModel.from_xml_string(xml)
+    m = load_model(preset=preset, n=n, slip_ring=slip_ring, **opts)
     return m, mujoco.MjData(m)
 
 
