@@ -49,7 +49,11 @@ Default paths are relative to this folder, so the scripts also work when run fro
 ## Folder map
 | Path | What it is |
 |---|---|
-| `make_chain.py` | Parametric generator. The `PRESETS` table and constants at the top are what people edit. `build()` returns the XML. |
+| `make_chain.py` | Parametric generator. The `PRESETS` table and constants at the top are what people edit. `build()` returns the XML: the world and the chain, then the parts below. |
+| `make_ends.py` | The end effectors in the model (`bodies`, `cup_pairs`), their placeholder numbers at the top, and where an end starts (`attach_point`, `leading_end`, `FACINGS`). |
+| `make_box.py` | The flight box in the model (`cabin`, `tie_ons`, `strings`, `held_height`), its numbers and look at the top. |
+| `spec.py` | Reads `../hardware/spec.toml` once (`SPEC`, `HW`, `SERVO`, `MASS`, `FLIGHT`); the folders (`SEQ_DIR`, `SETUP_DIR`); `v()` for numbers in the XML. |
+| `checks/same_as_before.py` | For refactors: `save DIR` before, `compare DIR` after (verify's printout, the fold log, every setup flown headless, the XML of 47 models, the window's commands via `checks/window_recorder.py`, the stdlib check). `--quick` skips the runs. |
 | `chain.xml` | Written by `make_chain.py` (git-ignored). Nothing else uses it: `play.py` builds the model fresh from the spec. |
 | `panel_setup.toml` | Git-ignored. **The panel writes its settings (laid over the loaded setup) here every time it opens the viewer**, and starts `play.py --setup panel_setup.toml`. |
 | `pole_climb_design.py` | Writes `../sequences/pole_climb.csv` for the 14 cm chain on a Ø100 mm pole (pole size, squeeze and stretch at the top); the angles fit any size with the pole scaled (5a: Ø61 mm). |
@@ -167,8 +171,9 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
     started by hand, Play sends speed, playback, play (no reset or countdown, which would hold the physics).
   - Readouts are JSON lines of display strings, sent 5 times a second. The panel shows them all and reads
     `info["physics"]` to label its pause button.
-- **Keep `make_chain.py`, `setup_file.py` and `panel.py` stdlib-only.** `panel.py` imports only the stdlib plus those
-  two, which is what lets it run under the throwaway-bundle screenshot trick (see Gotchas).
+- **Keep `make_chain.py`, `setup_file.py` and `panel.py` stdlib-only**, and what they import: `make_ends.py`,
+  `make_box.py`, `spec.py`, `viewer_link.py`. That's what lets the panel run under the throwaway-bundle screenshot
+  trick (see Gotchas); `checks/same_as_before.py` tests it.
 - **Setup files:** keys are `setup_file.DEFAULTS`, plus tables `[ee1]`, `[ee{modules}]` (type + that type's
   `SETTINGS`), `[rod]` and `[flight]` (`FLIGHT_DEFAULTS`; strings default to `default_strings(modules)`). A relative `sequence` is relative to `../sequences/`. New keys go in `DEFAULTS` (and
   `build_args` if `build()` needs them); `load` refuses anything else. `[rod] wrap_m` starts the bare chain wrapped

@@ -31,7 +31,10 @@ import mujoco
 import numpy as np
 
 import setup_file
-from make_chain import CHAIN_ROLL, FLIGHT, NOZZLE_RGBA, STRING_RGBA, attach_point, build, leading_end, level_axis
+from make_box import STRING_RGBA
+from make_chain import CHAIN_ROLL, build
+from make_ends import NOZZLE_RGBA, attach_point, leading_end, level_axis
+from spec import FLIGHT
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 AXES = dict(x=(1, 0, 0), y=(0, 1, 0), z=(0, 0, 1))  # world axes: x across the start pose, y along it, z vertical

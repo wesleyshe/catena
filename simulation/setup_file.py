@@ -62,12 +62,10 @@ import numbers
 import os
 import tomllib
 
-from make_chain import EE_DEFAULTS, EE_TYPES, FACINGS, FLIGHT, N_MODULES, PRESETS, ROD_MM
+from make_chain import N_MODULES, PRESETS, ROD_MM
+from make_ends import EE_DEFAULTS, EE_TYPES, FACINGS
+from spec import FLIGHT, REPO, SEQ_DIR, SETUP_DIR  # sequences are at the repo root, shared with the robot software
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-REPO = os.path.dirname(HERE)
-SETUP_DIR = os.path.join(HERE, "setups")
-SEQ_DIR = os.path.join(REPO, "sequences")  # at the repo root, shared with the robot software
 DEFAULTS = dict(sequence="", move_s=3.0, hold_s=1.0, speed=1.0, playback=1.0, gravity_m_s2=0.0, spin_deg_s=[0.0, 0.0, 0.0],
                 air=False, preset="original14", modules=N_MODULES, slip_ring=False,
                 ee1=dict(EE_DEFAULTS), ee_n=dict(EE_DEFAULTS), rod={}, flight={})

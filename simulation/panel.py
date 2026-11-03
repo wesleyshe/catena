@@ -13,7 +13,8 @@ import tkinter as tk
 from tkinter import filedialog, simpledialog, ttk
 
 import setup_file
-from make_chain import EE_DEFAULTS, EE_TYPES, FACINGS, N_MODULES, PRESETS
+from make_chain import N_MODULES, PRESETS
+from make_ends import EE_DEFAULTS, EE_TYPES, FACINGS
 from setup_file import DEMOS, FLIGHT_DEFAULTS, SEQ_DIR, SETUP_DIR, default_strings
 from viewer_link import ViewerLink
 

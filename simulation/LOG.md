@@ -3,6 +3,17 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- **Refactor, phases 0 and 1** (`../docs/design/2026-11-03-refactor-plan.md`; Wesley: "your plan looks good. Carry on").
+  - `checks/same_as_before.py` (with `checks/window_recorder.py`): save a snapshot before a change, compare after.
+  - The model in three files: `make_chain.py` keeps `PRESETS`, the chain's numbers and `build()`; the end effectors'
+    XML and numbers moved to `make_ends.py`, the flight box's to `make_box.py`; `spec.py` reads the spec once. `build()`
+    is 156 lines instead of 232, and its signature is unchanged. Imports updated in `play.py`, `setup_file.py`,
+    `panel.py`, `verify.py`, `stall_sweep.py`.
+- **Checked:** `checks/same_as_before.py compare`: 48 of 48 the same as the baseline from `292d939`: verify.py's
+  printout (ALL CHECKS PASSED), the fold log and all 21 setups' logs and printouts byte-identical, the XML of 47 models,
+  every button's commands, and the stdlib-only check.
+
+## 2026-11-03 · Wesley (Claude Code)
 - **Stale docs fixed** (refactor plan, section 6): `setups/1d_flight_turn.toml` (gone) replaced by `1a_turn` in
   `AGENTS.md`, `README.md` and `play.py`'s docstring; README: four presets, `stall_sweep.py` builds its own setups,
   `pole_climb_design.py` writes only the sequence, kv is open issue 10, the opening mentions the flight box, the GUI

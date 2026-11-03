@@ -14,7 +14,8 @@ import os
 import mujoco
 
 import setup_file
-from make_chain import HW, MASS, SERVO, build
+from make_chain import build
+from spec import HW, MASS, SERVO
 from play import Session, modules
 
 HERE = os.path.dirname(os.path.abspath(__file__))

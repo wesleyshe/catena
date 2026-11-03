@@ -34,8 +34,10 @@ from PIL import Image
 
 import setup_file
 from export_meshes import SRC, STAMP, fingerprint
-from make_chain import FLIGHT, held_height
-from make_chain import EE_MASS, EE_SERVO_MASS, EE_TYPES, PRESETS, SPEC_FILE, build
+from make_box import held_height
+from make_chain import PRESETS, build
+from make_ends import EE_MASS, EE_SERVO_MASS, EE_TYPES
+from spec import FLIGHT, SPEC_FILE
 from play import LOG_DT, Commands, Session, joint_servos, read_sequence, target
 from play import Parabola as Play_parabola
 
