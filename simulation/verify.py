@@ -515,7 +515,7 @@ def check_thrusters():
 
 def check_pole_climb():
     print("13. wrapped around a pole: the start pose, the squeeze grip, the climb")
-    setup = setup_file.load(os.path.join(setup_file.SETUP_DIR, "5_pole_climb.toml"))
+    setup = setup_file.load(os.path.join(setup_file.SETUP_DIR, "5a_pole_climb.toml"))
     m, d = load(**setup_file.build_args(setup))
     s = Session(m, d, None, setup)
     a, b = np.array(setup["rod"]["from"]), np.array(setup["rod"]["to"])
@@ -664,9 +664,10 @@ def check_end_effectors():
         same = same and setup_file.load(path) == theirs
         ours = setup_file.new(sequence=os.path.join(HERE, "..", "sequences", "fold_sequence.csv"))
         setup_file.save(path, ours)
-        same = same and setup_file.load(path)["sequence"] == FOLD_SEQ and 'sequence = "fold_sequence.csv"' in open(path).read()
-        check(same, "Save as then Load gives back the same setup: placements, rod, settings per type, and sequences in "
-              "sequences/ or elsewhere")
+        written = open(path).read()
+        same = same and setup_file.load(path)["sequence"] == FOLD_SEQ and written.startswith('sequence = "fold_sequence.csv"')
+        check(same and written.count("\n") == 3, "Save as then Load gives back the same setup: placements, rod, settings "
+              "per type, and sequences in sequences/ or elsewhere; a file holds only sequence, timing and what isn't default")
 
     one = setup_file.single_axis_spin
     two = one([0, 2, 0.5])
@@ -680,10 +681,21 @@ def check_end_effectors():
             m, _ = load(**setup_file.build_args(setup))
             read_sequence(setup["sequence"], m)
             assert setup_file.about(path), "no line at the top saying what it shows"
+            assert setup_file.summary(setup)
         except Exception as e:
             bad.append(f"{os.path.basename(path)}: {e}")
     check(names and not bad, f"all {len(names)} setups in setups/ load, build, read their sequence and say what they show"
           + (f": {'; '.join(bad)}" if bad else ""))
+    missing = [name for _, name in setup_file.DEMOS if not os.path.isfile(os.path.join(setup_file.SETUP_DIR, name + ".toml"))]
+    check(setup_file.DEMOS and not missing, f"each of the control window's {len(setup_file.DEMOS)} demo buttons has its setup"
+          + (f" (missing: {', '.join(missing)})" if missing else ""))
+    csvs = sorted(glob.glob(os.path.join(setup_file.SEQ_DIR, "*.csv")))
+    silent = [os.path.basename(p) for p in csvs if not setup_file.about(p)]
+    pole = setup_file.summary(setup_file.load(os.path.join(setup_file.SETUP_DIR, "5a_pole_climb.toml")))
+    check(not silent and setup_file.users(os.path.join(setup_file.SEQ_DIR, "pole_climb.csv")) == ["5a_pole_climb"]
+          and "rod" in pole and "wrapped" in pole, f"all {len(csvs)} sequences say what they do in their first line, and a "
+          "sequence knows the setups that use it (pole_climb.csv: 5a_pole_climb, whose pole is in the setup, not the CSV)"
+          + (f"; no first line: {', '.join(silent)}" if silent else ""))
 
 
 if __name__ == "__main__":

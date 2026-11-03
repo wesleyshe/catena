@@ -10,7 +10,7 @@ This folder is a MuJoCo model of the chain:
 `README.md` here is the user guide. This file is for agents: status, map, contracts, decisions and open issues.
 History is in `LOG.md`.
 
-## Status (2026-10-29)
+## Status (2026-11-03)
 - **Internally consistent, not yet checked against the real chain.**
   - `verify.py` passes all 14 sections.
   - Predictions hold for the numbers in `../hardware/spec.toml`, and some of those are placeholders.
@@ -20,8 +20,8 @@ History is in `LOG.md`.
   weeks, and comes in through "Incorporating a new design" in `../hardware/AGENTS.md`.
 - **End effectors and setups: all 6 phases built** (design and plans: `../docs/design/2026-10-2*-end-effectors*.md`).
   Anchors, suction cups, thrusters, placement, the rod, grip and nozzle columns, the stall sweep, Playback x, the
-  countdown. 19 setups make the six class simulations (1a–1c, 2a–2c, 3a ×4, 4a–4b, 5, 5a, 6); results in
-  `../experiments/findings.md`.
+  countdown. 19 setups make the six class simulations (1a–1c, 2a–2c, 3a ×4, 4a–4b, 5a–5b, 6a); results in
+  `../experiments/findings.md`. The control window's six demo buttons play one each.
 - **Owner: Wesley.** Wesley double-clicks `Chain Sim.command` rather than using the shell, and uses the sim to answer
   the professor's physics questions (`../experiments/findings.md`).
 
@@ -46,13 +46,13 @@ Default paths are relative to this folder, so the scripts also work when run fro
 | `make_chain.py` | Parametric generator. The `PRESETS` table and constants at the top are what people edit. `build()` returns the XML. |
 | `chain.xml` | Written by `make_chain.py` (git-ignored). Nothing else uses it: `play.py` builds the model fresh from the spec. |
 | `panel_setup.toml` | Git-ignored. **The panel writes its settings (laid over the loaded setup) here every time it opens the viewer**, and starts `play.py --setup panel_setup.toml`. |
-| `pole_climb_design.py` | Writes `../sequences/pole_climb.csv` and `setups/5_pole_climb.toml` (pole size, squeeze and stretch at the top). |
+| `pole_climb_design.py` | Writes `../sequences/pole_climb.csv` and `setups/5a_pole_climb.toml` (pole size, squeeze and stretch at the top). |
 | `stall_sweep.py` | Experiment A's stall length: the longest chain that stands out level from a wall at Earth, Mars, Moon and zero g (~1 min). |
 | `play.py` | Runtime: `Session` (state, commands, spin, readouts), viewer loop, keyboard, `Logger`, headless mode. |
-| `panel.py` | Tk control window: a separate process that drives `play.py` over a localhost socket. Its top row is the six demo buttons (`DEMOS`: button label, setup). |
+| `panel.py` | Tk control window: a separate process that drives `play.py` over a localhost socket. Its top row is the demo buttons (`setup_file.DEMOS`). Under Setup it shows the picked setup's line and `summary`; under Fold sequence, the CSV's first line and the setups that use it (`users`). |
 | `viewer_link.py` | The panel's link to the viewer: starts `play.py --setup FILE --panel PORT` under mjpython, sends commands, reads readouts. |
-| `setup_file.py` | Setup files: `load` (refuses unknown keys), `save` (writes TOML by hand), `about`, `build_args`, `single_axis_spin`. |
-| `setups/` | Example setups, one per class clip. `verify.py` checks every file in it loads and builds. |
+| `setup_file.py` | Setup files: `load` (refuses unknown keys), `save` (writes TOML by hand: `ALWAYS`, then only what differs from `DEFAULTS`), `about` (a file's first `#` line, setups and CSVs alike), `summary` (what's in a setup, one line), `users` (the setups that play a sequence), `build_args`, `single_axis_spin`; `DEMOS` (the demo buttons: label, setup). |
+| `setups/` | Example setups, one per class clip, named `{demo}{version}_{what}` (e.g. `5a_pole_climb`). `verify.py` checks every file in it loads and builds, and that every `DEMOS` setup exists. |
 | `Chain Sim.command` | Finder double-click launcher for `panel.py`. A Terminal window stays open while it runs. |
 | `verify.py` | Regression checks and renders; see "Verification". |
 | `export_meshes.py` | 3dm → `meshes/`: one STL per rigid body, module frame, metres, under 20k triangles. |
@@ -147,8 +147,12 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
 - **Setup files:** keys are `setup_file.DEFAULTS`, plus tables `[ee1]`, `[ee{modules}]` (type + that type's
   `SETTINGS`) and `[rod]`. A relative `sequence` is relative to `../sequences/`. New keys go in `DEFAULTS` (and
   `build_args` if `build()` needs them); `load` refuses anything else. `[rod] wrap_m` starts the bare chain wrapped
-  around the rod (`Session.wrap`): its sequence's first row must be a coil (every pitch the same, every yaw the same). The panel keeps the loaded setup and lays its
-  fields over it, so keys without a field survive Save as.
+  around the rod (`Session.wrap`): its sequence's first row must be a coil (every pitch the same, every yaw the same).
+  The panel keeps the loaded setup and lays its fields over it, so keys without a field survive Save as. `save` writes
+  only `ALWAYS` and non-default keys, so a setup that leaves a key out follows `DEFAULTS` (and `modules` the spec).
+  `DEMOS` and `verify.py` name setups by file name: renaming one means updating both.
+  - **A sequence is only the moves.** The world and end effectors a sequence was written for live in its setup, and
+    each CSV's first `#` line says what it does (the panel shows it; `verify.py` checks it's there).
 - **Paths:**
   - Everything resolves from the script folder (`HERE`): `meshes/`, `logs/`, `screenshots/`, `chain.xml`.
   - Sequences come from `../sequences/`, `export_meshes.py` reads `../hardware/cad/`, and `make_chain.py` reads
@@ -192,9 +196,8 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
    - For the slip-ring reaction-wheel finding it's about 3% of module 12's own momentum, so treat that result as ±3%.
 8. **Experiment support.** `../experiments/README.md` lists what the flight experiments still need from the sim:
    prediction ranges over release errors, and the aircraft's own rotation.
-9. **Small things from the phase 1 review** (the rest was fixed in phase 2): `play.py --setup` errors print as
-   tracebacks; `joint_servos` doesn't assert the joint servos come first; the setup's about line follows the picker
-   before Load, and Save as prefills it.
+9. **Small things from the phase 1 review** (the rest was fixed in phase 2): `joint_servos` doesn't assert the joint
+   servos come first; the setup's about line follows the picker before Load, and Save as prefills it.
 10. **The servo model is tuned, not identified.**
    - `kv` has no counterpart in the AX-12A (its firmware is proportional-only), and it makes joints lag their targets:
      7.6° at default timing, against 2.2° without it.

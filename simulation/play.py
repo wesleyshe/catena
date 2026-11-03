@@ -212,8 +212,8 @@ class Session:
         self.running = True  # False freezes the physics (time, motion, sequence clock, log)
         self.nj = joint_servos(model)  # sequences drive these; other actuators (end effectors) come after them
         self.mid = model.body(f"m{max(1, modules(model) // 2)}").id  # middle module (m6 of 12): its heading = "turned"
-        names = ("ee1", f"ee{modules(model)}")
-        self.ends = {e: End(model, e) for e in names if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, e) >= 0}
+        self.end_keys = ("ee1", f"ee{modules(model)}")  # a setup's ee1 and ee_n, by their names in the model
+        self.ends = {e: End(model, e) for e in self.end_keys if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, e) >= 0}
         self.fixed = [g for g in range(model.ngeom) if model.geom_bodyid[g] == 0]  # floor, plates, rod, cage
         self.setup, self.row0, self.ee_cols, self.ee_row = None, None, {}, None
         self.log = Logger(log_path, self.nj, self.end_names()) if log_path else None
@@ -249,7 +249,7 @@ class Session:
         if lead is None and "wrap_m" in self.setup["rod"]:
             self.wrap()
         if lead is not None:
-            e = self.ends[list(self.ends)[lead] if len(self.ends) == 2 else next(iter(self.ends))]
+            e = self.ends[self.end_keys[lead]]
             point, normal = attach_point(ends[lead]["attach"], self.setup["rod"])
             n = np.array(normal, float)
             x = axis_rotation(n, ends[lead]["attach"].get("roll_deg", 0.0)) @ np.array(level_axis(normal), float)
@@ -265,9 +265,10 @@ class Session:
             self.grip(e.name, True)
             if e.kind == "anchor":
                 self.clamp(e)
-            for other, setting in zip(self.ends.values(), ends if len(self.ends) == 2 else ()):
-                if other is not e and other.kind in ("anchor", "suction") and setting["attach"]:
-                    self.grip(other.name, True)  # attached too: it holds whatever it lands on
+            for key, setting in zip(self.end_keys, ends):
+                other = self.ends.get(key)
+                if other and other is not e and other.kind in ("anchor", "suction") and setting["attach"]:
+                    self.grip(key, True)  # attached too: it holds whatever it lands on
         mujoco.mj_forward(m, d)
 
     def wrap(self):
@@ -699,7 +700,10 @@ if __name__ == "__main__":
     ap.add_argument("--setup", help="setup file (setups/*.toml): the model and the settings above; flags given here win")
     ap.add_argument("--panel", type=int, help=argparse.SUPPRESS)  # port of the control window
     a = ap.parse_args()
-    setup = setup_file.load(a.setup) if a.setup else None
+    try:
+        setup = setup_file.load(a.setup) if a.setup else None
+    except (OSError, ValueError) as e:  # say what's wrong with the file, without a traceback
+        raise SystemExit(f"can't use that setup: {e}")
     if setup:  # the setup's values become the defaults, so flags on the command line still win
         ap.set_defaults(move=setup["move_s"], hold=setup["hold_s"], speed=setup["speed"], gravity=setup["gravity_m_s2"],
                         air=setup["air"], cage=setup["cage"], playback=setup["playback"])
@@ -724,6 +728,8 @@ if __name__ == "__main__":
     try:
         if a.headless:
             assert a.seq, "--headless needs --seq"
+            if setup:
+                print(f"{os.path.basename(a.setup)}: {setup_file.summary(setup)}")
             while session.seq_t < session.duration() - 1e-9:
                 session.advance()
             secs = session.duration() / session.speed

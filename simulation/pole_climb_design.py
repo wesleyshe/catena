@@ -1,4 +1,4 @@
-"""Writes the pole climb: ../sequences/pole_climb.csv and setups/5_pole_climb.toml.
+"""Writes the pole climb: ../sequences/pole_climb.csv and setups/5a_pole_climb.toml.
 
   .venv/bin/python pole_climb_design.py        # after changing the numbers below
 
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     lines = ["# Wrapped around a pole (no suction cups, no clamps): climbs it like a snake, gripping by squeezing.",
              "# Three zones: m1-m5 grip, m5-m8 stretch, m8-m12 grip. Each step: the front coil loosens, the middle stretches so",
              "# it slides up the pole, the front squeezes; then the back loosens, the middle shortens and pulls it up, the back",
-             f"# squeezes. Written by simulation/pole_climb_design.py for a {POLE_MM} mm pole (setup 5_pole_climb); row 0 is the",
+             f"# squeezes. Written by simulation/pole_climb_design.py for a {POLE_MM} mm pole (setup 5a_pole_climb); row 0 is the",
              f"# coil touching the pole all round. {len(rows)} rows, {secs:.1f} s at move {MOVE_S:g} s, hold {HOLD_S:g} s.",
              ",".join(cols)]
     for name in rows:
@@ -95,9 +95,9 @@ if __name__ == "__main__":
     with open(os.path.join(setup_file.SEQ_DIR, "pole_climb.csv"), "w") as f:
         f.write("\n".join(lines) + "\n")
     rod = {"from": [0.0, 0.0, 0.15], "to": [0.0, 0.0, 2.6], "diameter_mm": float(POLE_MM), "wrap_m": 0.35}
-    setup_file.save(os.path.join(setup_file.SETUP_DIR, "5_pole_climb.toml"),
+    setup_file.save(os.path.join(setup_file.SETUP_DIR, "5a_pole_climb.toml"),
                     setup_file.new(sequence=os.path.join(setup_file.SEQ_DIR, "pole_climb.csv"), move_s=MOVE_S,
                                    hold_s=HOLD_S, rod=rod),
                     "Wrapped around a pole like a snake, it climbs by squeezing with one end while the rest slides up: "
                     "no suction, no clamps.")
-    print(f"wrote pole_climb.csv ({len(rows)} rows, {secs:.1f} s) and setups/5_pole_climb.toml")
+    print(f"wrote pole_climb.csv ({len(rows)} rows, {secs:.1f} s) and setups/5a_pole_climb.toml")

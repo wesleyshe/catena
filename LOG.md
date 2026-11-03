@@ -3,6 +3,14 @@
 Newest first. This file covers root files, `sequences/`, `experiments/` and `docs/`. Each area has its own `LOG.md`.
 The format is in the root `AGENTS.md`.
 
+## 2026-11-03 · Wesley (Claude Code)
+- **`sequences/README.md`** now splits the sequences into those that play on the bare chain and those written for a
+  setup, with what each needs (e.g. `pole_climb.csv` needs the pole in setup `5a_pole_climb`). Every CSV's first `#`
+  line is now a complete description, which the control window shows; only comments changed, no angles.
+- Setups renamed to one pattern (`5a_pole_climb`, `5b_rod_crawl`, `6a_skater`, `4b_walk_let_go`), also in
+  `experiments/findings.md`. The sequence format is unchanged, so nothing for the software area to do.
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED; details in `simulation/LOG.md`.
+
 ## 2026-10-29 · Wesley (Claude Code)
 - **New sequence** `pole_climb.csv`: the bare chain wrapped around a pole climbs it, gripping by squeezing (setup
   `5_pole_climb`, demo button 5). `experiments/findings.md` gains the squeeze-grip numbers.

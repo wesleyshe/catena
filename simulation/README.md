@@ -30,21 +30,62 @@ with plain `.venv/bin/python`.
 
 Double-click **`Chain Sim.command`** in Finder. A Terminal window opens and must stay open, because it runs the app.
 The first time, macOS may ask whether Terminal can access the Desktop folder; allow it. Then the **Chain Sim**
-control window and the MuJoCo viewer open side by side.
+control window and the MuJoCo viewer open side by side. The quickest start is one of the six demo buttons at the top.
 
 | Section | What it does |
 |---|---|
 | The six demos | One button per class simulation: **1 Free float**, **2 Anchored**, **3 Thrusters**, **4 Suction walk**, **5 Pole climb**, **6 Skater**. One click opens it in the viewer and plays it; press **Play** for another take. The other versions of each (e.g. let go spinning, the four gravities, the U / Z / L shapes, the clamp crawl along a handrail) are in the Setup list. |
-| Setup | Pick a whole run from `setups/` (see [Setups](#setups-setups)); the line under it says what the run shows. **Load** fills in every setting below and opens the viewer; then press **Play**. **Save as...** saves the current settings as a new setup, with a line saying what it shows. |
+| Setup | Pick a whole run from `setups/` (see [Setups](#setups-setups)); the lines under it say what the run shows and what's in it (its world, chain and end effectors, and how it starts). **Load** fills in every setting below and opens the viewer; then press **Play**. **Save as...** saves the current settings as a new setup, with a line saying what it shows. |
 | Model | Pick the preset, number of modules and slip ring, and tick **Air drag** (cabin air on the shells) or **Net cage** (the cage from `../hardware/spec.toml`) for flight-like runs. |
 | End effectors | An extra module on either end: none, **anchor** (a clamp), **suction** cup or **thruster** (five nozzles). The one past m1 sits on module 1's twist servo (`m1_yaw`). Picking a type shows its settings: an anchor or cup can **start** floating, on a surface (x, y, z and the way the surface faces) or on the rod (how far along), with a roll; a cup has its pull limit, diameter and friction; a thruster its push per nozzle. While running: **Hold** / **Let go** (an anchor or cup told to hold grabs whatever fixed thing it touches), or the nozzle tick boxes n0 (out of the end) to n4 (sideways). If ee1 starts attached, it sets where the chain starts, and the other end's placement greys out. **Rod to grab** (in Model) adds the setup's rod. Then click **Rebuild + open viewer**, which applies Model and End effectors and restarts the viewer. |
-| Fold sequence | Pick a CSV from `../sequences/` (or **Browse...**), set move/hold seconds and speed, then **Play / Pause / Resume / Restart / Stop**. **Speed x** makes the moves themselves faster (so the physics changes); **Playback x** only shows the simulation faster than real time, e.g. ×2 to watch a 20 s clip in 10 s (the readout says if the computer can't keep up). **Play** a second time, or **Restart**, starts a fresh take from the start pose, so every take is the same. **Countdown s** (5 to start with): Play and Restart first show T-5 … T-1 big in the viewer, with the chain held still, so a recording starts clean; 0 starts at once, and Pause, Stop or Reset pose during it calls the take off. **Pause** and **Stop** also turn the nozzles off. |
+| Fold sequence | Pick a CSV from `../sequences/` (or **Browse...**); the lines under it say what it does and which setups use it. A sequence is only the moves, so one written for a setup (the pole climb, the walk) needs that setup loaded. Set move/hold seconds and speed, then **Play / Pause / Resume / Restart / Stop**. **Speed x** makes the moves themselves faster (so the physics changes); **Playback x** only shows the simulation faster than real time, e.g. ×2 to watch a 20 s clip in 10 s (the readout says if the computer can't keep up). **Play** a second time, or **Restart**, starts a fresh take from the start pose, so every take is the same. **Countdown s** (5 to start with): Play and Restart first show T-5 … T-1 big in the viewer, with the chain held still, so a recording starts clean; 0 starts at once, and Pause, Stop or Reset pose during it calls the take off. **Pause** and **Stop** also turn the nozzles off. |
 | World | **Gravity** on/off and its strength, **Straighten** (all joints to 0), **Reset pose** (back to the start: the setup's start pose, or floating straight, at rest), and **Pause physics / Resume physics**, which freezes the whole simulation (time, motion, sequence, log) so you can look around. |
 | Spin | Set a rate in deg/s, pick an axis (vertical, along the chain, across) and press **Spin**. The whole chain starts spinning about that axis through its centre of mass, keeping its shape and any spin about the other axes. **Stop spin** brings it to rest. A small rate (0.5–5 deg/s) stands in for the leftover spin when the chain is let go in flight. This is a push from outside: it gives the chain angular momentum, which then stays constant. Fold while spinning and it speeds up, like a skater pulling their arms in. Tick **Also spin like this when Play starts** to give the chain this spin as the sequence starts: the spin at release. |
 | Record | **Log to logs/** writes `logs/run_<date>_<time>.csv` while ticked. **Screenshot** saves the viewer's view to `screenshots/`. **Open folder** opens this folder in Finder. |
 | Readouts | Time, sequence progress and length (flagged if it's longer than one ~20 s parabola), gravity, **spin** (the whole chain's spin rate about the vertical: angular momentum ÷ inertia), **turned** (how far the middle module has turned about the vertical since the last reset; twists about the chain's own axis don't count), **IMU turn** (how far the IMU's module has turned in 3D since the last reset, as the flight IMU will see it), centre-of-mass drift, total angular momentum, max servo torque, contacts and log file, the playback rate, and a line per end effector (holding / ready to grab / let go, with the clamp's force and torque, a cup's pull of its limit and pops, or the thrust). These are also drawn in the top-left of the viewer, and when a sequence finishes the viewer's Terminal prints a one-line summary. |
 
 The viewer's own sliders and keys still work alongside it. Closing the control window also closes the viewer.
+
+## How a run is put together
+
+A run has two halves, kept in two files:
+
+| Half | What it holds | Where |
+|---|---|---|
+| **Sequence**: the moves | Joint angles, one keyframe per row, plus optional grip and nozzle columns for the end effectors | A CSV in `../sequences/`, shared with the robot software |
+| **Setup**: everything else | The sequence and its timing; the world (gravity, a rod or pole, air drag, the net cage); the chain (preset, modules) and its end effectors; how it starts (attached to a surface or the rod, wrapped round the rod, spinning) | A TOML file in `setups/` |
+
+So the pole in the pole climb is a setting, not part of the moves. This is all of `setups/5a_pole_climb.toml`:
+
+```toml
+# Wrapped around a pole like a snake, it climbs by squeezing with one end while the rest slides up: no suction, no clamps.
+sequence = "pole_climb.csv"
+move_s = 0.7
+hold_s = 0.3
+
+[rod]
+from = [0.0, 0.0, 0.15]
+to = [0.0, 0.0, 2.6]
+diameter_mm = 100.0
+wrap_m = 0.35
+```
+
+`[rod]` adds the pole, and `wrap_m` starts the chain wrapped round it, module 1 0.35 m along it. A setup file lists
+only what differs from the defaults (zero g, 12 `original14` modules, no end effectors, no rod), so what you see is
+what's special about that run. Play `pole_climb.csv` without its setup and the chain just coils up in mid-air.
+
+### Make your own run
+1. **The moves.** Write a CSV in `../sequences/` (the format is in `../sequences/README.md`), with a first `#` line
+   saying what it does, or copy one that's there. For keyframes too fiddly to write by hand, a script can work them
+   out, like `pole_climb_design.py` does for the pole climb.
+2. **The setup.** In the control window, set Model, End effectors (and where they start), Fold sequence and its
+   timing, World and Spin. Try it with **Rebuild + open viewer** and **Play**, then **Save as...** into `setups/` with
+   a line saying what it shows. Or write the TOML by hand: every key is described at the top of `setup_file.py`.
+3. **Check it headless:** `.venv/bin/python play.py --setup setups/NAME.toml --headless` prints what's in the setup
+   and how the run went. `verify.py` checks that every setup in `setups/` loads and builds.
+4. **A demo button** (optional): add `("7  Name", "NAME")` to `DEMOS` in `setup_file.py`.
+
+Setups are named `{demo}{version}_{what}`: the number is the class demo it belongs to (1–6), the letter the version.
 
 ## Commands
 
@@ -70,11 +111,12 @@ with one line: how far it turned, the IMU turn, its spin and how far the centre 
 
 ## Setups (`setups/`)
 
-A setup file holds everything about a run that the sequence CSV doesn't: the sequence and its timing, gravity, the spin
-at release, air and cage, the chain (preset, modules) and the end effectors. Its first line says what it shows. The
-format is in `setup_file.py`; the files are plain text, so you can also edit them by hand.
+A setup file holds everything about a run that the sequence CSV doesn't (see [How a run is put together](#how-a-run-is-put-together)).
+Its first line says what it shows. The format is in `setup_file.py`; the files are plain text, so you can also edit
+them by hand.
 
-The six class simulations, each about 20 s (zero g unless it says otherwise):
+The six class simulations, each about 20 s (zero g unless it says otherwise). The demo buttons play `1a_turn`,
+`2a_arm`, `3a_U`, `4a_walk`, `5a_pole_climb` and `6a_skater`; the others are in the Setup list.
 
 | Simulation | Setup | What it shows | Headless result |
 |---|---|---|---|
@@ -87,10 +129,10 @@ The six class simulations, each about 20 s (zero g unless it says otherwise):
 | | `2c_let_go` | Swings fast and lets go mid-swing | drifts off at 150 mm/s, spinning |
 | 3. Thrusters | `3a_straight`, `_U`, `_Z`, `_L` | Folds, fires both end nozzles briefly, coasts | nothing; glides 0.93 m; spins 8.2°/s; both |
 | 4. Suction cups | `4a_walk` | Inchworm walk, one foot always holding (80 mm, 60 N cups) | 1.10 m in 19 s |
-| | `4b_both_off` | The same, letting go too early | floats off the floor |
-| 5. Pole climb | `5_pole_climb` | Wrapped around a Ø100 mm pole like a snake, it climbs by squeezing: no cups, no clamps | 394 mm up in 19.3 s |
-| | `5a_rod_crawl` | Clamps on both ends crawl along a thin handrail | 1.115 m along the rod in 19 s |
-| 6. Skater | `6_skater` | Spinning at 20°/s, folds into an L and a zig-zag | speeds up folded, back to 20.0°/s straight |
+| | `4b_walk_let_go` | The same, letting go too early | floats off the floor |
+| 5. Pole climb | `5a_pole_climb` | Wrapped around a Ø100 mm pole like a snake, it climbs by squeezing: no cups, no clamps | 394 mm up in 19.3 s |
+| | `5b_rod_crawl` | Clamps on both ends crawl along a thin handrail | 1.115 m along the rod in 19 s |
+| 6. Skater | `6a_skater` | Spinning at 20°/s, folds into an L and a zig-zag | speeds up folded, back to 20.0°/s straight |
 
 `stall_sweep.py` turns the 2b setups into experiment A's number, the longest chain that stands out level at each
 gravity (about a minute). Results and what they mean are in `../experiments/findings.md`, "The class simulations".
@@ -155,12 +197,12 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
 | `meshes/SOURCE.txt` | Which CAD file the meshes were exported from; `verify.py` fails if the CAD has changed since. |
 | `Chain Sim.command` | Double-click launcher for the control window. |
 | `panel.py` | Control window: buttons that build the model and drive the viewer. |
-| `setup_file.py`, `setups/` | Reads and writes setup files; `setups/` holds the example runs. |
+| `setup_file.py`, `setups/` | Reads and writes setup files, and lists the demo buttons (`DEMOS`); `setups/` holds the example runs. |
 | `panel_setup.toml` | What the control window last opened the viewer with (it starts `play.py --setup` with it). Not in git. |
 | `stall_sweep.py` | The stall length at Earth, Mars, Moon and zero g, from the 2b setups. |
 | `pole_climb_design.py` | Designs the pole climb (pole size, squeeze, stretch) and writes its sequence and setup. |
 | `play.py` | Viewer, keyboard, sequence playback, logging, live readouts; takes commands from `panel.py`. |
-| `../sequences/` | Fold-sequence CSVs, shared with the robot software; the control window lists these. `fold_sequence.csv` goes straight → L → straight → zig-zag → straight. `reorient_loop.csv` turns the whole chain ~30° with no push (4 shape loops that each end straight). Add your own here. |
+| `../sequences/` | Fold-sequence CSVs, shared with the robot software; the control window lists these. Its README splits them into those that play on the bare chain and those written for a setup. Add your own here. |
 | `logs/` | Run logs: `run_log.csv` from the shell, `run_<date>_<time>.csv` from the control window. |
 | `screenshots/` | Written by the control window's **Screenshot** button. |
 | `verify.py` | Checks plus PNG renders in `renders/`. |
@@ -214,7 +256,8 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
 
 ### Fold sequence CSVs (`../sequences/`)
 
-The full format, shared with the robot software, is in `../sequences/README.md`. In brief:
+The full format, shared with the robot software, is in `../sequences/README.md`. A sequence is only the moves; the
+world and end effectors it was written for are in its setup. In brief:
 
 Each row is one keyframe of 24 angles in degrees, in the order `m1_yaw, m1_pitch, …, m12_yaw, m12_pitch`. A header
 row naming the columns is optional, and lines starting with `#` are skipped. `m12_pitch` has no servo, and neither has
@@ -255,7 +298,8 @@ columns per end follow: `ee{k}_held` (0/1), `ee{k}_load_N` (clamp force or cup p
 - With 0.01 g left over, the chain reaches the net cage after about 3 s.
 - End effectors: every type at either end compiles and leaves the 12 modules exactly as they were; `m1_yaw` twists
   about the chain axis; with both ends fitted the centre of mass still moves ≤ 0.006 mm in 12 s of random motion.
-- Setup files refuse misspelt keys and missing sequences, and Save as then Load gives the same setup back.
+- Setup files refuse misspelt keys and missing sequences, and Save as then Load gives the same setup back. Every
+  setup loads, every demo button has its setup, and every sequence says what it does in its first line.
 - **What it doesn't check:** anything against the real chain. These are consistency checks, not validation.
 
 ## Physics choices

@@ -14,7 +14,7 @@ from tkinter import filedialog, simpledialog, ttk
 
 import setup_file
 from make_chain import EE_DEFAULTS, EE_TYPES, FACINGS, N_MODULES, PRESETS
-from setup_file import SEQ_DIR, SETUP_DIR
+from setup_file import DEMOS, SEQ_DIR, SETUP_DIR
 from viewer_link import ViewerLink
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -23,8 +23,7 @@ SPIN_AXES = ["vertical (z)", "along chain (y)", "across (x)"]  # the letter befo
 STARTS = ["floating", "on a surface", "on the rod"]
 COUNTDOWN_S = 5  # the Countdown s box starts here: Play and Restart show T-5 ... T-1 in the viewer first
 ROD = {"from": [0.0, -1.2, 1.0], "to": [0.0, 1.2, 1.0], "diameter_mm": 35.0}  # until a setup says where the rod is
-DEMOS = [("1  Free float", "1a_turn"), ("2  Anchored", "2a_arm"), ("3  Thrusters", "3a_U"),  # the six class simulations:
-         ("4  Suction walk", "4a_walk"), ("5  Pole climb", "5_pole_climb"), ("6  Skater", "6_skater")]  # button, setup
+FIRST_SEQ = "fold_sequence.csv"  # picked when the window opens: it plays on the bare chain
 
 
 def spinbox(parent, var, lo, hi, step, width=6, **kw):
@@ -148,6 +147,7 @@ class Panel:
         self.spin_rate, self.spin_axis = tk.DoubleVar(value=20.0), tk.StringVar(value=SPIN_AXES[0])
         self.air, self.cage, self.rod, self.rod_mm = tk.BooleanVar(), tk.BooleanVar(), tk.BooleanVar(), tk.DoubleVar(value=35.0)
         self.setup_name, self.about, self.about_text = tk.StringVar(), tk.StringVar(), ""
+        self.seq_about = tk.StringVar()  # what the picked sequence does, and which setups it was written for
         self.spin_at_play = tk.BooleanVar()
 
         left, right = ttk.Frame(root), ttk.Frame(root)
@@ -196,11 +196,13 @@ class Panel:
         f = frame("Fold sequence")
         self.seq_box = ttk.Combobox(f, textvariable=self.seq, values=self.sequences(), width=28,
                                     postcommand=lambda: self.seq_box.configure(values=self.sequences()))
-        self.seq.set(next(iter(self.sequences()), ""))
+        self.seq.trace_add("write", lambda *a: self.show_seq_about())
+        self.seq.set(FIRST_SEQ if FIRST_SEQ in self.sequences() else next(iter(self.sequences()), ""))
         self.seq_box.grid(row=0, column=0, columnspan=4, sticky="we")
         ttk.Button(f, text="Browse...", command=self.browse).grid(row=0, column=4, sticky="we")
+        ttk.Label(f, textvariable=self.seq_about, wraplength=430, justify="left").grid(row=1, column=0, columnspan=5, sticky="w")
         timing = ttk.Frame(f)
-        timing.grid(row=1, column=0, columnspan=5, sticky="w", pady=4)
+        timing.grid(row=2, column=0, columnspan=5, sticky="w", pady=4)
         for label, var, lo, hi, step, cmd in (("Move s", self.move, 0.2, 20, 0.5, None), ("Hold s", self.hold, 0, 20, 0.5, None),
                                               ("Speed x", self.speed, 0.1, 10, 0.25, self.send_speed),
                                               ("Playback x", self.playback, 0.25, 8, 0.25, self.send_playback)):
@@ -209,16 +211,16 @@ class Panel:
         for col, (label, cmd) in enumerate((("Play", self.play), ("Pause", lambda: self.send("pause")),
                                             ("Resume", lambda: self.send("resume")), ("Restart", lambda: self.play(fresh=True)),
                                             ("Stop", lambda: self.send("stop")))):
-            ttk.Button(f, text=label, command=cmd, width=7).grid(row=2, column=col, sticky="we")
+            ttk.Button(f, text=label, command=cmd, width=7).grid(row=3, column=col, sticky="we")
             f.columnconfigure(col, weight=1)  # buttons share the width evenly
         count = ttk.Frame(f)
-        count.grid(row=3, column=0, columnspan=5, sticky="w", pady=(4, 0))
+        count.grid(row=4, column=0, columnspan=5, sticky="w", pady=(4, 0))
         ttk.Label(count, text="Countdown s").pack(side="left", padx=(0, 4))
         spinbox(count, self.countdown, 0, 60, 1, 5).pack(side="left", padx=(0, 10))
         ttk.Label(count, text="T-5 ... T-1 in the viewer before Play and Restart (0: none)",
                   foreground="gray40").pack(side="left")
         ttk.Label(f, text="Speed x makes the moves faster (the physics changes); Playback x only shows the "
-                          "simulation faster than real time.", wraplength=430, foreground="gray40").grid(row=4, column=0, columnspan=5, sticky="w")
+                          "simulation faster than real time.", wraplength=430, foreground="gray40").grid(row=5, column=0, columnspan=5, sticky="w")
 
         f = frame("World")
         ttk.Checkbutton(f, text="Gravity", variable=self.gravity, command=self.send_gravity).grid(row=0, column=0)
@@ -258,9 +260,25 @@ class Panel:
         return sorted(os.path.splitext(os.path.basename(p))[0] for p in glob.glob(os.path.join(SETUP_DIR, "*.toml")))
 
     def show_about(self, note=""):
+        """The picked setup's line on what it shows, and what's in it (its world, chain and end effectors)."""
         path = os.path.join(SETUP_DIR, self.setup_name.get() + ".toml")
         self.about_text = setup_file.about(path) if os.path.exists(path) else ""
-        self.about.set("\n".join(x for x in (self.about_text or "(no line saying what it shows)", note) if x))
+        try:
+            inside = "In it: " + setup_file.summary(setup_file.load(path))
+        except (OSError, ValueError) as e:
+            inside = f"Can't load it: {e}"
+        self.about.set("\n".join(x for x in (self.about_text or "(no line saying what it shows)", inside, note) if x))
+
+    def show_seq_about(self):
+        """The picked sequence's first line, and the setups that use it: a sequence is only the moves, so one written
+        for a setup (the pole climb's pole, the walk's suction cups) needs that setup loaded."""
+        path = os.path.join(SEQ_DIR, self.seq.get())
+        if not self.seq.get() or not os.path.isfile(path):
+            self.seq_about.set("")
+            return
+        used = setup_file.users(path)
+        self.seq_about.set("\n".join(x for x in (setup_file.about(path), f"Used by setups: {', '.join(used)} (Load one for "
+                                                  "its world and end effectors)" if used else "No setup uses it.") if x))
 
     def show_ends(self):
         if hasattr(self, "ends"):

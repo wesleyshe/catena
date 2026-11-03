@@ -1,7 +1,10 @@
 """Setup files: how a run is set up (everything the sequence CSV doesn't say), so it can be saved, repeated and shared.
 
 A setup is a TOML file in setups/, the same format as ../hardware/spec.toml. Its first line, a # comment, says what the
-run shows; the control window displays it. Every key is optional and defaults to DEFAULTS:
+run shows; the control window displays it. The sequence CSV is only the moves: the world (gravity, a rod or pole), the
+end effectors and where everything starts are here. Every key is optional and defaults to DEFAULTS, and save() writes
+only sequence, move_s, hold_s and what differs from DEFAULTS, so a setup file shows what's special about its run.
+All the keys:
 
   # Reaches out from a wall and holds.
   sequence = "arm_reach.csv"       # in ../sequences/, or a path relative to it, or a full path
@@ -34,9 +37,11 @@ run shows; the control window displays it. Every key is optional and defaults to
 facing is the surface's outward normal (up = the floor; down, +x, -x, +y, -y), and the chain leaves the surface along
 it. On a rod it's the side of the rod the chain is on. If both ends are attached, ee1 sets where the chain starts.
 
-play.py --setup FILE runs one; the control window's Setup box loads and saves them. Stdlib only, like panel.py.
+play.py --setup FILE runs one; the control window's Setup box loads and saves them, and its demo buttons (DEMOS) play
+one each. Stdlib only, like panel.py.
 """
 import copy
+import glob
 import json
 import math
 import numbers
@@ -55,6 +60,10 @@ DEFAULTS = dict(sequence="", move_s=3.0, hold_s=1.0, speed=1.0, playback=1.0, gr
 ENDS = ("ee1", "ee_n")  # in a setup dict; in the file they're the tables [ee1] and [ee{modules}]
 TABLES = ENDS + ("rod",)
 SETTINGS = dict(none=(), anchor=("attach",), suction=("attach", "pull_N", "cup_mm", "friction"), thruster=("thrust_N",))
+ALWAYS = ("sequence", "move_s", "hold_s")  # save() writes these; the other keys only where they differ from DEFAULTS
+DEMOS = [("1  Free float", "1a_turn"), ("2  Anchored", "2a_arm"), ("3  Thrusters", "3a_U"),  # the control window's
+         ("4  Suction walk", "4a_walk"), ("5  Pole climb", "5a_pole_climb"), ("6  Skater", "6a_skater")]  # buttons: setup
+KINDS = dict(anchor="anchor (clamp)", suction="suction cup", thruster="thruster")
 
 
 def new(**changes):
@@ -200,15 +209,17 @@ def toml(x):
 
 
 def save(path, setup, about=""):
-    """Write `setup` (a dict like load's) as TOML, by hand because tomllib only reads. An end that's none, or no rod,
-    gets no table. A sequence inside the repo is saved relative to sequences/, so the file works on any computer."""
+    """Write `setup` (a dict like load's) as TOML, by hand because tomllib only reads: ALWAYS, then only the keys that
+    differ from DEFAULTS. An end that's none, or no rod, gets no table. A sequence inside the repo is saved relative to
+    sequences/, so the file works on any computer."""
     seq = setup["sequence"]
     if seq:
         seq = os.path.abspath(seq)
         if os.path.commonpath([seq, REPO]) == REPO:
             seq = os.path.relpath(seq, SEQ_DIR)
     lines = [f"# {' '.join(about.split())}"] if about.strip() else []
-    lines += [f"{k} = {toml(seq if k == 'sequence' else setup[k])}" for k in DEFAULTS if k not in TABLES]
+    lines += [f"{k} = {toml(seq if k == 'sequence' else setup[k])}" for k in DEFAULTS
+              if k not in TABLES and (k in ALWAYS or setup[k] != DEFAULTS[k])]
     for key, table in zip(ENDS, ("ee1", f"ee{setup['modules']}")):
         e = setup[key]
         if e["type"] != "none":
@@ -218,6 +229,40 @@ def save(path, setup, about=""):
         lines += ["", "[rod]"] + [f"{k} = {toml(v)}" for k, v in setup["rod"].items()]
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
+
+
+def summary(setup):
+    """What's in a setup besides its moves, in one line: the world, the chain, the end effectors, how it starts."""
+    parts = [f"gravity {setup['gravity_m_s2']:g} m/s²" if setup["gravity_m_s2"] else "zero g"]
+    parts += [name for name, on in (("air drag", setup["air"]), ("net cage", setup["cage"])) if on]
+    if setup["rod"]:
+        parts.append(f"a Ø{setup['rod']['diameter_mm']:g} mm rod" + (", starting wrapped round it" if "wrap_m" in setup["rod"] else ""))
+    if (setup["preset"], setup["modules"], setup["slip_ring"]) != (DEFAULTS["preset"], DEFAULTS["modules"], False):
+        parts.append(f"{setup['preset']}, {setup['modules']} modules" + (", slip ring" if setup["slip_ring"] else ""))
+    for key, name in zip(ENDS, ("ee1", f"ee{setup['modules']}")):
+        e = setup[key]
+        if e["type"] != "none":
+            a = e["attach"]
+            parts.append(f"{name} {KINDS[e['type']]}" + (f" starting on a surface facing {a['facing']}" if "at" in a else
+                                                         " starting on the rod" if "rod_m" in a else ""))
+    if all(setup[key]["type"] == "none" for key in ENDS):
+        parts.append("no end effectors")
+    if any(setup["spin_deg_s"]):
+        parts.append("spinning " + ", ".join(f"{r:g}°/s about {a}" for a, r in zip("xyz", setup["spin_deg_s"]) if r)
+                     + " from Play")
+    return "; ".join(parts)
+
+
+def users(sequence):
+    """The setups in setups/ that play this sequence (a full path), by name."""
+    names = []
+    for path in sorted(glob.glob(os.path.join(SETUP_DIR, "*.toml"))):
+        try:
+            if load(path)["sequence"] == os.path.normpath(sequence):
+                names.append(os.path.splitext(os.path.basename(path))[0])
+        except ValueError:
+            pass
+    return names
 
 
 def single_axis_spin(spin):

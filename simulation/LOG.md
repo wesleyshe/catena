@@ -2,6 +2,31 @@
 
 Newest first. The format is in the root `AGENTS.md`.
 
+## 2026-11-03 · Wesley (Claude Code)
+- **Cleanup after the demo week** (Wesley: "make sure that someone who is trying to use the engine could use it
+  easily"):
+  - **Nothing had been taken out of the control window.** Every control from before the demos is still there. The only
+    UI removed was the separate, simplified Demos window, dropped on 2026-10-29 at Wesley's request ("I want the old
+    user interface and control").
+  - **Setup files show only what's special:** `save` writes sequence, move_s, hold_s and whatever differs from
+    `DEFAULTS`, and all 19 setups were rewritten that way. `5a_pole_climb` is now 4 lines plus its `[rod]` table, which
+    makes it plain that the pole is a setup setting, not part of the CSV.
+  - **Consistent names,** `{demo}{version}_{what}`: `5_pole_climb` → `5a_pole_climb`, `5a_rod_crawl` → `5b_rod_crawl`,
+    `6_skater` → `6a_skater`, `4b_both_off` → `4b_walk_let_go`.
+  - **Control window:** under Setup, a line on what's in it (`setup_file.summary`: world, chain, end effectors, how it
+    starts); under Fold sequence, the CSV's first line and the setups that use it (`setup_file.users`). It opens on
+    `fold_sequence.csv` again; it had been picking `arm_let_go.csv`, first alphabetically, which needs an anchor. The
+    demo list moved to `setup_file.DEMOS`.
+  - `play.py --setup` with a bad file prints one line instead of a traceback, and a headless setup run prints what's
+    in the setup. `Session.place` finds the setup's ends by name (`end_keys`); same behaviour.
+  - `README.md`: "How a run is put together" and "Make your own run".
+- **Checked:** `verify.py` ALL CHECKS PASSED, 14 sections (new checks: the minimal save, every demo button has its
+  setup, every CSV has a first line, `pole_climb.csv` → `5a_pole_climb`). Logs byte-identical to before for
+  `fold_sequence.csv` and all 19 setups headless (the renamed ones against their old names). `pole_climb_design.py`
+  writes the same CSV (only the setup name in a comment changed). The control window by script, with the viewer
+  stubbed out: each of the six buttons hands the viewer exactly its setup and plays on connect, and the new lines read
+  right. Not looked at by eye.
+
 ## 2026-10-29 · Wesley (Claude Code)
 - **Countdown before a take** (Wesley: "a 5 seconds delay before the experiment start... T-5 4 3 2 1"; then "can this
   value be something that is adjusted on the chain sim panel"). Play and Restart send `countdown {s}` (the panel's
