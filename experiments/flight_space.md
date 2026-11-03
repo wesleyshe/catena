@@ -38,7 +38,11 @@ The box's aisle face sits on the first track, 0.45 m out, so the aisle stays cle
   about 2.1 m). In 6 mm acrylic all six faces weigh about 130 kg before the frame, so thinner sheet or netting on some
   faces is worth a look. The structure also has to meet Novespace's load cases (REF-02 in the ITF).
 - **Someone has to reach in between parabolas** to tie the strings back on, so the box needs a door or a panel that
-  opens.
+  opens (the sim draws one in the aisle-side panel, 0.8 × 1.4 m).
+- **The net sits 300 mm above the box's floor** (`net_height_mm`), on its own frame. That room is the buffer for a
+  landing: the sim's landings sink 30–100 mm into a net that sags 20 mm at 1 g, so a falling chain never reaches the
+  floor. It leaves 1.6 m above the net, and the strings hold the chain in the middle of that.
+- **A walking deck:** the net covers the floor, so the suction walk stands on a rigid deck laid over the net.
 - **Along the cabin is the cheap direction.** The chain lies along it in the sim, and length costs no headroom.
 
 ## The g levels the sim uses (`[flight]` in the spec)
@@ -52,5 +56,5 @@ The box's aisle face sits on the first track, 0.45 m out, so the aisle stays cle
 | Acceleration record | 10 Hz, 0.001 g resolution, given after the flight. Novespace advises your own accelerometer for accurate, time-synced data | ITF §3.10 |
 | Cabin | 825 hPa (air ≈1.0 kg/m³), 17–20 °C in flight, humidity up to 15 % | ITF §3.2–3.4 |
 
-In the sim, a setup with a `[flight]` table puts the chain in the box (e.g. `../simulation/setups/1d_flight_turn.toml`),
+In the sim, a setup with a `[flight]` table puts the chain in the box (every setup in `../simulation/setups/` has one),
 and Play runs this profile, the plane's pitch included. What it found is in `findings.md`, "The flight box".

@@ -3,6 +3,11 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- `spec.toml`: `net_height_mm` 200 → 300 (Wesley: a buffer under the net so a falling chain can't reach the floor; the
+  sim's landings sink at most 115 mm).
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED.
+
+## 2026-11-03 · Wesley (Claude Code)
 - `spec.toml` `[flight]`: `box_mm` 2500 → 2000 along the cabin (Wesley: "a reasonable size that can be carried onto the
   plane"); it still needs building on board from parts, since it's bigger than the door (`experiments/flight_space.md`).
   New `pitch_deg` = 45: the plane's nose-up as zero g begins (typical; check Novespace's attitude data).

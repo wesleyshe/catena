@@ -32,7 +32,7 @@ import mujoco
 import numpy as np
 
 import setup_file
-from make_chain import FLIGHT, NOZZLE_RGBA, STRING_RGBA, attach_point, build, leading_end, level_axis
+from make_chain import CHAIN_ROLL, FLIGHT, NOZZLE_RGBA, STRING_RGBA, attach_point, build, leading_end, level_axis
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 AXES = dict(x=(1, 0, 0), y=(0, 1, 0), z=(0, 0, 1))  # world axes: x across the start pose, y along it, z vertical
@@ -160,20 +160,23 @@ class Parabola:
     pull-up to 1.8 g, zero g with its leftover jitter, the pull-out, level again. at(t) gives the phase, the g vector
     (the box's frame, in g: x across the cabin, y along it towards the nose, z up), T (the time since zero g began, s)
     and the plane's pitch (rad). In zero g the plane flies a free-fall arc, nose up pitch_deg to nose down pitch_deg, so
-    its pitch is atan(tan(pitch_deg) (1 - 2T / parabola_s)); the pull-up and pull-out join that smoothly to level."""
+    its pitch is atan(tan(pitch_deg) (1 - 2T / parabola_s)); the pull-up and pull-out join that smoothly to level.
+    level (g) flies a Moon (0.16) or Mars (0.38) parabola instead: the same length, a flatter arc (it falls at (1 - level)
+    g, so tan of the nose-up is (1 - level) tan(pitch_deg)); 1 is level flight between the two 1.8 g phases."""
     LEVEL_S, UP_S, DOWN_S = 3.0, 3.0, 4.0  # level flight before and after; the 1 <-> 1.8 g and 1.8 <-> 0 g ramps
 
-    def __init__(self, hyper_s, jitter, seed):
+    def __init__(self, hyper_s, jitter, seed, level=0.0):
         g, hold = FLIGHT["hypergravity_g"], hyper_s - self.UP_S - self.DOWN_S
-        steps = [("level", self.LEVEL_S, 1), ("pull-up", self.UP_S, g), ("pull-up", hold, g), ("into zero g", self.DOWN_S, 0),
-                 ("zero g", FLIGHT["parabola_s"], 0), ("pull-out", self.DOWN_S, g), ("pull-out", hold, g),
+        self.free = "zero g" if level == 0 else f"{level:g} g"  # the phase the experiment runs in
+        steps = [("level", self.LEVEL_S, 1), ("pull-up", self.UP_S, g), ("pull-up", hold, g), (f"into {self.free}", self.DOWN_S, level),
+                 (self.free, FLIGHT["parabola_s"], level), ("pull-out", self.DOWN_S, g), ("pull-out", hold, g),
                  ("pull-out", self.UP_S, 1), ("level", self.LEVEL_S, 1)]
         self.knots, t = [(0.0, 1.0, "level")], 0.0
         for name, secs, g_end in steps:
             t += secs
             self.knots.append((t, g_end, name))
         self.t0, self.end = self.knots[4][0], t  # zero g begins; the flight ends
-        self.top = math.radians(FLIGHT["pitch_deg"])
+        self.top = math.atan((1 - level) * math.tan(math.radians(FLIGHT["pitch_deg"])))
         self.rate = -math.sin(2 * self.top) / FLIGHT["parabola_s"]  # the arc's pitch rate as zero g begins and ends
         rng, self.waves = np.random.default_rng(seed), []  # per axis, three slow waves (2-8 s) adding up to jitter_g at most
         for a in FLIGHT["jitter_g"] if jitter else (0, 0, 0):
@@ -187,7 +190,7 @@ class Parabola:
         g = g1 + (0.5 - 0.5 * math.cos(math.pi * u)) * (g2 - g1)
         T = t - self.t0  # the jitter runs on T, so every take (whatever its 1.8 g phases) gets the same
         jitter = [sum(c * math.sin(2 * math.pi * T / period + phase) for c, period, phase in axis) for axis in self.waves]
-        on = name == "zero g"
+        on = name == self.free
         return name, np.array([jitter[0] * on, jitter[1] * on, -g + jitter[2] * on]), T, self.pitch(t)
 
     def pitch(self, t):
@@ -276,14 +279,19 @@ class Session:
         self.end_keys = ("ee1", f"ee{modules(model)}")  # a setup's ee1 and ee_n, by their names in the model
         self.ends = {e: End(model, e) for e in self.end_keys if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, e) >= 0}
         cabin = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "cabin")  # the flight box turns with the plane
-        self.cabin = model.body_mocapid[cabin] if cabin >= 0 else -1
+        self.cabin = cabin  # its body; play drives its hinge, cabin_pitch, with the plane's pitch
+        if cabin >= 0:
+            self.cabin_q, self.cabin_v = model.jnt_qposadr[model.joint("cabin_pitch").id], model.jnt_dofadr[model.joint("cabin_pitch").id]
         self.static = {0, cabin} - {-1}  # bodies that are fixed things: the world, and the cabin with the box on it
         self.fixed = [g for g in range(model.ngeom) if model.geom_bodyid[g] in self.static]  # floor, plates, rod, box
         self.box = [g for g in self.fixed if model.geom(g).name.startswith(("box_", "net"))]  # the flight box and its net
-        self.shells = [g for g in range(model.ngeom) if model.geom(g).name.endswith("_sphere")]
+        grips = tuple(e.name for e in self.ends.values() if e.kind in ("anchor", "suction"))  # their shells meet surfaces
+        self.shells = [g for g in range(model.ngeom) if model.geom(g).name.endswith("_sphere")  # on purpose: not touches
+                       and not model.geom(g).name.startswith(grips or ("-",))]
         self.strings = [t for t in range(model.ntendon) if "_string" in model.tendon(t).name]
         self.setup, self.row0, self.ee_cols, self.ee_row = None, None, {}, None
         self.flight, self.fly_t = None, None  # the setup's [flight], and the time into a parabola while flying
+        self.turn_axis = self.pitch_axis(0.0)  # what turned is about: the pitch axes as the chain starts
         self.log = Logger(log_path, self.nj, self.log_names()) if log_path else None
         self.use_setup(setup) if setup else self.reset()
 
@@ -304,6 +312,7 @@ class Session:
         """Start from this setup from now on (and on Reset pose): the chain in its sequence's first row, attached where
         the setup says."""
         self.setup, self.flight = setup, setup["flight"] or None
+        self.turn_axis = self.pitch_axis(self.flight["roll_deg"] if self.flight else 0.0)
         self.row0 = read_sequence(setup["sequence"], self.m)[0] if setup["sequence"] else np.zeros(self.nj)
         self.reset()
 
@@ -383,6 +392,11 @@ class Session:
         d = self.d
         d.mocap_pos[e.mocap] = d.xpos[e.body] + shift
         d.mocap_quat[e.mocap] = d.xquat[e.body]
+        if self.cabin >= 0:  # in the flight box, the hold rides on the cabin: remember it in the box's frame
+            R, c = self.box_frame(), d.xpos[self.cabin]
+            q = np.zeros(4)
+            mujoco.mju_mat2Quat(q, (R.T @ d.xmat[e.body].reshape(3, 3)).flatten())
+            e.hold_box = (R.T @ (d.mocap_pos[e.mocap] - c), q)
         soft = np.linalg.norm(shift) > 1e-4
         self.m.eq_solref[e.clamp] = SOFT_SOLREF if soft else e.stiff
         e.pull_in_until = d.time + PULL_IN if soft else None
@@ -447,19 +461,25 @@ class Session:
         if self.setup:
             self.place()
         self.end_flight()
+        if self.flight and self.strings:  # back at the start, the strings are tied on again, as between parabolas
+            self.strings_on(True)
         mujoco.mj_forward(self.m, self.d)
         self.gap = self.box_gap()[0]
         self.keys, self.playing = None, False
         self.com0, self.q0 = self.d.subtree_com[1].copy(), self.d.sensor("imu_quat").data.copy()
+        self.com0_box = self.box_com() if self.cabin >= 0 else self.com0  # the start, in the box's frame
         self.turned, self.heading_was, self.done = 0.0, self.heading(), False
+        self.turned_space, self.space_was = 0.0, self.heading(in_box=False)
         if self.log:
             self.log(self.d, self.log_columns())
 
+    def box_com(self):
+        """The chain's centre of mass in the box's frame (from the box's middle)."""
+        return self.box_frame().T @ (self.d.subtree_com[1] - self.d.xpos[self.cabin])
+
     def box_frame(self):
         """The cabin's orientation (world from box)."""
-        R = np.zeros(9)
-        mujoco.mju_quat2Mat(R, self.d.mocap_quat[self.cabin])
-        return R.reshape(3, 3)
+        return self.d.xmat[self.cabin].reshape(3, 3)
 
     def strings_on(self, on):
         """Hold the chain where it is (each string as long as it is now) or let go (endless and hidden)."""
@@ -483,16 +503,21 @@ class Session:
                     best = (dist, self.m.geom(b).name)
         return best
 
-    def fly(self, path="", move=3.0, hold=1.0, release_s=None, start_s=None, hyper_s=None, jitter=None):
+    def fly(self, path="", move=3.0, hold=1.0, release_s=None, start_s=None, hyper_s=None, jitter=None, spin=None,
+            manual=False):
         """Fly one parabola from here (Reset first for a fresh take): the strings hold the chain through the pull-up and
-        let go at T+release_s (T = 0 when zero g begins); the sequence starts at T+start_s; the pull-out drops it onto
-        the net. Missing settings come from the setup's [flight]."""
+        let go at T+release_s (T = 0 when zero g begins), adding spin [x, y, z] (deg/s, the setup's spin_deg_s if None)
+        to what it keeps from the plane; the sequence starts at T+start_s; the pull-out drops it onto the net. manual:
+        no sequence, and the strings hold until let_go(). Missing settings come from the setup's [flight]."""
         f = self.flight
         if not f:
             raise ValueError("this model has no flight box: give the setup a [flight] table (or tick In the flight box) and Rebuild")
         pick = lambda x, key: f[key] if x is None else x
-        self.parabola = Parabola(pick(hyper_s, "hyper_s"), pick(jitter, "jitter"), f["seed"])
+        self.parabola = Parabola(pick(hyper_s, "hyper_s"), pick(jitter, "jitter"), f["seed"], f["level_g"])
         self.release_s, self.start_s, self.pending = pick(release_s, "release_s"), pick(start_s, "start_s"), (path, move, hold)
+        self.extra_spin = list(self.setup["spin_deg_s"] if spin is None else spin)
+        if manual:
+            self.release_s, self.pending = math.inf, None
         self.fly_t, self.released, self.touch, self.gap_min, self.landing, self.dip = 0.0, None, None, 1.0, None, 0.0
         self.fell, self.flown, self.release_spin = 0.0, True, 0.0
         self.strings_on(True)
@@ -511,13 +536,18 @@ class Session:
         phase, g, T, theta = self.parabola.at(self.fly_t)
         R = pitch_matrix(theta)
         self.m.opt.gravity[:] = 9.81 * R @ g  # the g in the box, turned with it into the world (which doesn't turn)
-        if self.cabin >= 0:
-            mujoco.mju_mat2Quat(self.d.mocap_quat[self.cabin], R.flatten())
+        if self.cabin >= 0:  # the cabin's angle and rate, so what rests on it moves with it
+            self.d.qpos[self.cabin_q] = theta
+            self.d.qvel[self.cabin_v] = (self.parabola.pitch(self.fly_t + 0.005) - self.parabola.pitch(self.fly_t - 0.005)) / 0.01
+            c, turn = self.m.body_pos[self.cabin], np.zeros(4)
+            mujoco.mju_mat2Quat(turn, R.flatten())
+            for e in self.ends.values():  # clamped anchors turn with the box they're clamped to
+                if e.clamped:
+                    p, q = e.hold_box
+                    self.d.mocap_pos[e.mocap] = c + R @ p
+                    mujoco.mju_mulQuat(self.d.mocap_quat[e.mocap], turn, q)
         if self.released is None and T >= self.release_s:
-            self.strings_on(False)
-            self.released = T
-            mujoco.mj_forward(self.m, self.d)
-            self.release_spin = math.degrees(np.linalg.solve(self.inertia(), self.d.sensor("angmom").data)[0])  # about x
+            self.let_go()
         if self.pending and T >= self.start_s:
             if self.pending[0]:
                 self.play(*self.pending)
@@ -525,20 +555,32 @@ class Session:
         self.fly_t += LOG_DT
         return phase, T
 
+    def let_go(self):
+        """The strings let go (now, or at T+release_s), and any extra spin at release is added."""
+        if self.fly_t is None or self.released is not None:
+            return
+        self.strings_on(False)
+        self.released = self.parabola.at(self.fly_t)[2]
+        mujoco.mj_forward(self.m, self.d)
+        self.release_spin = math.degrees(np.linalg.solve(self.inertia(), self.d.sensor("angmom").data)[0])  # about x
+        for axis, rate in zip("xyz", self.extra_spin):
+            if rate:
+                now = math.degrees(np.linalg.solve(self.inertia(), self.d.sensor("angmom").data) @ AXES[axis])
+                self.spin(now + rate, axis)
+
     def flown_through(self, phase, T):
         """After each step: the gap to the box while free in zero g, then the landing on the net."""
         net = next((b for b in self.box if self.m.geom(b).name == "net"), None)
-        if phase == "zero g" and self.released is not None:
+        if phase == self.parabola.free and self.released is not None:
             self.gap_min = min(self.gap_min, self.gap)
             if self.touch is None and self.gap < TOUCH:
                 self.touch = (T, self.box_gap()[1])
         if phase == "pull-out" and net is not None:  # in the box's frame: heights above its middle, speed towards the net
-            R, c = self.box_frame(), self.d.mocap_pos[self.cabin]
+            R, c = self.box_frame(), self.d.xpos[self.cabin]
             top = self.m.geom_pos[net][2] + self.m.geom_size[net][2]
             low = min((R.T @ (self.d.geom_xpos[g] - c))[2] - self.m.geom_size[g][0] for g in self.shells)
             if self.landing is None:
-                w = (self.parabola.pitch(self.fly_t) - self.parabola.pitch(self.fly_t - LOG_DT)) / LOG_DT
-                v = self.d.sensor("com_vel").data - np.cross((w, 0, 0), self.d.subtree_com[1] - c)  # the net moves too
+                v = self.d.sensor("com_vel").data - np.cross((self.d.qvel[self.cabin_v], 0, 0), self.d.subtree_com[1] - c)
                 self.fell = max(self.fell, -float((R.T @ v)[2]))
                 if low < top:
                     self.landing = self.fell
@@ -577,19 +619,36 @@ class Session:
         """How far the IMU's module has turned since the last reset, in 3D (deg), as the flight IMU will see it."""
         return math.degrees(2 * math.acos(min(1.0, abs(float(self.q0 @ self.d.sensor("imu_quat").data)))))
 
-    def heading(self):
-        """Compass direction (rad) the middle module points along the chain, seen from above (from the box's top, in
-        the flight box: what the cabin's video sees); None if near vertical."""
+    @staticmethod
+    def pitch_axis(roll_deg):
+        """The chain's pitch axes at the start, rolled roll_deg about its length (world x for 90, z for 0)."""
+        r = math.radians(CHAIN_ROLL + roll_deg)
+        return np.array((math.sin(r), 0.0, math.cos(r)))
+
+    def heading(self, in_box=True):
+        """Compass direction (rad) the middle module points along the chain, seen from above; None if near vertical.
+        In the flight box it's about the chain's starting pitch axis instead (the vertical unless it's rolled), in the
+        box's frame (what the cabin's video sees) or, with in_box=False, in space (what the IMU sees)."""
         z = self.d.xmat[self.mid].reshape(3, 3)[:, 2]
-        if self.cabin >= 0:
+        if self.cabin < 0:
+            return math.atan2(z[1], z[0]) if np.hypot(z[0], z[1]) > 0.2 else None
+        if in_box:
             z = self.box_frame().T @ z
-        return math.atan2(z[1], z[0]) if np.hypot(z[0], z[1]) > 0.2 else None
+        e1 = np.cross((0.0, 1.0, 0.0), self.turn_axis)
+        e1 /= np.linalg.norm(e1)
+        p1, p2 = z @ e1, z @ np.cross(self.turn_axis, e1)
+        return math.atan2(p2, p1) if math.hypot(p1, p2) > 0.2 else None
 
     def track_turn(self):
         h = self.heading()
         if h is not None and self.heading_was is not None:
             self.turned += math.degrees((h - self.heading_was + math.pi) % (2 * math.pi) - math.pi)
         self.heading_was = h
+        if self.cabin >= 0:
+            h = self.heading(in_box=False)
+            if h is not None and self.space_was is not None:
+                self.turned_space += math.degrees((h - self.space_was + math.pi) % (2 * math.pi) - math.pi)
+            self.space_was = h
 
     def play(self, path, move=3.0, hold=1.0):
         self.keys, self.move, self.hold = read_sequence(path, self.m), move, hold
@@ -602,6 +661,8 @@ class Session:
     def advance(self):
         """Simulate LOG_DT seconds. Sequence targets update once per LOG_DT, like commands on a servo bus."""
         flight = self.flying() if self.fly_t is not None else None
+        if self.cabin >= 0 and flight is None:
+            self.d.qvel[self.cabin_v] = 0  # not flying: the box stays put
         if self.keys is not None and self.playing:
             self.d.ctrl[:self.nj] = target(self.keys, self.seq_t, self.move, self.hold)
             row = min(int(self.seq_t // (self.move + self.hold)), len(self.keys) - 1)  # whose hold has begun
@@ -643,7 +704,9 @@ class Session:
             self.seq_t, self.playing, self.ee_row = 0.0, self.keys is not None, None
         elif cmd == "fly":
             self.fly(c.get("file", ""), c.get("move", 3.0), c.get("hold", 1.0), c.get("release"), c.get("start"),
-                     c.get("hyper"), c.get("jitter"))
+                     c.get("hyper"), c.get("jitter"), c.get("spin"), c.get("manual", False))
+        elif cmd == "release":
+            self.let_go()
         elif cmd in ("stop", "straighten"):
             self.keys, self.playing = None, False
             self.nozzles_off()
@@ -673,24 +736,27 @@ class Session:
     def summary(self):
         """One line on how the run went, printed when a headless run ends."""
         drift = np.linalg.norm(self.d.subtree_com[1] - self.com0) * 1000
-        line = (f"turned {self.turned:+.1f} deg, IMU turn {self.imu_turn():.1f} deg, spin {self.spin_rate():+.1f} deg/s, "
-                f"COM moved {drift:.3f} mm")
+        line = (f"turned {self.turned:+.1f} deg" + (f" in the box, {self.turned_space:+.1f} deg in space" if self.cabin >= 0 else "")
+                + f", IMU turn {self.imu_turn():.1f} deg, spin {self.spin_rate():+.1f} deg/s, COM moved {drift:.3f} mm")
         for e in self.ends.values():
             if e.kind in ("anchor", "suction"):
                 line += f"; {e.name} peak load {e.peak:.1f} N, let go untold {e.pops}x"
         if self.setup and self.setup["rod"]:
             u = np.subtract(self.setup["rod"]["to"], self.setup["rod"]["from"])
-            line += f"; along the rod {(self.d.subtree_com[1] - self.com0) @ u / np.linalg.norm(u) * 1000:+.0f} mm"
+            moved = (self.box_com() - self.com0_box) if self.cabin >= 0 else self.d.subtree_com[1] - self.com0
+            line += f"; along the rod {moved @ u / np.linalg.norm(u) * 1000:+.0f} mm"
         if getattr(self, "parabola", None) and self.flown:
             line += f"; {self.flight_result()}"
         return line
 
     def flight_result(self):
-        free = (f"let go at T+{self.released:.1f} s spinning {self.release_spin:+.1f} deg/s with the plane, "
+        free = ("no strings, " if not self.strings else
+                f"let go at T+{self.released:.1f} s spinning {self.release_spin:+.1f} deg/s with the plane, "
                 if self.released is not None else "never let go, ")
         touch = f"first touched the {self.touch[1]} at T+{self.touch[0]:.1f} s" if self.touch else "touched nothing in zero g"
-        land = (f"landed on the net at {self.landing:.1f} m/s, sinking {self.dip * 1000:.0f} mm"
-                if self.landing is not None else "hasn't landed")
+        held = [e.name for e in self.ends.values() if e.held]
+        land = (f"landed on the net at {self.landing:.1f} m/s, sinking {self.dip * 1000:.0f} mm" if self.landing is not None
+                else f"still held by {', '.join(held)}" if held else "hasn't landed")
         return f"{free}nearest the box {max(0.0, self.gap_min) * 1000:.0f} mm, {touch}; {land}"
 
     def readouts(self):
@@ -711,6 +777,7 @@ class Session:
                 "COM drift": f"{np.linalg.norm(d.subtree_com[1] - self.com0) * 1000:.3f} mm",
                 "|L|": f"{L:.1e} kg m^2/s", "max torque": f"{np.abs(d.actuator_force[:self.nj]).max():.2f} N m",
                 "contacts": str(d.ncon), "log": os.path.relpath(self.log.path, HERE) if self.log else "off",
+                **({"turned, space": f"{self.turned_space:+.1f} deg (turned is in the box)"} if self.cabin >= 0 else {}),
                 **{e.name: self.end_readout(e) for e in self.ends.values()}, **self.flight_readouts()}
 
     def flight_readouts(self):
@@ -722,14 +789,15 @@ class Session:
             rate = math.degrees(self.parabola.pitch(self.fly_t + 0.05) - self.parabola.pitch(self.fly_t - 0.05)) / 0.1
             out["plane"] = f"pitch {math.degrees(theta):+.0f} deg, turning {rate:+.1f} deg/s"
             out["flight"] = f"{phase}, {-g[2]:.2f} g, T{T:+.1f} s" + (
-                f" (zero g in {-T:.1f} s)" if T < 0 else f" ({FLIGHT['parabola_s'] - T:.1f} s of zero g left)" if phase == "zero g" else "")
+                f" ({self.parabola.free} in {-T:.1f} s)" if T < 0 else
+                f" ({FLIGHT['parabola_s'] - T:.1f} s of {self.parabola.free} left)" if phase == self.parabola.free else "")
             out["strings"] = (f"holding ({len(self.strings)}), pulling up to {self.tension():.1f} N" if self.released is None
                               else f"let go at T+{self.released:.1f} s")
             out["box gap"] += f", least {max(0.0, self.gap_min) * 1000:.0f} mm since let go" if self.released is not None else ""
         elif self.flown:
             out["flight"] = "done: " + self.flight_result()
         else:
-            out["flight"] = "not flying (Fly a parabola)" if self.flight else "no flight timeline in this setup"
+            out["flight"] = "not flying (Play flies the parabola)" if self.flight else "no flight timeline in this setup"
         return out
 
     def banner(self):
@@ -737,7 +805,7 @@ class Session:
         if self.fly_t is None:
             return ""
         phase, g, T, _ = self.parabola.at(self.fly_t)
-        return f"0 g  T+{T:.0f}" if phase == "zero g" else f"{-g[2]:.1f} g  {phase}"
+        return f"{self.parabola.free}  T+{T:.0f}" if phase == self.parabola.free else f"{-g[2]:.1f} g  {phase}"
 
     def end_readout(self, e):
         if e.kind == "anchor":
@@ -847,11 +915,19 @@ def run_viewer(s, panel_port=None):
         import glfw
         glfw.window_hint_string(glfw.COCOA_FRAME_NAME, WINDOW_NAME)
     with mujoco.viewer.launch_passive(model, data, key_callback=pressed.append) as viewer:
-        with viewer.lock():  # the passive viewer ignores <visual><global azimuth/elevation>; apply them here
+        cabin = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "cabin")
+
+        def camera(on_cabin):
+            """The flight box: watch from the cabin (turning with the plane: the box looks still), or from outside, fixed
+            in space, where the box pitches with the plane. Esc in the viewer also frees the camera."""
             mujoco.mjv_defaultFreeCamera(model, viewer.cam)
-            if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "cabin") >= 0:  # the flight box: watch from the cabin,
-                viewer.cam.type = mujoco.mjtCamera.mjCAMERA_FIXED                  # which turns with the plane (Esc: free)
-                viewer.cam.fixedcamid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "cabin")
+            if cabin >= 0 and on_cabin:
+                viewer.cam.type, viewer.cam.fixedcamid = mujoco.mjtCamera.mjCAMERA_FIXED, cabin
+            elif cabin >= 0:
+                viewer.cam.azimuth, viewer.cam.elevation, viewer.cam.distance = 35, -12, 2.2 * model.stat.extent
+
+        with viewer.lock():  # the passive viewer ignores <visual><global azimuth/elevation>; apply them here
+            camera(True)
         while viewer.is_running():
             start = time.time()
             with viewer.lock():
@@ -863,6 +939,8 @@ def run_viewer(s, panel_port=None):
                 for c in commands.ready(new, start):
                     if c["cmd"] == "quit":
                         viewer.close()
+                    elif c["cmd"] == "camera":
+                        camera(bool(c["cabin"]))
                     elif c["cmd"] == "screenshot":
                         screenshot(model, data, viewer)
                     else:
@@ -939,9 +1017,9 @@ if __name__ == "__main__":
         model.opt.gravity[:] = (0, 0, -a.gravity)
     session = Session(model, mujoco.MjData(model), a.log or None, setup if setup and not a.model else None)
     session.speed, session.playback = a.speed, a.playback
-    for axis, rate in zip("xyz", a.spin or ()):
-        session.spin(rate, axis)
     fly = bool(a.headless and setup and setup["flight"] and not a.model)  # a flight setup flies its parabola
+    for axis, rate in zip("xyz", () if fly else a.spin or ()):  # in a flight, the spin comes as the strings let go
+        session.spin(rate, axis)
     if fly:
         session.fly(a.seq or "", a.move, a.hold)
     elif a.seq:

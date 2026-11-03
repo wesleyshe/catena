@@ -1,17 +1,30 @@
-# The same walk, but the back foot lets go before the front holds: in zero g it floats away.
+# The same walk on the deck, but the back foot lets go before the front holds: in zero g it floats away.
 sequence = "walk_let_go.csv"
 move_s = 0.9
 hold_s = 0.35
+preset = "feetech85"
 
 [ee1]
 type = "suction"
-attach = { at = [0.0, 0.6, 0.0], facing = "up", roll_deg = 0.0 }
+attach = { at = [0.0, 0.4, 0.35], facing = "up", roll_deg = 0.0 }
 pull_N = 60.0
 cup_mm = 80.0
 friction = 0.8
 
 [ee12]
 type = "suction"
+attach = { at = [0.0, 0.0, 0.35], facing = "up", roll_deg = 0.0 }
 pull_N = 60.0
 cup_mm = 80.0
 friction = 0.8
+
+[flight]
+box_m = [2.0, 1.3, 1.9]
+strings = []
+roll_deg = 0.0
+level_g = 0.0
+release_s = 1.0
+start_s = 1.5
+hyper_s = 23.0
+jitter = true
+seed = 1

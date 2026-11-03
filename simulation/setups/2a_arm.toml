@@ -1,8 +1,20 @@
-# Anchored to a wall by ee1, it works like an arm: curls, turns on ee1's twist servo, reaches. Watch the clamp load.
+# On the flight, clamped by ee1 to the box's end wall: it sags in the 1.8 g pull-up, then works like an arm in zero g: curls, turns on ee1's twist servo, reaches.
 sequence = "arm_reach.csv"
 move_s = 2.5
 hold_s = 1.0
+preset = "feetech85"
 
 [ee1]
 type = "anchor"
-attach = { at = [0.0, -1.0, 1.2], facing = "+y", roll_deg = 0.0 }
+attach = { at = [0.0, -1.0, 0.85], facing = "+y", roll_deg = 0.0 }
+
+[flight]
+box_m = [2.0, 1.3, 1.9]
+strings = [1, 5, 8, 12]
+roll_deg = 0.0
+level_g = 0.0
+release_s = 1.0
+start_s = 1.5
+hyper_s = 23.0
+jitter = true
+seed = 1

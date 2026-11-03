@@ -4,6 +4,14 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- **The class simulations fly:** `experiments/findings.md`, "The flight box", now has every setup's result on the flight
+  (box, strings, parabola, the plane's pitch, the fall to the net). With its pitch axes across the cabin, the turn is
+  predictable from the spin at release; vertical, the plane's spin spoils it. The 2.0 m box is tight for 20 s of free
+  float with the leftover g. `experiments/README.md` and `flight_space.md` (the 300 mm buffer under the net, the walking
+  deck, the door) updated; `sequences/README.md` says what each sequence needs in the box.
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED; details in `simulation/LOG.md`.
+
+## 2026-11-03 · Wesley (Claude Code)
 - `experiments/flight_space.md`: people can walk past (the box stays outside the first track, leaving a 0.9 m aisle
   against the 0.508 m needed); the default box is now 2.0 × 1.3 × 1.9 m, built on board from parts no wider than 1 m
   (the door is 1.06 × 1.80 m); the plane's pitch-over added to the g levels.

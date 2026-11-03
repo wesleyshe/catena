@@ -1,12 +1,24 @@
-# Thrusters, folded into a straight, both end nozzles fire briefly: the two pushes cancel: nothing happens.
+# On the flight, thrusters on both ends, folded into a straight line, a brief burst from both end nozzles: the two pushes cancel: nothing happens.
 sequence = "thrust_straight.csv"
 move_s = 1.5
 hold_s = 1.0
+preset = "feetech85"
 
 [ee1]
 type = "thruster"
-thrust_N = 0.1
+thrust_N = 0.025
 
 [ee12]
 type = "thruster"
-thrust_N = 0.1
+thrust_N = 0.025
+
+[flight]
+box_m = [2.0, 1.3, 1.9]
+strings = [1, 5, 8, 12]
+roll_deg = 0.0
+level_g = 0.0
+release_s = 1.0
+start_s = 1.5
+hyper_s = 23.0
+jitter = true
+seed = 1

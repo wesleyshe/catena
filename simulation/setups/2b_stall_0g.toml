@@ -1,8 +1,20 @@
-# Hanging from a wall in zero g, told to stand straight out: with no weight, it stands all the way out.
+# Hanging from the box's end wall, told to stand straight out in a zero-g parabola: with no weight, it stands all the way out.
 sequence = "stand_out.csv"
 move_s = 4.0
 hold_s = 4.0
+preset = "feetech85"
 
 [ee1]
 type = "anchor"
-attach = { at = [0.0, -1.0, 1.8], facing = "+y", roll_deg = 0.0 }
+attach = { at = [0.0, -1.0, 1.65], facing = "+y", roll_deg = 0.0 }
+
+[flight]
+box_m = [2.0, 1.3, 1.9]
+strings = []
+roll_deg = 0.0
+level_g = 0.0
+release_s = 1.0
+start_s = 1.5
+hyper_s = 23.0
+jitter = true
+seed = 1

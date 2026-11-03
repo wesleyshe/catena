@@ -1,4 +1,16 @@
-# Turns about 30° with no push: 4 fold loops that each end straight (the falling cat). At flight timing, about 20 s.
+# On the flight: strings hold it through the 1.8 g pull-up and let go at zero g; it turns with no push, but keeps the plane's pitch-over, which spoils the turn.
 sequence = "reorient_loop.csv"
 move_s = 1.0
 hold_s = 0.25
+preset = "feetech85"
+
+[flight]
+box_m = [2.0, 1.3, 1.9]
+strings = [1, 5, 8, 12]
+roll_deg = 0.0
+level_g = 0.0
+release_s = 1.0
+start_s = 1.5
+hyper_s = 23.0
+jitter = true
+seed = 1

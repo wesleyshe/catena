@@ -32,8 +32,9 @@ Measured sim results so far are in `findings.md`.
   - Cabin air drag (`--air`), and a flag when a sequence is longer than one parabola (`--speed` to fit).
   - **The flight box and a whole parabola:** a setup with a `[flight]` table puts the chain in the acrylic box (sized
     from the A310 cabin, `flight_space.md`) with a net across it, held by strings that let go at zero g. Play runs 1.8 g,
-    zero g with the leftover g, 1.8 g, with the box turning with the plane's pitch. Setup `1d_flight_turn`; results in
-    `findings.md`, "The flight box": the plane's pitch rate at release spoils the 30° turn.
+    zero g with the leftover g, 1.8 g, with the box turning with the plane's pitch. Every class simulation in
+    `../simulation/setups/` flies this way now; results in `findings.md`, "The flight box": the plane's pitch rate at
+    release spoils the 30° turn unless the chain's pitch axes lie across the cabin (`1d_turn_across`).
   - `reorient_loop.csv` turns the chain about 7.4° per loop with zero angular momentum, about the vertical only.
   - `roll_loop.csv` turns it about its long axis, about 32° per loop. Turning in 3D needs a twist as well as pitch
     folds.
@@ -48,7 +49,8 @@ Measured sim results so far are in `findings.md`.
     1.8 g phases and the leftover g are in, above).
 - **Flight plan must cover:**
   - Recording the IMU's rate at release. Even 1°/s cancels the whole 30° turn, and a chain let go from the box keeps
-    the plane's pitch rate (~2.7°/s), which spoils it (`findings.md`, "The flight box").
+    the plane's pitch rate (~2.7°/s). Fly the turn with the pitch axes across the cabin, where that spin adds
+    predictably (`findings.md`, "The flight box").
   - Stowing the chain before the 1.8 g pull-out. Two modules held out sideways already exceed the servo torque.
   - Sequences inside one parabola, about 20 s.
 

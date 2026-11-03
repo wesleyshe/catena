@@ -36,7 +36,7 @@ box_mm = [2000, 1300, 1900]   # inside of the experiment box: along the cabin, a
                               # aisle with the aisle clear; built on board from parts (experiments/flight_space.md)
 pitch_deg = 45                # the plane's nose-up as zero g begins, and nose-down as it ends (typical; check the
                               # attitude in Novespace's flight data)
-net_height_mm = 200           # the net across the box, above the box floor (placeholder)
+net_height_mm = 300           # the net across the box, above its floor: the room it has to give in a landing (placeholder)
 net_sag_mm = 20               # how far the net gives under the chain at 1 g (placeholder until the net is chosen)
 cabin_air_kg_m3 = 1.0         # cabin air density (cabin at 825 hPa, ITF §3.2); used when air drag is on
 

@@ -34,14 +34,14 @@ control window and the MuJoCo viewer open side by side. The quickest start is on
 
 | Section | What it does |
 |---|---|
-| The demos | One button per class simulation: **1 Free float**, **2 Anchored**, **3 Thrusters**, **4 Suction walk**, **5 Pole climb**, **6 Skater**, and **✈ On the flight** (the turn in the flight box, through a whole parabola). One click opens it in the viewer and plays it; press **Play** for another take. The other versions of each (e.g. let go spinning, the four gravities, the U / Z / L shapes, the clamp crawl along a handrail) are in the Setup list. |
+| The demos | One button per class simulation, each flown as it will be on the plane (see Flight): **1 Free float**, **2 Anchored**, **3 Thrusters**, **4 Suction walk**, **5 Pole climb**, **6 Skater**. One click opens it in the viewer and flies it; press **Play** for another take. The other versions of each (an extra spin at release, the pitch axes across the cabin, the Moon and Mars parabolas, the U / Z / L shapes, the rail crawl) are in the Setup list. |
 | Setup | Pick a whole run from `setups/` (see [Setups](#setups-setups)); the lines under it say what the run shows and what's in it (its world, chain and end effectors, and how it starts). **Load** fills in every setting below and opens the viewer; then press **Play**. **Save as...** saves the current settings as a new setup, with a line saying what it shows. |
 | Model | Pick the preset (`feetech85` is the 8.5 cm flight build), number of modules and slip ring, and tick **Air drag** (cabin air on the shells) for flight-like runs. |
 | End effectors | An extra module on either end: none, **anchor** (a clamp), **suction** cup or **thruster** (five nozzles). The one past m1 sits on module 1's twist servo (`m1_yaw`). Picking a type shows its settings: an anchor or cup can **start** floating, on a surface (x, y, z and the way the surface faces) or on the rod (how far along), with a roll; a cup has its pull limit, diameter and friction; a thruster its push per nozzle. While running: **Hold** / **Let go** (an anchor or cup told to hold grabs whatever fixed thing it touches), or the nozzle tick boxes n0 (out of the end) to n4 (sideways). If ee1 starts attached, it sets where the chain starts, and the other end's placement greys out. **Rod to grab** (in Model) adds the setup's rod. Then click **Rebuild + open viewer**, which applies Model and End effectors and restarts the viewer. |
 | Fold sequence | Pick a CSV from `../sequences/` (or **Browse...**); the lines under it say what it does and which setups use it. A sequence is only the moves, so one written for a setup (the pole climb, the walk) needs that setup loaded. Set move/hold seconds and speed, then **Play / Pause / Resume / Restart / Stop**. **Speed x** makes the moves themselves faster (so the physics changes); **Playback x** only shows the simulation faster than real time, e.g. ×2 to watch a 20 s clip in 10 s (the readout says if the computer can't keep up). **Play** a second time, or **Restart**, starts a fresh take from the start pose, so every take is the same. **Countdown s** (5 to start with): Play and Restart first show T-5 … T-1 big in the viewer, with the chain held still, so a recording starts clean; 0 starts at once, and Pause, Stop or Reset pose during it calls the take off. **Pause** and **Stop** also turn the nozzles off. |
 | World | **Gravity** on/off and its strength, **Straighten** (all joints to 0), **Reset pose** (back to the start: the setup's start pose, or floating straight, at rest), and **Pause physics / Resume physics**, which freezes the whole simulation (time, motion, sequence, log) so you can look around. |
 | Spin | Set a rate in deg/s, pick an axis (vertical, along the chain, across) and press **Spin**. The whole chain starts spinning about that axis through its centre of mass, keeping its shape and any spin about the other axes. **Stop spin** brings it to rest. A small rate (0.5–5 deg/s) stands in for the leftover spin when the chain is let go in flight. This is a push from outside: it gives the chain angular momentum, which then stays constant. Fold while spinning and it speeds up, like a skater pulling their arms in. Tick **Also spin like this when Play starts** to give the chain this spin as the sequence starts: the spin at release. |
-| Flight | The box on the plane and one parabola (Novespace A310, see `../experiments/flight_space.md`). Tick **In the flight box** and set its size (along the chain, across, high), which modules the **strings** hold (four strings each, to the box's top and bottom edges), how long the **1.8 g phases** last, **g-jitter** (the leftover g in zero g), when the strings **let go at T+** and when the sequence starts **at T+** (T+0 when zero g begins). A setup's `[flight]` table holds all of these. Then **Rebuild + open viewer**: the chain sits still in the middle of the box, above the net, seen from a camera on the cabin (Esc in the viewer for the free camera, `[` and `]` to come back). In the box, **Play** flies the whole parabola after the countdown: 1 g, the 1.8 g pull-up (held by the strings while the plane pitches up), zero g (let go, then the sequence), and the pull-out, which drops it onto the net. The viewer shows the g and T big at the top; the readouts show the plane's pitch, how close the chain came to the box, the first thing it touched, and how fast it landed. |
+| Flight | The box on the plane and one parabola (Novespace A310, `../experiments/flight_space.md`). Every setup in `setups/` has a `[flight]` table, so it opens in the box with **In the flight box** ticked and the strings tied on. Set the box's size (along the chain, across, high), which modules the **strings** hold (four strings each, to the box's top and bottom edges), how long the **1.8 g phases** last, **g-jitter** (the leftover g in zero g), when the strings **let go at T+** and when the sequence starts **at T+** (T+0 when zero g begins). The box and strings need **Rebuild**; the times apply at Play. **Play** flies the whole parabola by itself after the countdown: 1 g, the 1.8 g pull-up (held while the plane pitches up), zero g (let go, then the sequence, about 20 s of it), and the pull-out, which drops the chain onto the net. **By hand:** **✈ Start the parabola** flies it with no sequence and the strings holding; **✂ Let go of the strings** lets go whenever you click; **Play** then plays the sequence at once, or drive the chain with the keys, Spin, Hold / Let go and the nozzles. **Camera turns with the plane** (ticked) watches from the cabin, so the box looks still; unticked, the camera stays fixed in space and you see the box pitch. The viewer shows the g and T big at the top; the readouts show the plane's pitch, the gap to the box, the first thing touched and the landing. Untick **In the flight box** and Rebuild for the same setup in perfect zero g. |
 | Record | **Log to logs/** writes `logs/run_<date>_<time>.csv` while ticked. **Screenshot** saves the viewer's view to `screenshots/`. **Open folder** opens this folder in Finder. |
 | Readouts | Time, sequence progress and length (flagged if it's longer than one ~20 s parabola), gravity, **spin** (the whole chain's spin rate about the vertical: angular momentum ÷ inertia), **turned** (how far the middle module has turned about the vertical since the last reset; twists about the chain's own axis don't count), **IMU turn** (how far the IMU's module has turned in 3D since the last reset, as the flight IMU will see it), centre-of-mass drift, total angular momentum, max servo torque, contacts and log file, the playback rate, and a line per end effector (holding / ready to grab / let go, with the clamp's force and torque, a cup's pull of its limit and pops, or the thrust). These are also drawn in the top-left of the viewer, and when a sequence finishes the viewer's Terminal prints a one-line summary. |
 
@@ -59,29 +59,44 @@ A run has two halves, kept in two files:
 So the pole in the pole climb is a setting, not part of the moves. This is all of `setups/5a_pole_climb.toml`:
 
 ```toml
-# Wrapped around a pole like a snake, it climbs by squeezing with one end while the rest slides up: no suction, no clamps.
+# On the flight: wrapped round a pole from the box's floor to its lid (Ø61 mm, scaled to the 8.5 cm modules), ...
 sequence = "pole_climb.csv"
 move_s = 0.7
 hold_s = 0.3
+preset = "feetech85"
 
 [rod]
-from = [0.0, 0.0, 0.15]
-to = [0.0, 0.0, 2.6]
-diameter_mm = 100.0
-wrap_m = 0.35
+from = [0.0, 0.0, 0.0]
+to = [0.0, 0.0, 1.9]
+diameter_mm = 61.0
+wrap_m = 0.6
+
+[flight]
+box_m = [2.0, 1.3, 1.9]
+strings = [1, 5, 8, 12]
+roll_deg = 0.0
+level_g = 0.0
+release_s = 1.0
+start_s = 1.5
+hyper_s = 23.0
+jitter = true
+seed = 1
 ```
 
-`[rod]` adds the pole, and `wrap_m` starts the chain wrapped round it, module 1 0.35 m along it. A setup file lists
-only what differs from the defaults (zero g, 12 `original14` modules, no end effectors, no rod), so what you see is
-what's special about that run. Play `pole_climb.csv` without its setup and the chain just coils up in mid-air.
+`[rod]` adds the pole, from the box's floor to its lid (positions are in the box with the plane level, its floor at
+z = 0), and `wrap_m` starts the chain wrapped round it 0.6 m up. `[flight]` flies it: the box, the strings and when
+they let go, the parabola. A setup file lists only what differs from the defaults (zero g, 12 `original14` modules, no
+end effectors, no rod, no box), so what you see is what's special about that run. Play `pole_climb.csv` without its
+setup and the chain just coils up in mid-air.
 
 ### Make your own run
 1. **The moves.** Write a CSV in `../sequences/` (the format is in `../sequences/README.md`), with a first `#` line
    saying what it does, or copy one that's there. For keyframes too fiddly to write by hand, a script can work them
    out, like `pole_climb_design.py` does for the pole climb.
 2. **The setup.** In the control window, set Model, End effectors (and where they start), Fold sequence and its
-   timing, World and Spin. Try it with **Rebuild + open viewer** and **Play**, then **Save as...** into `setups/` with
-   a line saying what it shows. Or write the TOML by hand: every key is described at the top of `setup_file.py`.
+   timing, World, Spin and Flight. Try it with **Rebuild + open viewer** and **Play**, then **Save as...** into
+   `setups/` with a line saying what it shows. Or write the TOML by hand: every key is described at the top of
+   `setup_file.py`. For the flight, keep the sequence to about 20 s: it starts at T+1.5 s and zero g ends at T+22 s.
 3. **Check it headless:** `.venv/bin/python play.py --setup setups/NAME.toml --headless` prints what's in the setup
    and how the run went. `verify.py` checks that every setup in `setups/` loads and builds.
 4. **A demo button** (optional): add `("7  Name", "NAME")` to `DEMOS` in `setup_file.py`.
@@ -118,27 +133,32 @@ A setup file holds everything about a run that the sequence CSV doesn't (see [Ho
 Its first line says what it shows. The format is in `setup_file.py`; the files are plain text, so you can also edit
 them by hand.
 
-The six class simulations, each about 20 s (zero g unless it says otherwise). The demo buttons play `1a_turn`,
-`2a_arm`, `3a_U`, `4a_walk`, `5a_pole_climb` and `6a_skater`; the others are in the Setup list.
+The six class simulations, each flown in the 2.0 × 1.3 × 1.9 m box on the 8.5 cm flight build (`feetech85`): held
+through the 1.8 g pull-up, let go at T+1 s, the sequence from T+1.5 s, the pull-out onto the net. The demo buttons fly
+`1a_turn`, `2a_arm`, `3a_U`, `4a_walk`, `5a_pole_climb` and `6a_skater`; the others are in the Setup list. Results are
+headless flights with the leftover g (seed 1), at the sequence's end and counted from the release; "box" is what the
+cabin's camera sees, "space" what the IMU sees. In perfect zero g on the 14 cm chain they're in
+`../experiments/findings.md`, "The class simulations".
 
-| Simulation | Setup | What it shows | Headless result |
+| Simulation | Setup | What it shows | On the flight |
 |---|---|---|---|
-| 1. Free float | `1a_turn` | Turns with no push: 4 fold loops that each end straight, at flight timing | turned −30.3° in 20.25 s |
-| | `1b_spin_0.5` | The same, let go spinning at 0.5°/s | −15.2°: half the turn gone |
-| | `1b_spin_1` | The same, let go spinning at 1°/s | 0.0°: cancelled |
-| | `1c_roll` | Rolls about its own length (pitch fold plus twist, twice), 2× speed | IMU turn 63.4° in 16.5 s |
-| | `1d_flight_turn` | The 1a turn on the flight: 8.5 cm modules held by strings in the flight box, let go at zero g, the plane pitching over (the ✈ button) | let go turning with the plane (−2.7°/s), it turns only −5°; lands on the net at 1.8 m/s |
-| 2. One end anchored | `2a_arm` | A wall-mounted arm: curls, turns on ee1's twist servo, reaches | peak clamp load 4.0 N |
-| | `2b_stall_1g`, `_mars`, `_moon`, `_0g` | Hanging from a wall, told to stand straight out, at four gravities | lifts 13° / 24° / 44° / all the way |
-| | `2c_let_go` | Swings fast and lets go mid-swing | drifts off at 150 mm/s, spinning |
-| 3. Thrusters | `3a_straight`, `_U`, `_Z`, `_L` | Folds, fires both end nozzles briefly, coasts | nothing; glides 0.93 m; spins 8.2°/s; both |
-| 4. Suction cups | `4a_walk` | Inchworm walk, one foot always holding (80 mm, 60 N cups) | 1.10 m in 19 s |
-| | `4b_walk_let_go` | The same, letting go too early | floats off the floor |
-| 5. Pole climb | `5a_pole_climb` | Wrapped around a Ø100 mm pole like a snake, it climbs by squeezing: no cups, no clamps | 394 mm up in 19.3 s |
-| | `5b_rod_crawl` | Clamps on both ends crawl along a thin handrail | 1.115 m along the rod in 19 s |
-| 6. Skater | `6a_skater` | Spinning at 20°/s, folds into an L and a zig-zag | speeds up folded, back to 20.0°/s straight |
+| 1. Free float | `1a_turn` | The 30° falling-cat turn (4 fold loops) | let go with the plane's −2.8°/s, it rolls instead: +2.5° in the box; touches an end wall at T+20.9 s |
+| | `1b_spin_0.5`, `1b_spin_1` | The same with 0.5 or 1°/s more about the vertical at release | +34° and +25° in the box |
+| | `1c_roll` | Rolls about its own length (fold plus twist, twice), 2× speed | IMU turn 132° (the plane's spin on top) |
+| | `1d_turn_across` | The 1a turn with the pitch axes across the cabin | the plane's spin adds to the turn: −131.5° in space (−118° with no jitter, as predicted from the release spin) |
+| 2. One end anchored | `2a_arm` | Clamped to the box's end wall, an arm: curls, turns on ee1's twist servo, reaches | reaching sideways, the 1.1 m arm touches a side wall at T+7.6 s |
+| | `2b_stall_0g`, `_moon`, `_mars`, `_1g` | Hanging from the end wall, told to stand straight out, in 0 g, Moon and Mars parabolas and 1 g | stands level; lifts 28° / 15° / 5° |
+| | `2c_let_go` | Swings fast and lets go mid-swing | drifts off, touches the end wall at T+6.8 s |
+| 3. Thrusters | `3a_straight`, `_U`, `_Z`, `_L` | Folds, fires both end nozzles briefly (0.025 N each), coasts | the glides reach a wall at T+16–18 s; the Z spins 223° in place |
+| 4. Suction cups | `4a_walk` | Stands on a deck over the net through 1.8 g, then walks on two cups (80 mm, 60 N) | 682 mm, no cup pops, touches nothing |
+| | `4b_walk_let_go` | The same, letting go too early | floats off, touches an end wall at T+12.1 s |
+| 5. Pole climb | `5a_pole_climb` | Wrapped round a Ø61 mm pole from the box's floor to its lid, it climbs by squeezing | 273 mm up, touches nothing |
+| | `5b_rod_crawl` | Clamps on both ends crawl along a Ø25 mm rail across the box | 595 mm along it, no slips |
+| 6. Skater | `6a_skater` | Let go with 20°/s more about the vertical: faster folded, slower straight | turns 315° in the box; touches nothing in zero g |
 
-`stall_sweep.py` turns the 2b setups into experiment A's number, the longest chain that stands out level at each
+Every landing at the pull-out is 0.5–2.5 m/s and sinks at most 115 mm of the net's 300 mm.
+
+`stall_sweep.py` gives experiment A's number (the 14 cm chain in steady gravity), the longest chain that stands out level at each
 gravity (about a minute). Results and what they mean are in `../experiments/findings.md`, "The class simulations".
 
 ### Keyboard (viewer)
@@ -242,7 +262,7 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
   `make_chain.py`: anchor and suction cup 200 g, thruster 250 g, plus 55 g for the twist servo.
   - **Anchor:** a clamp that never slips (a weld to a fixed body moved to where the end is). Told to hold, it grabs
     when its Ø40 mm tip face comes within 15 mm of something fixed, pulling the face onto it over 0.2 s.
-  - **Suction cup:** a cup on the tip that only ever touches fixed things, sucking with its pull limit. It holds by
+  - **Suction cup:** a square pad on the tip (side `cup_mm`) that only ever touches fixed things, sucking with its pull limit. It holds by
     friction sideways, pops above the limit and peels if it tips: it has to be pressed on to stick.
   - **Thruster:** five nozzles, n0 out of the end and n1–n4 sideways; each pushes against its exhaust and lights up.
 - **Visuals vs physics.** Meshes are visual only. Each module collides as one sphere (Ø139 mm). Mass sits on simple
@@ -300,10 +320,12 @@ columns per end follow: `ee{k}_held` (0/1), `ee{k}_load_N` (clamp force or cup p
 - The IMU output reads 10.00 deg/s and 20.00° after 2 s of a 10 deg/s spin.
 - Weighed module masses add up.
 - Air drag slows a 20 deg/s spin to 18.6 deg/s in 10 s.
-- In the flight box with 0.01 g left over, the chain falls from the middle onto the net in the time a free fall
-  takes. Through a parabola, the strings hold it within 0.4 mm at 1.8 g and let go cleanly (0.1 mm/s, 0.000°/s), the
-  turn survives the leftover g, and the pull-out lands it on the net without reaching the floor. The 8.5 cm build
-  conserves momentum like the real chain.
+- In the flight box with 0.01 g left over, the chain falls from where the strings hold it onto the net in the time a
+  free fall takes. Through a parabola (`setups/1a_turn`), the strings hold it within 0.4 mm in the box as the plane
+  pitches up, it leaves turning with the plane and moving with the box where it was held, and the pull-out lands it on
+  the net without reaching the box floor. `4a_walk` stands on the deck through 1.8 g and walks 0.67 m on the turning
+  deck with no cup popping; a Mars parabola holds 0.38 g and pitches over less. A free chain let go at 0.5°/s about the
+  across axis turns −20.9° instead of −30.3°. The 8.5 cm build conserves momentum like the real chain.
 - End effectors: every type at either end compiles and leaves the 12 modules exactly as they were; `m1_yaw` twists
   about the chain axis; with both ends fitted the centre of mass still moves ≤ 0.006 mm in 12 s of random motion.
 - Setup files refuse misspelt keys and missing sequences, and Save as then Load gives the same setup back. Every
@@ -348,18 +370,29 @@ Why the model is built the way it is. Kept here so `AGENTS.md` stays short; read
   - Gravity defaults to 0.
 - **Ranges:** pitch ±124°, yaw ±150°. `--slip-ring` frees yaw only, with targets spanning ±360°.
 - **Flight options** (`--air`, a setup's `[flight]`, the panel; numbers in `[flight]` in the spec, from the A310 ITF):
-  - **The frame:** the world moves with the box but doesn't turn. The box, its net, the strings' far ends and the cabin
-    camera are one mocap body, `cabin`, that `play.py` turns about x (across the cabin) with the plane's pitch, while
-    gravity is the box's g turned the same way. So the chain feels the plane's rotation for itself: held, the strings
-    turn it; let go, it keeps that rate. `turned` is measured in the box (what the video sees), the IMU in the world (what
-    the IMU sees). The cabin's geoms have no mass, and the box turns about its own middle, not the plane's centre of mass
-    (that offset adds ~0.004 g, within the jitter).
+  - **The frame:** the world moves with the box but doesn't turn. The box, its net, its deck, rods and plates, the
+    strings' far ends and the cabin camera are one body, `cabin`, on a hinge about x (across the cabin), which
+    `play.py` sets to the plane's pitch and pitch rate every step, while gravity is the box's g turned the same way. So
+    the chain feels the plane's rotation for itself: held, the strings turn it; let go, it keeps that rate and the speed
+    of the point it was held at. It's a real body (10 t, its geoms massless) and not a mocap one, because MuJoCo gives a
+    mocap body no velocity: things resting on it slid as it turned (the walk slid 0.5 m during the pull-up). Clamped
+    anchors' holds ride on it too. The box turns about its own middle, not the plane's centre of mass (~0.004 g, within
+    the jitter). `turned` is measured in the box (what the video sees), about the chain's starting pitch axis; the IMU
+    in the world (what the IMU sees).
   - **Air drag** is MuJoCo's ellipsoid fluid model on the shells only; the boxes inside get zero coefficients. For a
     spinning chain it gives about twice the loss of a hand estimate, so treat it as an upper bound.
   - **The flight box** is six thin boxes (walls, lid and floor, stiff like acrylic) with its floor at z = 0 while the
-    plane is level, and the chain starts straight in its middle, along it.
-  - **The net** is a soft block from the box floor up to the net's height, so a hard landing sinks in and, if the net
-    gives all the way, meets the floor. Its contact is weak (impedance 0.05, so gravity isn't cancelled) with a direct
+    plane is level. The strings hold the chain straight, along it, in the middle of the room above the net (1.1 m up),
+    and are tied on whenever it's back at the start. Its look (visual only): 40 mm aluminium extrusion on every edge and
+    up the long sides' middles, the net's own frame and 50 mm mesh, a door in the aisle-side panel, feet on the seat
+    tracks (`box_looks`).
+  - **The deck:** an attach that faces up in the box becomes a deck across it (50 mm thick, over the net), for the
+    suction walk.
+  - **Suction cups are square pads** (side = `cup_mm`). A disc on a box surface got contacts that couldn't resist the
+    tipping moment, so it rocked and the walk failed; on a plane both work the same (the 14 cm floor walk: 1.108 m with
+    pads, 1.104 m with discs; 40 mm and 60 mm cups still peel).
+  - **The net** is a soft block from the box floor up to the net's height (300 mm: the buffer for a landing), so a
+    hard landing sinks in and, if the net gives all the way, meets the floor. Its contact is weak (impedance 0.05, so gravity isn't cancelled) with a direct
     spring for a net that sags `net_sag_mm` under a module at 1 g, damping ratio 0.3. That makes a landing sink in as
     deep as it would on that net, but at rest MuJoCo's soft contact sits only a few mm deep.
   - **The strings** are spatial tendons with a length limit (they pull, never push): four per held module, from the
@@ -369,7 +402,10 @@ Why the model is built the way it is. Kept here so `AGENTS.md` stays short; read
   - **The parabola** (`play.Parabola`): level 1 g, a 3 s ramp to 1.8 g, a 4 s ramp to 0 g, `parabola_s` of zero g, the
     same back, cosine ramps. The pitch: in zero g the plane flies a free-fall arc, nose up `pitch_deg` to nose down
     `pitch_deg`, so pitch = atan(tan(`pitch_deg`) (1 − 2T / `parabola_s`)), turning fastest over the top; the pull-up and
-    pull-out join that arc smoothly to level (cubic Hermite). The leftover g is three slow waves per axis (2–8 s periods) adding up to `jitter_g` at most,
+    pull-out join that arc smoothly to level (cubic Hermite). A Moon or Mars parabola (`level_g`) holds that g instead
+    and pitches over less: it falls at (1 − level) g, so tan of the nose-up is (1 − level) tan(`pitch_deg`).
+  - **At release** the strings let go together, and a setup's `spin_deg_s` is added to what the chain keeps from the
+    plane. Manual mode (`fly(manual=True)`, `let_go()`) lets go on command instead. The leftover g is three slow waves per axis (2–8 s periods) adding up to `jitter_g` at most,
     with a fixed seed and timed from T = 0, so every take gets the same. It isn't the plane's measured record (10 Hz
     from Novespace, ITF §3.10), which could replace it.
   - **Not modelled:** the plane's roll and yaw, and its measured attitude record.

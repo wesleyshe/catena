@@ -137,8 +137,8 @@ An outside reviewer read the code cold, and separate sim runs tested flight cond
   Bench-test one joint before relying on torque margins.
 
 ## The class simulations (end effectors, 2026-10-29)
-Six simulations for class, each a setup in `../simulation/setups/` (a demo button, or Load then Play, in the control
-window). End
+Six simulations for class, measured on 2026-10-29 in perfect zero g on the 14 cm chain. The setups in
+`../simulation/setups/` now fly them in the box instead; those results are under "The flight box" below. End
 effectors are extra modules on the ends: an anchor (a clamp), a suction cup or a thruster (five nozzles). Their
 masses and limits are placeholders. All are in zero g unless the table says otherwise; numbers are headless runs.
 
@@ -193,26 +193,39 @@ pole: two 4-module coils take turns squeezing while the middle stretches (from 3
 step; a quarter of the designed stretch is lost to slip.
 
 ## The flight box (2026-11-03)
-`../simulation/setups/1d_flight_turn.toml` (Play in the control window, or a headless run): the 8.5 cm flight build
-(`feetech85`, scaled from the AX-12A chain: Ø84.9 mm shells 0.6 mm apart, STS3032, 0.81 kg) in the 2.0 × 1.3 × 1.9 m
-box from `flight_space.md`, through one A310 parabola: 1.8 g, 22 s of zero g with the ITF's leftover g, 1.8 g. The
-plane pitches nose up ~49°, over the top (up to 5.2°/s) and nose down. The box turns with it, and the sim's world
-doesn't, so the chain feels the rotation for itself. Four strings each hold m1, m5, m8 and m12 still in the middle,
-running to the box's top and bottom edges. They let go at T+1 s (T = 0 when zero g begins), and the turn sequence
-(`reorient_loop.csv`, 20.25 s) starts at T+1.5 s.
+Every setup in `../simulation/setups/` now flies as it will on the plane: the 8.5 cm flight build (`feetech85`, scaled
+from the AX-12A chain: Ø84.9 mm shells 0.6 mm apart, STS3032, 0.81 kg) in the 2.0 × 1.3 × 1.9 m box from
+`flight_space.md`, its net 300 mm above the floor, through one A310 parabola: 1.8 g, 22 s of zero g with the ITF's
+leftover g (seed 1), 1.8 g. The plane pitches nose up ~49°, over the top (up to 5.2°/s) and nose down, and the box turns
+with it; the sim's world doesn't turn, so the chain feels the rotation for itself. Four strings each hold m1, m5, m8 and
+m12 still in the middle of the room above the net (or the experiment's anchor, pole or deck holds it); they let go at
+T+1 s (T = 0 when zero g begins) and the sequence starts at T+1.5 s.
 
-- **Holding through 1.8 g is easy for the servos.** As the plane pitches up 46–49°, the chain stays within 1.1 mm of
-  its place in the box and the strings pull up to 5.2 N. The servos carry 0.01 N·m of their 0.44: with the pitch axes
-  vertical, gravity can't bend any joint, so the hinges take the load.
-- **The strings must be angled.** With strings only straight up and down (the first try, before the plane's pitch was
-  modelled), the leftover g swung the chain about 10 mm sideways and it left the strings at 17 mm/s. Fanned out to the
-  box's edges, they hold it every way.
-- **Let go from the box, the chain keeps the plane's pitch rate:** −2.7 to −2.9°/s about the across axis, the plane's
-  own rate at T+1 s. No holder fixed to the cabin can avoid this.
-- **That spin spoils the turn.** The 30° falling-cat turn about the box's vertical comes out at −5° (−5.0° without
-  the leftover g, −5.1° with it). The chain ends tilted 16–23° in the box, and the IMU turns ~90°. Folding turns a
-  spin about the across axis into roll about the chain's length, which is very easy to roll. Released from rest, but
-  spinning about the across axis, a free chain turns:
+**What each class simulation does on the flight** (at the sequence's end, counted from the release; "box" is what the
+cabin's camera sees, "space" what the IMU sees):
+
+| Setup | On the flight |
+|---|---|
+| `1a_turn` (pitch axes vertical) | let go with the plane's −2.8°/s about the across axis, it rolls instead of turning: +2.5° in the box, IMU 90°; touches an end wall at T+20.9 s |
+| `1b_spin_0.5`, `1b_spin_1` | +34° and +25° in the box |
+| `1c_roll` | IMU 132° (the plane's spin on top of the roll) |
+| `1d_turn_across` (pitch axes across the cabin) | −131.5° in space with the jitter, −118.1° without: exactly what a free chain let go at the same −2.85°/s does (−118.2°) |
+| `2a_arm` (clamped to the end wall) | reaching sideways after its quarter turn, the 1.1 m arm touches a side wall at T+7.6 s |
+| `2b_stall_0g` / `_moon` / `_mars` / `_1g` | stands level / lifts 28° / 15° / 5° from hanging |
+| `2c_let_go` | lets go mid-swing, drifts, touches the end wall at T+6.8 s |
+| `3a_straight` / `_U` / `_Z` / `_L` (0.025 N per nozzle, the 14 cm demo's push per kg) | the glides reach a wall at T+16–18 s; the Z spins 223° in place |
+| `4a_walk` (on a deck over the net) | 682 mm, no cup pops, touches nothing |
+| `4b_walk_let_go` | floats off, touches an end wall at T+12.1 s |
+| `5a_pole_climb` (Ø61 mm pole, floor to lid) | 273 mm up, touches nothing |
+| `5b_rod_crawl` (Ø25 mm rail across the box) | 595 mm along it, no slips; brushes the lid at T+19.7 s |
+| `6a_skater` | turns 315° in the box; touches nothing in zero g |
+
+- **Let go from the box, the chain keeps the plane's pitch rate**, −2.7 to −2.9°/s about the across axis, and the
+  speed of the point it was held at (7.5 mm/s, held 0.15 m off the box's middle). No holder fixed to the cabin avoids
+  this. Let go by hand later in the arc, it keeps more (−3.4°/s at T+3 s).
+- **With the pitch axes vertical, that spin spoils the turn.** Folding turns a spin about the across axis into roll
+  about the chain's length, which is very easy to roll. Let go from rest but spinning about the across axis, a free
+  chain turns:
 
   | Spin about the across axis at release | Turn about the vertical (zero spin: −30.3°) | IMU turn |
   |---|---|---|
@@ -220,16 +233,23 @@ running to the box's top and bottom edges. They let go at T+1 s (T = 0 when zero
   | 1°/s | −7.7° | 166° |
   | 2.7°/s (the plane's rate) | +17.2° | 143° |
 
-  The same at half the timestep, and on the 14 cm chain, so it's physics, not numerics. For the turn experiment:
-  either cancel the plane's rate at release, or line the chain up so the plane turns it about the turn's own axis (its
-  pitch axes across the cabin), where a leftover spin only adds to the turn, as in `1b_spin_*`. That's worth simulating
-  next.
-- **The leftover g moves it about the box.** With this jitter pattern (seed 1), the chain first touches an end wall of
-  the 2.0 m box at T+21.3 s, just before the sequence ends at T+21.75 s. Without the jitter it stays 397 mm clear.
+  The same at half the timestep, and on the 14 cm chain, so it's physics, not numerics.
+- **With the pitch axes across the cabin, the spin just adds to the turn** (`1d_turn_across`): one clean rotation, IMU
+  angle = turn, and predictable from the spin measured at release. That's the orientation to fly the turn experiment
+  in; predict from the IMU's rate at release.
+- **Holding through 1.8 g is easy.** Strings: the chain stays within 0.4 mm of its place in the box (3 mm rolled across
+  the cabin), pulling up to 3.5–5.2 N, the servos at 0.01–0.13 N·m of their 0.44. With the pitch axes vertical, gravity
+  can't bend any joint. The strings must be angled: straight up and down only, the leftover g swung it ~10 mm sideways.
+- **The box is tight for 20 s of free float.** With this jitter pattern every free-floating run touches an end wall of
+  the 2.0 m box at T+17–21 s, near the end of zero g; 2.5 m along the cabin would buy a few seconds (`flight_space.md`).
+  The arm, reaching sideways, needs more than 1.3 m across.
+- **Reduced-g parabolas** (`level_g`): 2b at the Moon's 0.16 g and Mars' 0.38 g, the plane pitching over less (31.8° nose
+  up for Mars). The 8.5 cm chain lifts itself 28° and 15° from hanging; it stalls like the 14 cm one.
+- **The landing.** At the pull-out it lands on the net at 0.5–2.5 m/s and sinks at most 115 mm of the 300 mm under the
+  net. Net numbers are placeholders (20 mm of sag at 1 g).
 - **Size doesn't change the turn.** In perfect zero g, released at rest, the 8.5 cm chain turns the same −30.3° as the
   14 cm one: the turn follows the shape and where the mass sits, not the size.
-- **The landing.** At the pull-out it lands on the net at 1.7–1.8 m/s and sinks 66–83 mm of the net's 200 mm. Both
-  net numbers are placeholders (20 mm of sag at 1 g, 200 mm above the box floor).
 - **Not modelled yet:** strings letting go at slightly different times, a real net's cloth (the sim's net matches a
   net's spring for the landing but sits only a few mm deep at rest), the plane's measured attitude and acceleration
-  record in place of the smooth profile and jitter waves, and the box's distance from the plane's centre of rotation.
+  record in place of the smooth profile and jitter waves, its roll and yaw, and the box's distance from the plane's
+  centre of rotation.

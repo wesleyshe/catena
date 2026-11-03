@@ -37,6 +37,9 @@ All the keys:
   box_m = [2.5, 1.3, 1.9]          # inside: along the chain (the cabin), across, height (default: the spec's box_mm)
   strings = [1, 5, 8, 12]          # modules held still in the middle, each by a string up and one down (default:
                                    # both ends and two in between; [] = none, it floats free in the box)
+  roll_deg = 0.0                   # the chain rolled about its length: 0 = pitch axes vertical, 90 = across the cabin,
+                                   # along the plane's pitch axis (so the plane's spin is about the folds' turn axis)
+  level_g = 0.0                    # the parabola's g: 0, a Moon (0.16) or Mars (0.38) parabola, 1 (level flight)
   release_s = 1.0                  # Play (and a headless run) flies the parabola: the strings let go this long after
                                    # zero g begins
   start_s = 1.5                    # ... and the sequence starts this long after
@@ -69,14 +72,13 @@ DEFAULTS = dict(sequence="", move_s=3.0, hold_s=1.0, speed=1.0, playback=1.0, gr
                 ee1=dict(EE_DEFAULTS), ee_n=dict(EE_DEFAULTS), rod={}, flight={})
 ENDS = ("ee1", "ee_n")  # in a setup dict; in the file they're the tables [ee1] and [ee{modules}]
 TABLES = ENDS + ("rod", "flight")
-FLIGHT_DEFAULTS = dict(box_m=[x / 1000 for x in FLIGHT["box_mm"]], strings=None, release_s=1.0, start_s=1.5,
-                       hyper_s=float(FLIGHT["hypergravity_s"]), jitter=True, seed=1)  # strings None: default_strings
+FLIGHT_DEFAULTS = dict(box_m=[x / 1000 for x in FLIGHT["box_mm"]], strings=None, roll_deg=0.0, level_g=0.0, release_s=1.0,
+                       start_s=1.5, hyper_s=float(FLIGHT["hypergravity_s"]), jitter=True, seed=1)  # strings None: default_strings
 RAMPS_S = 7.0  # the 1 -> 1.8 g and 1.8 -> 0 g ramps (play.Parabola): a 1.8 g phase can't be shorter
 SETTINGS = dict(none=(), anchor=("attach",), suction=("attach", "pull_N", "cup_mm", "friction"), thruster=("thrust_N",))
 ALWAYS = ("sequence", "move_s", "hold_s")  # save() writes these; the other keys only where they differ from DEFAULTS
 DEMOS = [("1  Free float", "1a_turn"), ("2  Anchored", "2a_arm"), ("3  Thrusters", "3a_U"),  # the control window's
-         ("4  Suction walk", "4a_walk"), ("5  Pole climb", "5a_pole_climb"), ("6  Skater", "6a_skater"),  # buttons: setup
-         ("✈  On the flight: the turn, in the box", "1d_flight_turn")]
+         ("4  Suction walk", "4a_walk"), ("5  Pole climb", "5a_pole_climb"), ("6  Skater", "6a_skater")]  # buttons: setup
 KINDS = dict(anchor="anchor (clamp)", suction="suction cup", thruster="thruster")
 
 
@@ -171,8 +173,9 @@ def read_flight(name, val, n):
             out[key] = sorted(got)
         else:
             out[key] = value(name, f"[flight] {key}", val.get(key, default), default)
-    if min(out["box_m"]) <= 0 or out["release_s"] < 0 or out["start_s"] < 0 or out["hyper_s"] < RAMPS_S:
-        raise ValueError(f"{name}: [flight] needs box_m above 0, release_s and start_s 0 or more, hyper_s {RAMPS_S:g} or more")
+    if min(out["box_m"]) <= 0 or out["release_s"] < 0 or out["start_s"] < 0 or out["hyper_s"] < RAMPS_S or not 0 <= out["level_g"] <= 1:
+        raise ValueError(f"{name}: [flight] needs box_m above 0, release_s and start_s 0 or more, hyper_s {RAMPS_S:g} or more, "
+                         "level_g 0 to 1")
     return out
 
 
@@ -279,7 +282,9 @@ def summary(setup):
         f = setup["flight"]
         parts.append(f"in the flight box ({' x '.join(f'{x:g}' for x in f['box_m'])} m)" +
                      (f", held by strings at {', '.join(f'm{i}' for i in f['strings'])} until T+{f['release_s']:g} s"
-                      if f["strings"] else ", no strings"))
+                      if f["strings"] else ", no strings") +
+                     (f", rolled {f['roll_deg']:g} deg (pitch axes across the cabin at 90)" if f["roll_deg"] else "") +
+                     (f", a {f['level_g']:g} g parabola" if f["level_g"] else ""))
     if setup["rod"]:
         parts.append(f"a Ø{setup['rod']['diameter_mm']:g} mm rod" + (", starting wrapped round it" if "wrap_m" in setup["rod"] else ""))
     if (setup["preset"], setup["modules"], setup["slip_ring"]) != (DEFAULTS["preset"], DEFAULTS["modules"], False):

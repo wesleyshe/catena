@@ -3,6 +3,36 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- **Every setup flies** (Wesley: "modify all the current experiments... add the flight sequence and the box into them";
+  ~20 s of experiment after a few seconds to let go, then the fall to the net). All 20 setups are flights on
+  `feetech85`, held by strings (or their anchor) through 1.8 g, let go at T+1 s, the sequence from T+1.5 s. Per demo:
+  anchors on the box's end wall (2a, 2c with strings; 2b without, hanging); 2b as 0 g, Moon, Mars and 1 g parabolas
+  (`[flight] level_g`); thrusters at 0.025 N (the same push per kg); the walk on a deck over the net; the pole Ø61 mm
+  from the box's floor to its lid; a Ø25 mm rail; 1d is now the turn with the pitch axes across the cabin
+  (`[flight] roll_deg = 90`). The old 1d_flight_turn and the seventh demo button are gone; the six buttons fly.
+- **Manual mode** (Wesley: buttons to "simulate the zero g flight" and "release the cable"): Start the parabola (no
+  sequence, strings holding), Let go of the strings (`release`), and Play mid-flight plays the sequence at once (no
+  reset, no countdown, which would hold the physics). A setup's spin is added as the strings let go.
+- **Camera toggle** (Wesley: the camera turning with the plane or not): **Camera turns with the plane**, the `camera`
+  command; unticked, a free camera fixed in space shows the box pitch.
+- **The box's look** (Wesley: "slightly more detail... aluminium extrusion"; representation only): extrusion on every
+  edge and up the long sides, the net's frame and 50 mm mesh, a door on the aisle side, feet. The net is 300 mm above
+  the floor (the buffer for a landing) and the strings hold the chain in the middle of the room above it.
+- **The cabin is a real body on a hinge** (`cabin_pitch`, 10 t), driven each step, not a mocap body: MuJoCo gives mocap
+  bodies no velocity, so the walk slid 0.5 m on the deck as the box pitched. Clamped anchors' holds ride on it.
+- **Suction cups are square pads.** A disc on a box surface (the deck) rocked under the tipping moment and the walk
+  failed even in perfect zero g; on a plane discs and pads match (14 cm walk 1.104 vs 1.108 m; 40 and 60 mm cups still
+  peel).
+- verify.py section 13 and `stall_sweep.py` build their perfect-zero-g 14 cm setups in code; `pole_climb_design.py` writes
+  only the sequence. The strings are tied on whenever the chain is at its start.
+- **Checked:** `verify.py` ALL CHECKS PASSED, 15 sections (15 adds the deck walk, 671 mm with no pops, and a Mars
+  parabola; 13 still climbs 394 mm). `fold_sequence.csv`'s headless log byte-identical to this morning's. All 20 setups
+  flown headless (results in `../experiments/findings.md`). 1d without jitter turns −118.1°, a free chain let go at the
+  same spin −118.2°. The control window by script: the six buttons hand the viewer their setups and fly; Start, Let go,
+  Play mid-flight and the camera tick send what they should. Offscreen renders of the box looked right. Not run in the
+  live viewer.
+
+## 2026-11-03 · Wesley (Claude Code)
 - **The plane's pitch is modelled** (Wesley: "model the flight angle etc too"). The box, net, string ends and a cabin
   camera are one mocap body, `cabin`, turned about the across axis with the plane's pitch (nose up ~49°, over the top at
   up to 5.2°/s, nose down), and gravity is turned with it; the world moves with the box but doesn't turn. The viewer

@@ -137,7 +137,8 @@ class Panel:
         self.loaded = setup_file.new()  # the last setup loaded: it keeps whatever has no field here
         self.played = False  # a take has run since the viewer opened or Reset pose: the next Play starts from the start
         self.autoplay = False  # a demo button was clicked: play as soon as the viewer connects
-        self.loaded_flight = False  # the open viewer has the flight box (Fly works)
+        self.loaded_flight = False  # the open viewer has the flight box: Play flies the parabola
+        self.manual = False  # a parabola started by hand is running: Play plays the sequence now, Let go lets go
 
         self.preset, self.modules, self.slip = tk.StringVar(value="original14"), tk.IntVar(value=N_MODULES), tk.BooleanVar()
         self.seq, self.move, self.hold = tk.StringVar(), tk.DoubleVar(value=3.0), tk.DoubleVar(value=1.0)
@@ -151,6 +152,7 @@ class Panel:
         self.strings_text, self.jitter = tk.StringVar(value=" ".join(map(str, default_strings(N_MODULES)))), tk.BooleanVar(value=True)
         self.release, self.start = tk.DoubleVar(value=FLIGHT_DEFAULTS["release_s"]), tk.DoubleVar(value=FLIGHT_DEFAULTS["start_s"])
         self.hyper = tk.DoubleVar(value=FLIGHT_DEFAULTS["hyper_s"])
+        self.cabin_cam = tk.BooleanVar(value=True)  # the viewer watches from the cabin, turning with the plane
         self.setup_name, self.about, self.about_text = tk.StringVar(), tk.StringVar(), ""
         self.seq_about = tk.StringVar()  # what the picked sequence does, and which setups it was written for
         self.spin_at_play = tk.BooleanVar()
@@ -164,11 +166,9 @@ class Panel:
             f.pack(fill="x", padx=8, pady=4)
             return f
 
-        f = frame("The demos: one click opens and plays it (Play again for another take)")
+        f = frame("The six demos, each on the flight: one click opens and flies it (Play again for another take)")
         for k, (label, name) in enumerate(DEMOS):
-            span = 3 if k == 6 else 1  # the flight one gets a row of its own
-            ttk.Button(f, text=label, command=lambda name=name: self.demo(name)).grid(row=k // 3, column=k % 3, columnspan=span,
-                                                                                    sticky="we")
+            ttk.Button(f, text=label, command=lambda name=name: self.demo(name)).grid(row=k // 3, column=k % 3, sticky="we")
             f.columnconfigure(k % 3, weight=1)
 
         f = frame("Setup (a whole run, from setups/)")
@@ -269,10 +269,17 @@ class Panel:
         ttk.Label(times, text="s, sequence at T+").pack(side="left", padx=(4, 0))
         spinbox(times, self.start, 0, 20, 0.5, 4).pack(side="left")
         ttk.Label(times, text="s (T+0: zero g begins)").pack(side="left", padx=(4, 0))
-        ttk.Label(f, text="In the box, Play flies the whole parabola: 1 g, the 1.8 g pull-up (held by the strings, the plane "
-                          "pitching up), zero g (let go, the sequence plays), the pull-out onto the net. The box and the "
-                          "strings need Rebuild; the times apply at Play.", wraplength=470,
-                  foreground="gray40").grid(row=3, column=0, sticky="w", pady=(4, 0))
+        hand = ttk.Frame(f)
+        hand.grid(row=3, column=0, sticky="we", pady=(6, 0))
+        ttk.Button(hand, text="✈  Start the parabola (by hand)", command=lambda: self.fly(manual=True)).pack(side="left", fill="x", expand=True)
+        ttk.Button(hand, text="✂  Let go of the strings", command=lambda: self.send("release")).pack(side="left", fill="x", expand=True)
+        ttk.Checkbutton(f, text="Camera turns with the plane (untick: watch the box pitch from outside)", variable=self.cabin_cam,
+                        command=self.send_camera).grid(row=4, column=0, sticky="w", pady=(4, 0))
+        ttk.Label(f, text="In the box, Play flies the whole parabola by itself: 1 g, the 1.8 g pull-up (held by the strings, "
+                          "the plane pitching up), zero g (let go, then the sequence), the pull-out onto the net. By hand: "
+                          "Start the parabola, Let go when you like, then Play the sequence, or drive it with the keys. "
+                          "The box and the strings need Rebuild; the times apply at Play.", wraplength=470,
+                  foreground="gray40").grid(row=5, column=0, sticky="w", pady=(4, 0))
 
         f = frame("Record", right)
         ttk.Checkbutton(f, text="Log to logs/", variable=self.logging, command=lambda: self.send("log", on=self.logging.get())).grid(row=0, column=0)
@@ -416,7 +423,7 @@ class Panel:
             self.about.set(f"Can't open the viewer with these settings: {e}")
             return False
         self.logging.set(False)
-        self.played = False
+        self.played, self.manual = False, False
         self.loaded_flight = bool(built["flight"])  # what the viewer was built with
         self.link.open(PANEL_SETUP)
         self.status.set("starting the viewer...")
@@ -429,13 +436,13 @@ class Panel:
     def play(self, fresh=False):
         """Play the sequence (in the flight box: fly the parabola). A second take (or Restart) starts again from the start
         pose, so every take is the same."""
-        if self.loaded_flight:
+        if self.loaded_flight and not self.manual:
             return self.fly()
         path = self.seq.get()
         if not path:
             self.status.set("pick a fold sequence first")
             return
-        if fresh or self.played:
+        if (fresh or self.played) and not self.manual:  # by hand, mid-parabola: play it now, from where it is
             self.send("reset")
         self.played = True
         self.send("speed", value=self.speed.get())
@@ -444,19 +451,27 @@ class Panel:
             count = self.countdown.get()
         except tk.TclError:  # the box is empty or being typed into
             count = COUNTDOWN_S
-        if count > 0:  # the viewer holds the spin and play, and the physics, until T-0
+        if count > 0 and not self.manual:  # the viewer holds the spin and play, and the physics, until T-0 (not mid-flight)
             self.send("countdown", s=count)
-        if self.spin_at_play.get():
+        if self.spin_at_play.get() and not self.manual:  # by hand, the spin comes with Let go instead
             self.send("spin", rate=self.spin_rate.get(), axis=self.spin_axis.get()[-2])
         self.send("play", file=os.path.join(SEQ_DIR, path), move=self.move.get(), hold=self.hold.get())  # abs path stays
 
-    def fly(self):
-        """Fly one parabola: a fresh start (held by the strings), the countdown, then the viewer runs it all."""
+    def fly(self, manual=False):
+        """Fly one parabola: a fresh start (held by the strings), the countdown, then the viewer runs it all. By hand
+        (manual): no sequence, and the strings hold until Let go."""
+        if not self.loaded_flight:
+            self.status.set("the viewer has no flight box: tick 'In the flight box', then 'Rebuild + open viewer'")
+            return
         try:
             f = self.flight_fields()
         except (ValueError, tk.TclError) as e:
             self.status.set(str(e))
             return
+        self.manual = manual
+        spin = [0.0, 0.0, 0.0]
+        if self.spin_at_play.get():  # in the box, the spin is added as the strings let go
+            spin["xyz".index(self.spin_axis.get()[-2])] = float(self.spin_rate.get())
         self.send("reset")
         self.played = True
         self.send("speed", value=self.speed.get())
@@ -468,12 +483,17 @@ class Panel:
         if count > 0:
             self.send("countdown", s=count)
         seq = self.seq.get()
-        self.send("fly", file=os.path.join(SEQ_DIR, seq) if seq else "", move=self.move.get(), hold=self.hold.get(),
-                  release=f["release_s"], start=f["start_s"], hyper=f["hyper_s"], jitter=f["jitter"])
+        self.send("fly", file=os.path.join(SEQ_DIR, seq) if seq and not manual else "", move=self.move.get(),
+                  hold=self.hold.get(), release=f["release_s"], start=f["start_s"], hyper=f["hyper_s"], jitter=f["jitter"],
+                  spin=spin, manual=manual)
 
     def reset_pose(self):
         self.send("reset")
-        self.played = False
+        self.played, self.manual = False, False
+
+    def send_camera(self):
+        if self.loaded_flight:
+            self.send("camera", cabin=self.cabin_cam.get())
 
     def send_speed(self):
         self.send("speed", value=self.speed.get())
@@ -492,11 +512,14 @@ class Panel:
         connected, info, closed = self.link.poll()
         if connected:
             self.send_playback()
+            self.send_camera()
             if self.autoplay:
                 self.autoplay = False
                 self.play()
         if info:
             self.status.set("\n".join(f"{k:<11}{v}" for k, v in info.items()))
+            if info.get("flight", "").startswith(("done", "not flying")):
+                self.manual = False  # that parabola is over: the next Play flies a fresh one
             self.sim_running = info["physics"] == "running"  # also follows the Space key in the viewer
             self.physics_btn.configure(text="⏸  Pause physics" if self.sim_running else "▶  Resume physics")
         if closed:

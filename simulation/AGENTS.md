@@ -20,13 +20,14 @@ History is in `LOG.md`.
   weeks, and comes in through "Incorporating a new design" in `../hardware/AGENTS.md`.
 - **End effectors and setups: all 6 phases built** (design and plans: `../docs/design/2026-10-2*-end-effectors*.md`).
   Anchors, suction cups, thrusters, placement, the rod, grip and nozzle columns, the stall sweep, Playback x, the
-  countdown. 19 setups make the six class simulations (1a–1c, 2a–2c, 3a ×4, 4a–4b, 5a–5b, 6a); results in
-  `../experiments/findings.md`. The control window's demo buttons play one each, and a seventh flies `1d_flight_turn`.
-- **The flight box and a whole parabola** (2026-11-03): a setup's `[flight]` puts the chain in the acrylic box sized
-  from the A310 cabin (`../experiments/flight_space.md`), held by strings that let go at zero g. Play (or a headless
-  run) of such a setup flies the ITF's g profile, the box turning with the plane's pitch. The 8.5 cm flight build is
-  preset `feetech85`, scaled from the AX-12A chain (the spec stays on the AX-12A chain until the STS3032 CAD exists).
-  Setup `1d_flight_turn`.
+  countdown. 20 setups make the six class simulations (1a–1d, 2a–2c, 3a ×4, 4a–4b, 5a–5b, 6a); results in
+  `../experiments/findings.md`. The control window's six demo buttons fly one each.
+- **Every setup flies** (2026-11-03): its `[flight]` puts the chain in the acrylic box sized from the A310 cabin
+  (`../experiments/flight_space.md`), held by strings (or its anchor) through the 1.8 g pull-up, let go at T+1 s, the
+  sequence from T+1.5 s, the pull-out onto the net; the box turns with the plane's pitch. Play, a demo button or a
+  headless run flies it; the window also flies by hand (Start the parabola, Let go) and can watch from outside. All on
+  the 8.5 cm flight build, preset `feetech85`, scaled from the AX-12A chain (the spec stays on the AX-12A chain until the
+  STS3032 CAD exists). The perfect-zero-g 14 cm results live on in `findings.md` and in verify.py's own setups.
 - **Owner: Wesley.** Wesley double-clicks `Chain Sim.command` rather than using the shell, and uses the sim to answer
   the professor's physics questions (`../experiments/findings.md`).
 
@@ -52,13 +53,13 @@ Default paths are relative to this folder, so the scripts also work when run fro
 | `make_chain.py` | Parametric generator. The `PRESETS` table and constants at the top are what people edit. `build()` returns the XML. |
 | `chain.xml` | Written by `make_chain.py` (git-ignored). Nothing else uses it: `play.py` builds the model fresh from the spec. |
 | `panel_setup.toml` | Git-ignored. **The panel writes its settings (laid over the loaded setup) here every time it opens the viewer**, and starts `play.py --setup panel_setup.toml`. |
-| `pole_climb_design.py` | Writes `../sequences/pole_climb.csv` and `setups/5a_pole_climb.toml` (pole size, squeeze and stretch at the top). |
-| `stall_sweep.py` | Experiment A's stall length: the longest chain that stands out level from a wall at Earth, Mars, Moon and zero g (~1 min). |
+| `pole_climb_design.py` | Writes `../sequences/pole_climb.csv` for the 14 cm chain on a Ø100 mm pole (pole size, squeeze and stretch at the top); the angles fit any size with the pole scaled (5a: Ø61 mm). |
+| `stall_sweep.py` | Experiment A's stall length: the longest 14 cm chain that stands out level from a wall at Earth, Mars, Moon and zero g, in steady gravity (~1 min; its setup is built in the script). |
 | `play.py` | Runtime: `Session` (state, commands, spin, readouts), viewer loop, keyboard, `Logger`, headless mode. |
 | `panel.py` | Tk control window: a separate process that drives `play.py` over a localhost socket. Its top row is the demo buttons (`setup_file.DEMOS`). Under Setup it shows the picked setup's line and `summary`; under Fold sequence, the CSV's first line and the setups that use it (`users`). |
 | `viewer_link.py` | The panel's link to the viewer: starts `play.py --setup FILE --panel PORT` under mjpython, sends commands, reads readouts. |
 | `setup_file.py` | Setup files: `load` (refuses unknown keys), `save` (writes TOML by hand: `ALWAYS`, then only what differs from `DEFAULTS`), `about` (a file's first `#` line, setups and CSVs alike), `summary` (what's in a setup, one line), `users` (the setups that play a sequence), `build_args`, `single_axis_spin`; `DEMOS` (the demo buttons: label, setup). |
-| `setups/` | Example setups, one per class clip, named `{demo}{version}_{what}` (e.g. `5a_pole_climb`). `verify.py` checks every file in it loads and builds, and that every `DEMOS` setup exists. |
+| `setups/` | The class simulations as flights, named `{demo}{version}_{what}` (e.g. `5a_pole_climb`). `verify.py` checks every file in it loads and builds, and that every `DEMOS` setup exists. |
 | `Chain Sim.command` | Finder double-click launcher for `panel.py`. A Terminal window stays open while it runs. |
 | `verify.py` | Regression checks and renders; see "Verification". |
 | `export_meshes.py` | 3dm → `meshes/`: one STL per rigid body, module frame, metres, under 20k triangles. |
@@ -131,19 +132,24 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
     `d`), plus `read_sequence` and `target`.
   - `make_chain.build(preset, n, slip_ring, gravity, air, ee1, ee_n, rod, flight)`. `air` takes its density from
     `[flight]` in the spec; `ee1`/`ee_n` are a type from `EE_TYPES` or a dict like `EE_DEFAULTS`; `flight` is a
-    setup's `[flight]` (`box_m`, `strings`) or None. With it: no world floor; a mocap body `cabin` (after the chain, so
-    m1 stays body 1) carrying massless geoms `box_lid`, `box_floor`, `box_wall_±x/±y`, `net`, `cabin_floor`, camera
-    `cabin`, and sites `m{i}_string{k}_end`; sites `m{i}_string{k}` on the modules; tendons `m{i}_string{k}` (k = 0–3),
-    limited, range set by `play.py`. With None, `build()` is byte-identical to before the box existed.
+    setup's `[flight]` (`box_m`, `strings`, `roll_deg`) or None. With it: no world floor; a body `cabin` (after the
+    chain, so m1 stays body 1; 10 t, on hinge `cabin_pitch`, so models with a box have one more qpos/qvel after the
+    chain's) carrying massless geoms `box_lid`, `box_floor`, `box_wall_±x/±y`, `net`, `cabin_floor`, `plate` (a deck
+    for an attach facing up) and `rod`, visual-only `frame*`, `net_frame*`, `mesh_*`, `door_*`, `foot*` (group 1),
+    camera `cabin`, and sites `m{i}_string{k}_end`; sites `m{i}_string{k}` on the modules; tendons `m{i}_string{k}`
+    (k = 0–3), limited, range set by `play.py`. With None, `build()` is byte-identical to before the box existed. A
+    suction cup is a square box geom `ee{k}_cup` (side `cup_mm`).
   - `Session(model, data, log_path, setup)`: with a setup, `reset()` (Reset pose) goes to its start pose. `Session.ends`
     maps `ee1`/`ee{N}` to `End` (kind, armed, clamped, held, load, torque, peak, pops); `grip(end, on)`,
     `nozzle(end, k, throttle)`. Per fitted end the log appends `ee{k}_held, ee{k}_load_N, ee{k}_torque_Nm, ee{k}_thrust_N`.
-  - Flight: `Session.fly(path, move, hold, release_s, start_s, hyper_s, jitter)` (call `reset()` first; missing values
-    come from the setup's `[flight]`), `fly_t` (None unless flying), `parabola` (`play.Parabola.at(t)` → phase, g
-    vector, T), `released`, `touch`, `gap_min`, `landing`, `dip`, `flight_result()`; `strings_on(on)`, `tension()`,
-    `box_gap()`, `box_frame()`, `release_spin`. `play.Parabola.at(t)` → phase, g (box frame), T, pitch; the session sets
-    gravity to the pitch-turned g and the cabin's mocap pose. `turned` is in the box's frame when there's a cabin;
-    `inertia()` sums the chain only (bodies rooted at m1). `reset()` and Stop let the strings go and put gravity back.
+  - Flight: `Session.fly(path, move, hold, release_s, start_s, hyper_s, jitter, spin, manual)` (call `reset()`
+    first; missing values come from the setup's `[flight]`), `let_go()`, `fly_t` (None unless flying), `parabola`
+    (`play.Parabola(hyper_s, jitter, seed, level).at(t)` → phase, g in the box's frame, T, pitch; `.free` names the
+    reduced-g phase), `released`, `release_spin`, `touch`, `gap_min`, `landing`, `dip`, `flight_result()`;
+    `strings_on(on)`, `tension()`, `box_gap()`, `box_frame()`, `box_com()`, `com0_box`. Each step the session sets
+    gravity to the pitch-turned g and the cabin hinge's angle and rate. `turned` is in the box's frame about the
+    chain's starting pitch axis (`turn_axis`), `turned_space` the same in space; `inertia()` sums the chain only
+    (bodies rooted at m1). `reset()` ties the strings back on and puts gravity back; Stop lets them go.
   - `Session.mid` is module n//2, which is m6 of 12. `turned` tracks its heading. `Session.nj` is the joint-servo count:
     sequences write `ctrl[:nj]`. `Session.summary()` is the headless run's last line.
 - **Panel ↔ viewer protocol:**
@@ -156,8 +162,9 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
     play {file, move, hold}, pause, resume, restart, stop, speed {value}, playback {value}, grip {end, on},
     nozzle {end, n, on},
     gravity {g}, straighten, reset, log {on}, screenshot, physics {run}, spin {rate, axis: "x" | "y" | "z" | "all"},
-    countdown {s}, fly {file, move, hold, release, start, hyper, jitter}, quit. With a flight box, Play and Restart send
-    reset, speed, playback, countdown, fly instead of play.
+    countdown {s}, fly {file, move, hold, release, start, hyper, jitter, spin, manual}, release, camera {cabin}, quit.
+    With a flight box, Play and Restart send reset, speed, playback, countdown, fly instead of play; during a flight
+    started by hand, Play sends speed, playback, play (no reset or countdown, which would hold the physics).
   - Readouts are JSON lines of display strings, sent 5 times a second. The panel shows them all and reads
     `info["physics"]` to label its pause button.
 - **Keep `make_chain.py`, `setup_file.py` and `panel.py` stdlib-only.** `panel.py` imports only the stdlib plus those
@@ -206,14 +213,10 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
    prediction ranges over release errors, and the aircraft's own rotation.
 9. **Small things from the phase 1 review** (the rest was fixed in phase 2): `joint_servos` doesn't assert the joint
    servos come first; the setup's about line follows the picker before Load, and Save as prefills it.
-10. **The servo model is tuned, not identified.**
-   - `kv` has no counterpart in the AX-12A (its firmware is proportional-only), and it makes joints lag their targets:
-     7.6° at default timing, against 2.2° without it.
-   - Net turns barely depend on it (±50% on any servo setting moves a 4-loop turn by ≤ 1.2°). Joint timing and peak
-     torque do.
-   - **Fix:** step-response and speed-under-load tests of one joint on the bench, then fit `kp`, `kv`, `armature` and
-     friction.
-
+10. **The servo model is tuned, not identified.** `kv` (no AX-12A counterpart) makes joints lag their targets (7.6° at
+   default timing, 2.2° without it); net turns barely depend on it (±50% on any servo setting moves a 4-loop turn by
+   ≤ 1.2°), joint timing and peak torque do. Fix: bench step-response and speed-under-load tests, then fit `kp`, `kv`,
+   `armature`, friction.
 11. **The flight, not yet modelled:** strings letting go at different times, a cloth net (the sim's net is a spring
    for landings, a few mm deep at rest), Novespace's measured attitude and acceleration record in place of the smooth
    pitch and jitter waves, and the plane's roll and yaw. Next worth trying: the chain lined up across the cabin, so the
@@ -250,5 +253,6 @@ How `spin`, the readouts, timing, screenshots and the viewer keys work is in "In
   - Remove `__pycache__/` after test runs.
 
 ## Verification
-`verify.py` has 15 sections, from compiling against the current CAD to a parabola in the flight box. Its docstring
+`verify.py` has 15 sections, from compiling against the current CAD to a parabola in the flight box. Its
+perfect-zero-g checks build their own setups in code (13, the pole climb) rather than reading `setups/`, which fly. Its docstring
 says what each checks, and the key numbers are under Contracts.
