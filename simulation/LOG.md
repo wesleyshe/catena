@@ -3,6 +3,17 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- **Refactor, phase 3: the windows.** The viewer window (`run_viewer`, `Commands`, screenshots, the keys) moved from
+  `play.py` to `viewer.py`; `play.py` is now 92 lines of command line. `panel.py`: one `section_*` method per box
+  instead of a 167-line `__init__`, `start_take()` shared by Play and the parabola, and `spin_vector()` / `axis()` in
+  place of three copies. `checks/window_recorder.py` also records the window's layout (every widget's name, place and
+  size).
+- **Checked:** `checks/same_as_before.py compare`: 48 of 48 the same, including every button's commands and the layout
+  (728 widget lines). The real control window and viewer, driven by script: 1A flew to the same `done:` line, then
+  by hand, the camera tick, Screenshot, Log, Pause and Stop gave the same 26 events as before the refactor. The viewer's
+  keys weren't pressed (no screen access): their code moved word for word.
+
+## 2026-11-03 · Wesley (Claude Code)
 - **Refactor, phase 2: the run in five files.** `play.py` (1,066 lines) is now `sequence.py` (the CSV format, `LOG_DT`),
   `ends.py` (`End` with its behaviour: hold, latch, capture, cups, nozzles, loads), `flight.py` (`Parabola` and
   `FlightBox`), `session.py` (`Session`, `Logger`, `load_model`) and `play.py` (265 lines: the command line and the

@@ -39,7 +39,7 @@ from make_chain import PRESETS
 from make_ends import EE_MASS, EE_SERVO_MASS, EE_TYPES
 from spec import FLIGHT, SPEC_FILE
 from flight import Parabola as Play_parabola
-from play import Commands
+from viewer import Commands
 from sequence import LOG_DT, joint_servos, read_sequence, target
 from session import Session, load_model
 
