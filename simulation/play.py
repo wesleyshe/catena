@@ -5,8 +5,10 @@
   .venv/bin/python play.py --seq ../sequences/fold_sequence.csv --headless    no viewer, run and log only
   .venv/bin/python play.py --setup setups/1a_turn.toml --headless   a whole run from a setup file (setups/)
   mjpython play.py --gravity 9.81                   start with Earth gravity: the chain drops onto the floor
-  .venv/bin/python play.py --seq ../sequences/reorient_loop.csv --headless --speed 4 --spin 0 0 1 --air --cage
-      flight-like: the sequence 4x faster (to fit a parabola), let go with 1 deg/s of spin, cabin air, net cage
+  .venv/bin/python play.py --seq ../sequences/reorient_loop.csv --headless --speed 4 --spin 0 0 1 --air
+      flight-like: the sequence 4x faster (to fit a parabola), let go with 1 deg/s of spin, cabin air
+  .venv/bin/python play.py --setup setups/1d_flight_turn.toml --headless --fly
+      a whole parabola in the flight box: held by strings through the 1.8 g pull-up, let go at zero g, onto the net
 The control window (panel.py, or double-click 'Chain Sim.command') starts this with --panel and sends it commands.
 
 Keyboard (viewer): PageUp / PageDown select module, Up / Down nudge its pitch,
@@ -30,7 +32,7 @@ import mujoco
 import numpy as np
 
 import setup_file
-from make_chain import FLIGHT, NOZZLE_RGBA, attach_point, build, leading_end, level_axis
+from make_chain import FLIGHT, NOZZLE_RGBA, STRING_RGBA, attach_point, build, leading_end, level_axis
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 AXES = dict(x=(1, 0, 0), y=(0, 1, 0), z=(0, 0, 1))  # world axes: x across the start pose, y along it, z vertical
@@ -46,6 +48,7 @@ LOAD_TAU = 0.1      # s: end-effector loads are smoothed over this; the stiff cl
 CUP_TOUCH = 0.003   # m: a cup this close to a fixed surface counts as on it
 EE_COLUMN = re.compile(r"(ee\d+)_(grip|n[0-4])$")  # end-effector columns in a sequence CSV
 CALL_OFF = ("pause", "stop", "straighten", "reset", "quit")  # sent during a countdown, these call the take off
+TOUCH = 0.001       # m: a shell this close to the box (walls, lid, net) touches it
 WINDOW_NAME = "CATENA viewer"  # macOS saves the viewer window's size and place under this name, and reopens it there
 
 
@@ -140,6 +143,38 @@ def axis_rotation(axis, deg):
     return R.reshape(3, 3)
 
 
+class Parabola:
+    """The g the box feels through one parabola (ITF §3.10, numbers in the spec's [flight]): level flight at 1 g, the
+    pull-up to 1.8 g, zero g with its leftover jitter, the pull-out, level again. at(t) gives the phase, the g vector
+    (world frame, in g: x across the cabin, y along it, z up) and T, the time since zero g began (s)."""
+    LEVEL_S, UP_S, DOWN_S = 3.0, 3.0, 4.0  # level flight before and after; the 1 <-> 1.8 g and 1.8 <-> 0 g ramps
+
+    def __init__(self, hyper_s, jitter, seed):
+        g, hold = FLIGHT["hypergravity_g"], hyper_s - self.UP_S - self.DOWN_S
+        steps = [("level", self.LEVEL_S, 1), ("pull-up", self.UP_S, g), ("pull-up", hold, g), ("into zero g", self.DOWN_S, 0),
+                 ("zero g", FLIGHT["parabola_s"], 0), ("pull-out", self.DOWN_S, g), ("pull-out", hold, g),
+                 ("pull-out", self.UP_S, 1), ("level", self.LEVEL_S, 1)]
+        self.knots, t = [(0.0, 1.0, "level")], 0.0
+        for name, secs, g_end in steps:
+            t += secs
+            self.knots.append((t, g_end, name))
+        self.t0, self.end = self.knots[4][0], t  # zero g begins; the flight ends
+        rng, self.waves = np.random.default_rng(seed), []  # per axis, three slow waves (2-8 s) adding up to jitter_g at most
+        for a in FLIGHT["jitter_g"] if jitter else (0, 0, 0):
+            c = rng.uniform(0.3, 1, 3)
+            self.waves.append([(a * ci / c.sum(), rng.uniform(2, 8), rng.uniform(0, 2 * math.pi)) for ci in c])
+
+    def at(self, t):
+        k = next((k for k in range(1, len(self.knots)) if t < self.knots[k][0]), len(self.knots) - 1)
+        (t1, g1, _), (t2, g2, name) = self.knots[k - 1], self.knots[k]
+        u = min(1.0, max(0.0, (t - t1) / (t2 - t1)))
+        g = g1 + (0.5 - 0.5 * math.cos(math.pi * u)) * (g2 - g1)
+        T = t - self.t0  # the jitter runs on T, so every take (whatever its 1.8 g phases) gets the same
+        jitter = [sum(c * math.sin(2 * math.pi * T / period + phase) for c, period, phase in axis) for axis in self.waves]
+        on = name == "zero g"
+        return name, np.array([jitter[0] * on, jitter[1] * on, -g + jitter[2] * on]), T
+
+
 class End:
     """An end effector as the session sees it: what it is, what it's been told to do and what it's doing."""
 
@@ -214,17 +249,24 @@ class Session:
         self.mid = model.body(f"m{max(1, modules(model) // 2)}").id  # middle module (m6 of 12): its heading = "turned"
         self.end_keys = ("ee1", f"ee{modules(model)}")  # a setup's ee1 and ee_n, by their names in the model
         self.ends = {e: End(model, e) for e in self.end_keys if mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, e) >= 0}
-        self.fixed = [g for g in range(model.ngeom) if model.geom_bodyid[g] == 0]  # floor, plates, rod, cage
+        self.fixed = [g for g in range(model.ngeom) if model.geom_bodyid[g] == 0]  # floor, plates, rod, flight box
+        self.box = [g for g in self.fixed if model.geom(g).name.startswith(("box_", "net"))]  # the flight box and its net
+        self.shells = [g for g in range(model.ngeom) if model.geom(g).name.endswith("_sphere")]
+        self.strings = [t for t in range(model.ntendon) if "_string" in model.tendon(t).name]
         self.setup, self.row0, self.ee_cols, self.ee_row = None, None, {}, None
-        self.log = Logger(log_path, self.nj, self.end_names()) if log_path else None
+        self.flight, self.fly_t = None, None  # the setup's [flight], and the time into a parabola while flying
+        self.log = Logger(log_path, self.nj, self.log_names()) if log_path else None
         self.use_setup(setup) if setup else self.reset()
 
-    def end_names(self):
-        return [f"{e}_{c}" for e in self.ends for c in ("held", "load_N", "torque_Nm", "thrust_N")]
+    def log_names(self):
+        """The log's columns after the standard ones: four per fitted end, then the flight's if the box is there."""
+        return [f"{e}_{c}" for e in self.ends for c in ("held", "load_N", "torque_Nm", "thrust_N")] + \
+            (["g_x", "g_y", "g_z", "box_gap_mm", "string_N"] if self.box else [])
 
-    def end_columns(self):
-        return [x for e in self.ends.values() for x in
-                (int(e.held), f"{e.load:.4g}", f"{e.torque:.4g}", f"{self.thrust(e):.4g}")]
+    def log_columns(self):
+        ends = [x for e in self.ends.values() for x in (int(e.held), f"{e.load:.4g}", f"{e.torque:.4g}", f"{self.thrust(e):.4g}")]
+        flight = [*(f"{x / 9.81:.4g}" for x in self.m.opt.gravity), f"{self.gap * 1000:.1f}", f"{self.tension():.4g}"]
+        return ends + (flight if self.box else [])
 
     def thrust(self, e):
         return float(np.sum(self.d.actuator_force[e.nozzles])) if e.nozzles else 0.0
@@ -232,7 +274,7 @@ class Session:
     def use_setup(self, setup):
         """Start from this setup from now on (and on Reset pose): the chain in its sequence's first row, attached where
         the setup says."""
-        self.setup = setup
+        self.setup, self.flight = setup, setup["flight"] or None
         self.row0 = read_sequence(setup["sequence"], self.m)[0] if setup["sequence"] else np.zeros(self.nj)
         self.reset()
 
@@ -375,12 +417,93 @@ class Session:
                 self.nozzle(e.name, k, 0.0)
         if self.setup:
             self.place()
+        self.end_flight()
         mujoco.mj_forward(self.m, self.d)
+        self.gap = self.box_gap()[0]
         self.keys, self.playing = None, False
         self.com0, self.q0 = self.d.subtree_com[1].copy(), self.d.sensor("imu_quat").data.copy()
         self.turned, self.heading_was, self.done = 0.0, self.heading(), False
         if self.log:
-            self.log(self.d, self.end_columns())
+            self.log(self.d, self.log_columns())
+
+    def strings_on(self, on):
+        """Hold the chain where it is (each string as long as it is now) or let go (endless and hidden)."""
+        mujoco.mj_forward(self.m, self.d)
+        for t in self.strings:
+            self.m.tendon_range[t] = (0, self.d.ten_length[t] if on else 100)
+            self.m.tendon_rgba[t] = [float(x) for x in STRING_RGBA.split()][:3] + [float(on)]
+
+    def tension(self):
+        """The strings' largest pull (N)."""
+        rows = (self.d.efc_type == mujoco.mjtConstraint.mjCNSTR_LIMIT_TENDON) & np.isin(self.d.efc_id, self.strings)
+        return float(np.abs(self.d.efc_force[rows]).max()) if rows.any() else 0.0
+
+    def box_gap(self):
+        """The nearest any shell is to the flight box (walls, lid, net), in m, and which part that is."""
+        best, fromto = (1.0, ""), np.zeros(6)
+        for c in self.shells:
+            for b in self.box:
+                dist = mujoco.mj_geomDistance(self.m, self.d, c, b, best[0], fromto)
+                if dist < best[0]:
+                    best = (dist, self.m.geom(b).name)
+        return best
+
+    def fly(self, path="", move=3.0, hold=1.0, release_s=None, start_s=None, hyper_s=None, jitter=None):
+        """Fly one parabola from here (Reset first for a fresh take): the strings hold the chain through the pull-up and
+        let go at T+release_s (T = 0 when zero g begins); the sequence starts at T+start_s; the pull-out drops it onto
+        the net. Missing settings come from the setup's [flight]."""
+        f = self.flight
+        if not f:
+            raise ValueError("this model has no flight box: give the setup a [flight] table (or tick In the flight box) and Rebuild")
+        pick = lambda x, key: f[key] if x is None else x
+        self.parabola = Parabola(pick(hyper_s, "hyper_s"), pick(jitter, "jitter"), f["seed"])
+        self.release_s, self.start_s, self.pending = pick(release_s, "release_s"), pick(start_s, "start_s"), (path, move, hold)
+        self.fly_t, self.released, self.touch, self.gap_min, self.landing, self.dip = 0.0, None, None, 1.0, None, 0.0
+        self.fell, self.flown = 0.0, True
+        self.strings_on(True)
+
+    def end_flight(self, keep_g=False):
+        """Stop flying: the strings let go and, unless the parabola ended by itself (level flight, 1 g), gravity goes back
+        to the setup's. Reset and Stop call it too."""
+        if self.strings:
+            self.strings_on(False)
+        if self.flight and not keep_g:
+            self.m.opt.gravity[:] = (0, 0, -self.setup["gravity_m_s2"])
+        self.fly_t, self.flown = None, False
+
+    def flying(self):
+        """Before each step: the parabola's g, letting go, starting the sequence."""
+        phase, g, T = self.parabola.at(self.fly_t)
+        self.m.opt.gravity[:] = 9.81 * g
+        if self.released is None and T >= self.release_s:
+            self.strings_on(False)
+            self.released = T
+        if self.pending and T >= self.start_s:
+            if self.pending[0]:
+                self.play(*self.pending)
+            self.pending = None
+        self.fly_t += LOG_DT
+        return phase, T
+
+    def flown_through(self, phase, T):
+        """After each step: the gap to the box while free in zero g, then the landing on the net."""
+        net = next((b for b in self.box if self.m.geom(b).name == "net"), None)
+        if phase == "zero g" and self.released is not None:
+            self.gap_min = min(self.gap_min, self.gap)
+            if self.touch is None and self.gap < TOUCH:
+                self.touch = (T, self.box_gap()[1])
+        if phase == "pull-out" and net is not None:
+            top = self.m.geom_pos[net][2] + self.m.geom_size[net][2]
+            low = min(self.d.geom_xpos[g][2] - self.m.geom_size[g][0] for g in self.shells)
+            if self.landing is None:
+                self.fell = max(self.fell, -float(self.d.sensor("com_vel").data[2]))
+                if low < top:
+                    self.landing = self.fell
+            self.dip = max(self.dip, top - low)
+        if self.fly_t >= self.parabola.end:
+            self.end_flight(keep_g=True)
+            self.flown = True
+            print(f"flight done: {self.summary()}")
 
     def inertia(self):
         """Whole chain's inertia tensor about its centre of mass, world frame."""
@@ -432,6 +555,7 @@ class Session:
 
     def advance(self):
         """Simulate LOG_DT seconds. Sequence targets update once per LOG_DT, like commands on a servo bus."""
+        flight = self.flying() if self.fly_t is not None else None
         if self.keys is not None and self.playing:
             self.d.ctrl[:self.nj] = target(self.keys, self.seq_t, self.move, self.hold)
             row = min(int(self.seq_t // (self.move + self.hold)), len(self.keys) - 1)  # whose hold has begun
@@ -444,16 +568,20 @@ class Session:
         mujoco.mj_forward(self.m, self.d)  # sensors for the current state (mj_step leaves them one step behind)
         self.update_ends()
         self.track_turn()
+        if self.box:
+            self.gap = self.box_gap()[0]
+        if flight:
+            self.flown_through(*flight)
         if self.log:
-            self.log(self.d, self.end_columns())
+            self.log(self.d, self.log_columns())
 
     def set_log(self, on):
         if self.log:
             self.log.close()
             self.log = None
         if on:
-            self.log = Logger(os.path.join(HERE, "logs", f"run_{stamp()}.csv"), self.nj, self.end_names())
-            self.log(self.d, self.end_columns())
+            self.log = Logger(os.path.join(HERE, "logs", f"run_{stamp()}.csv"), self.nj, self.log_names())
+            self.log(self.d, self.log_columns())
 
     def command(self, c):
         """Apply one command from the control window, e.g. {"cmd": "play", "file": ".../sequences/fold_sequence.csv"}."""
@@ -467,9 +595,14 @@ class Session:
             self.playing, self.ee_row = self.keys is not None, None  # the current row's end-effector values again
         elif cmd == "restart":
             self.seq_t, self.playing, self.ee_row = 0.0, self.keys is not None, None
+        elif cmd == "fly":
+            self.fly(c.get("file", ""), c.get("move", 3.0), c.get("hold", 1.0), c.get("release"), c.get("start"),
+                     c.get("hyper"), c.get("jitter"))
         elif cmd in ("stop", "straighten"):
             self.keys, self.playing = None, False
             self.nozzles_off()
+            if cmd == "stop" and self.fly_t is not None:
+                self.end_flight()
             if cmd == "straighten":
                 self.d.ctrl[:self.nj] = 0
         elif cmd == "speed":
@@ -502,7 +635,16 @@ class Session:
         if self.setup and self.setup["rod"]:
             u = np.subtract(self.setup["rod"]["to"], self.setup["rod"]["from"])
             line += f"; along the rod {(self.d.subtree_com[1] - self.com0) @ u / np.linalg.norm(u) * 1000:+.0f} mm"
+        if getattr(self, "parabola", None) and self.flown:
+            line += f"; {self.flight_result()}"
         return line
+
+    def flight_result(self):
+        free = f"let go at T+{self.released:.1f} s, " if self.released is not None else "never let go, "
+        touch = f"first touched the {self.touch[1]} at T+{self.touch[0]:.1f} s" if self.touch else "touched nothing in zero g"
+        land = (f"landed on the net at {self.landing:.1f} m/s, sinking {self.dip * 1000:.0f} mm"
+                if self.landing is not None else "hasn't landed")
+        return f"{free}nearest the box {max(0.0, self.gap_min) * 1000:.0f} mm, {touch}; {land}"
 
     def readouts(self):
         d, L = self.d, np.linalg.norm(self.d.sensor("angmom").data)
@@ -522,7 +664,31 @@ class Session:
                 "COM drift": f"{np.linalg.norm(d.subtree_com[1] - self.com0) * 1000:.3f} mm",
                 "|L|": f"{L:.1e} kg m^2/s", "max torque": f"{np.abs(d.actuator_force[:self.nj]).max():.2f} N m",
                 "contacts": str(d.ncon), "log": os.path.relpath(self.log.path, HERE) if self.log else "off",
-                **{e.name: self.end_readout(e) for e in self.ends.values()}}
+                **{e.name: self.end_readout(e) for e in self.ends.values()}, **self.flight_readouts()}
+
+    def flight_readouts(self):
+        if not self.box:
+            return {}
+        out = {"box gap": f"{max(0.0, self.gap) * 1000:.0f} mm"}
+        if self.fly_t is not None:
+            phase, g, T = self.parabola.at(self.fly_t)
+            out["flight"] = f"{phase}, {-g[2]:.2f} g, T{T:+.1f} s" + (
+                f" (zero g in {-T:.1f} s)" if T < 0 else f" ({FLIGHT['parabola_s'] - T:.1f} s of zero g left)" if phase == "zero g" else "")
+            out["strings"] = (f"holding ({len(self.strings)}), pulling up to {self.tension():.1f} N" if self.released is None
+                              else f"let go at T+{self.released:.1f} s")
+            out["box gap"] += f", least {max(0.0, self.gap_min) * 1000:.0f} mm since let go" if self.released is not None else ""
+        elif self.flown:
+            out["flight"] = "done: " + self.flight_result()
+        else:
+            out["flight"] = "not flying (Fly a parabola)" if self.flight else "no flight timeline in this setup"
+        return out
+
+    def banner(self):
+        """The big line at the top of the viewer while flying: the g, and T during zero g."""
+        if self.fly_t is None:
+            return ""
+        phase, g, T = self.parabola.at(self.fly_t)
+        return f"0 g  T+{T:.0f}" if phase == "zero g" else f"{-g[2]:.1f} g  {phase}"
 
     def end_readout(self, e):
         if e.kind == "anchor":
@@ -667,9 +833,10 @@ def run_viewer(s, panel_port=None):
             viewer.sync()
             if info:
                 texts = [(None, mujoco.mjtGridPos.mjGRID_TOPLEFT, "\n".join(info), "\n".join(info.values()))]
-            if info or math.ceil(left) != count:  # T-5 ... T-1 in big type, then the take starts
+            if info or math.ceil(left) != count:  # T-5 ... T-1 in big type, then the take starts; in flight, the g
                 count = math.ceil(left)
-                big = [(mujoco.mjtFont.mjFONT_BIG, mujoco.mjtGridPos.mjGRID_TOP, f"T-{count}", "")] if count else []
+                title = f"T-{count}" if count else s.banner()
+                big = [(mujoco.mjtFont.mjFONT_BIG, mujoco.mjtGridPos.mjGRID_TOP, title, "")] if title else []
                 viewer.set_texts(texts + big)
             if info:
                 next_readout = start + 0.2
@@ -696,7 +863,7 @@ if __name__ == "__main__":
     ap.add_argument("--spin", type=float, nargs=3, metavar=("X", "Y", "Z"),
                     help="start spinning at this rate (deg/s) about world x, y, z: the leftover spin when it's let go")
     ap.add_argument("--air", action="store_true", help="cabin air drag on the shells (when building the model)")
-    ap.add_argument("--cage", action="store_true", help="the net cage from hardware/spec.toml (when building the model)")
+    ap.add_argument("--fly", action="store_true", help="with --headless and a setup with [flight]: fly one whole parabola")
     ap.add_argument("--setup", help="setup file (setups/*.toml): the model and the settings above; flags given here win")
     ap.add_argument("--panel", type=int, help=argparse.SUPPRESS)  # port of the control window
     a = ap.parse_args()
@@ -706,7 +873,7 @@ if __name__ == "__main__":
         raise SystemExit(f"can't use that setup: {e}")
     if setup:  # the setup's values become the defaults, so flags on the command line still win
         ap.set_defaults(move=setup["move_s"], hold=setup["hold_s"], speed=setup["speed"], gravity=setup["gravity_m_s2"],
-                        air=setup["air"], cage=setup["cage"], playback=setup["playback"])
+                        air=setup["air"], playback=setup["playback"])
         if not a.panel:  # from the control window, the sequence (and its spin) waits for Play
             ap.set_defaults(seq=setup["sequence"] or None, spin=setup["spin_deg_s"] if any(setup["spin_deg_s"]) else None)
         a = ap.parse_args()
@@ -714,7 +881,7 @@ if __name__ == "__main__":
     if a.model:
         model = mujoco.MjModel.from_xml_path(a.model)
     else:  # always the current hardware spec, never a stale chain.xml
-        opts = {**setup_file.build_args(setup), "air": a.air, "cage": a.cage} if setup else dict(air=a.air, cage=a.cage)
+        opts = {**setup_file.build_args(setup), "air": a.air} if setup else dict(air=a.air)
         xml = build(**opts).replace('meshdir="meshes"', f'meshdir="{HERE}/meshes"')
         model = mujoco.MjModel.from_xml_string(xml)
     if a.gravity is not None:
@@ -723,18 +890,23 @@ if __name__ == "__main__":
     session.speed, session.playback = a.speed, a.playback
     for axis, rate in zip("xyz", a.spin or ()):
         session.spin(rate, axis)
-    if a.seq:
+    if a.fly and not (a.headless and setup and setup["flight"]):
+        raise SystemExit("--fly needs --headless and a --setup with a [flight] table")
+    if a.fly:
+        session.fly(a.seq or "", a.move, a.hold)
+    elif a.seq:
         session.play(a.seq, a.move, a.hold)
     try:
         if a.headless:
-            assert a.seq, "--headless needs --seq"
+            assert a.seq or a.fly, "--headless needs --seq"
             if setup:
                 print(f"{os.path.basename(a.setup)}: {setup_file.summary(setup)}")
-            while session.seq_t < session.duration() - 1e-9:
+            while session.fly_t is not None if a.fly else session.seq_t < session.duration() - 1e-9:
                 session.advance()
-            secs = session.duration() / session.speed
+            secs = session.duration() / session.speed if session.keys is not None else 0
             print(f"ran {secs:g} s" + (f" (longer than a {PARABOLA_S:g} s parabola)" if secs > PARABOLA_S else ""))
-            print(session.summary())
+            if not a.fly:  # a flight prints its own summary as it lands
+                print(session.summary())
         else:
             run_viewer(session, a.panel)
     finally:

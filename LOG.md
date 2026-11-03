@@ -4,6 +4,17 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- **`experiments/flight_space.md`:** how big a box fits on the Novespace A310 (from `docs/ITF-2025-01-Interfaces-EN.pdf`).
+  2.5 × 2.5 × 2.5 m doesn't; the largest on one side of the aisle is ~2.5 × 1.3 × 1.9 m (along, across, high), and a
+  one-piece box through the door ~2.5 × 1.0 × 1.75 m. Also the g profile and leftover g the sim now uses.
+- **`experiments/findings.md`: "The flight box":** strings hold the 8.5 cm chain through 1.8 g with the servos unloaded,
+  but only angled ones hold it sideways; the turn survives the leftover g (−30.1°); the pull-out lands it at 2–3 m/s.
+  `experiments/README.md` and `sequences/README.md` (a parabola is ~22 s now) updated to match.
+- **For the hardware area:** `spec.toml` `[flight]` changed (details in `hardware/LOG.md`): the A310 numbers, and the box
+  and net placeholders replacing the cage.
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED; details in `simulation/LOG.md`.
+
+## 2026-11-03 · Wesley (Claude Code)
 - **`sequences/README.md`** now splits the sequences into those that play on the bare chain and those written for a
   setup, with what each needs (e.g. `pole_climb.csv` needs the pole in setup `5a_pole_climb`). Every CSV's first `#`
   line is now a complete description, which the control window shows; only comments changed, no angles.

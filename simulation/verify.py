@@ -9,7 +9,7 @@
 4. no contacts with the chain straight, and none during ../sequences/fold_sequence.csv
 5. gravity on: the chain drops onto the floor and settles there
 6. spin: the Spin command (one axis at a time), the spin-up when folded (skater effect), Stop spin, the tip-turn readout
-7. flight options: the IMU output, weighed modules, air drag and the net cage
+7. flight options: the IMU output, weighed modules, air drag and the flight box
 8. offscreen renders: one module, the straight 12-module chain, the L and zig-zag folds, the dropped chain
 9. end effectors: every type at each end compiles, the modules are unchanged, the m1_yaw twist axis, zero-g momentum
 10. anchors: placement, the clamp holds, grab on touch, let go keeps the momentum, the grip column
@@ -17,6 +17,8 @@
 12. thrusters: a = F/m, opposite nozzles cancel, a side nozzle turns the chain but can't roll it
 13. wrapped around a pole: the start pose touches all round, and the wrap-and-inch climb gets up it
 14. the countdown before a take: the spin and play wait for it, Stop calls it off, Play again starts it afresh
+15. a parabola in the flight box (8.5 cm modules): the strings hold it through 1.8 g, let go cleanly at zero g, the turn
+    survives the leftover g, the pull-out lands it on the net
 """
 import contextlib
 import glob
@@ -32,6 +34,7 @@ from PIL import Image
 
 import setup_file
 from export_meshes import SRC, STAMP, fingerprint
+from make_chain import FLIGHT
 from make_chain import EE_MASS, EE_SERVO_MASS, EE_TYPES, PRESETS, SPEC_FILE, build
 from play import Commands, Session, joint_servos, read_sequence, target
 
@@ -226,7 +229,7 @@ def check_spin():
 
 
 def check_flight():
-    print("7. flight options: IMU output, weighed modules, air drag, net cage")
+    print("7. flight options: IMU output, weighed modules, air drag, the flight box")
     m, d = load()
     s = Session(m, d)
     s.spin(10, "x")
@@ -249,14 +252,17 @@ def check_flight():
         after.append(s.spin_rate())
     check(abs(after[0] - 20) < 0.01 and 15 < after[1] < 19.8,
           f"air drag: spinning at 20 deg/s, after 10 s it's {after[1]:.2f} deg/s with cabin air, {after[0]:.2f} without")
-    m, d = load(cage=True)
+    m, d = load(flight=dict(box_m=[2.5, 1.3, 1.9], strings=[]))
     s, hit = Session(m, d), None
+    start = d.ncon
     m.opt.gravity[:] = (0, 0, -0.0981)
-    while hit is None and d.time < 6:
+    while hit is None and d.time < 8:
         s.advance()
         hit = d.time if d.ncon else None
-    check(hit is not None and 2 < hit < 4,
-          f"net cage: nothing touches at the start; with 0.01 g left over, the chain reaches the cage after {f'{hit:.2f} s' if hit else 'never'}")
+    want = math.sqrt(2 * (0.95 - m.geom("m1_sphere").size[0] - FLIGHT["net_height_mm"] / 1000) / 0.0981)
+    check(not start and hit is not None and abs(hit - want) < 0.2,
+          f"flight box: nothing touches at the start in the middle; with 0.01 g left over, the chain reaches the net after "
+          f"{f'{hit:.2f} s' if hit else 'never'} (falling {0.95 - FLIGHT['net_height_mm'] / 1000:.2f} m: {want:.2f} s)")
 
 
 def render(m, d, path, views, lookat, dist, size=(800, 800)):
@@ -536,6 +542,44 @@ def check_pole_climb():
           f"{s.duration():.1f} s, still wrapped (modules {r1.min() * 1000:.0f}-{r1.max() * 1000:.0f} mm from its axis)")
 
 
+def check_flight_parabola():
+    print("15. a parabola in the flight box (8.5 cm modules, setups/1d_flight_turn.toml, 1.8 g phases shortened to 7 s)")
+    setup = setup_file.load(os.path.join(setup_file.SETUP_DIR, "1d_flight_turn.toml"))
+    m, d = load(**setup_file.build_args(setup))
+    s = Session(m, d, None, setup)
+    c0 = d.subtree_com[1].copy()
+    s.fly(hyper_s=7, jitter=False)
+    held, pull, before = 0.0, 0.0, None
+    with contextlib.redirect_stdout(io.StringIO()):
+        while s.fly_t is not None:
+            phase, g, T = s.parabola.at(s.fly_t)
+            s.advance()
+            if T < 0:
+                held, pull = max(held, np.linalg.norm(d.subtree_com[1] - c0)), max(pull, s.tension())
+            if before is None and T >= s.release_s + 2:  # 2 s after letting go, nothing pushing it
+                before = (np.linalg.norm(d.sensor("com_vel").data), abs(s.spin_rate()))
+    low = min(d.geom_xpos[g][2] - m.geom_size[g][0] for g in s.shells)
+    check(held < 0.001 and pull > 1, f"held by {len(s.strings)} strings through the 1 g and 1.8 g phases: the chain moves "
+          f"{held * 1000:.2f} mm at most, the strings pull up to {pull:.1f} N")
+    check(before[0] < 0.001 and before[1] < 0.05, f"let go at T+{s.released:.1f} s with no jitter: 2 s later it drifts "
+          f"{before[0] * 1000:.2f} mm/s and spins {before[1]:.3f} deg/s (a clean release)")
+    check(s.landing is not None and s.dip < FLIGHT["net_height_mm"] / 1000 and low > 0,
+          f"the pull-out drops it onto the net at {s.landing:.2f} m/s; it sinks {s.dip * 1000:.0f} mm of the net's "
+          f"{FLIGHT['net_height_mm']} mm and never reaches the floor")
+    m, d = load(**setup_file.build_args(setup))
+    s = Session(m, d, None, setup)
+    s.fly(setup["sequence"], setup["move_s"], setup["hold_s"], hyper_s=7)
+    turned = None
+    with contextlib.redirect_stdout(io.StringIO()):
+        while s.fly_t is not None:
+            s.advance()
+            if turned is None and s.keys is not None and s.seq_t >= s.duration():
+                turned = s.turned  # the turn as the sequence ends, before the pull-out
+    check(turned is not None and abs(turned + 30.3) < 1 and not s.touch and s.landing is not None,
+          f"with the jitter and the turn sequence: turned {turned:+.1f} deg by its end (zero g, 14 cm chain: -30.3); "
+          + s.flight_result())
+
+
 def check_countdown():
     print("14. the countdown before a take: Play's commands wait for it, Stop calls it off")
     take = [{"cmd": "reset"}, {"cmd": "countdown", "s": 5}, {"cmd": "spin", "rate": 10}, {"cmd": "play"}]
@@ -653,7 +697,8 @@ def check_end_effectors():
               "can't play, settings for another type, an attach without its rod and bad TOML are refused, naming the problem")
         path = os.path.join(tmp, "round.toml")
         rod = {"from": [0.0, -1.0, 1.0], "to": [0.0, 1.0, 1.0], "diameter_mm": 35.0}
-        mine = setup_file.new(sequence=seq, move_s=1.5, spin_deg_s=[0.0, 0.0, 0.5], modules=8, cage=True, rod=rod,
+        mine = setup_file.new(sequence=seq, move_s=1.5, spin_deg_s=[0.0, 0.0, 0.5], modules=8, rod=rod,
+                              flight={**setup_file.FLIGHT_DEFAULTS, "strings": [1, 8], "jitter": False},
                               ee1=setup_file.end("anchor", attach={"at": [0.0, -0.9, 1.8], "facing": "+y", "roll_deg": 90.0}),
                               ee_n=setup_file.end("thruster", thrust_N=0.2))
         setup_file.save(path, mine, "a round trip")
@@ -713,5 +758,6 @@ if __name__ == "__main__":
     check_thrusters()
     check_pole_climb()
     check_countdown()
+    check_flight_parabola()
     print("\nALL CHECKS PASSED" if not failures else f"\n{len(failures)} CHECK(S) FAILED")
     raise SystemExit(bool(failures))

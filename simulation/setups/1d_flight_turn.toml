@@ -1,0 +1,14 @@
+# On the flight, 8.5 cm modules: strings hold it still in the box through the 1.8 g pull-up and let go at zero g; it turns with no push, then the pull-out drops it on the net.
+sequence = "reorient_loop.csv"
+move_s = 1.0
+hold_s = 0.25
+preset = "feetech85"
+
+[flight]
+box_m = [2.5, 1.3, 1.9]
+strings = [1, 5, 8, 12]
+release_s = 1.0
+start_s = 1.5
+hyper_s = 23.0
+jitter = true
+seed = 1

@@ -14,8 +14,7 @@ All the keys:
   playback = 1.0                   # the viewer shows it this many times faster than real time (same physics)
   gravity_m_s2 = 0.0
   spin_deg_s = [0.0, 0.0, 0.5]     # spin about world x, y, z when the sequence starts: the leftover spin at release
-  air = false                      # cabin air drag, the net cage (numbers in ../hardware/spec.toml)
-  cage = false
+  air = false                      # cabin air drag (the air density is in ../hardware/spec.toml)
   preset = "original14"            # make_chain.PRESETS
   modules = 12
   slip_ring = false
@@ -34,6 +33,16 @@ All the keys:
   # wrap_m = 0.4                   # the bare chain starts wrapped around the rod, m1 this far along it (the
                                    # sequence's first row must be a coil that fits: every pitch the same, every yaw)
 
+  [flight]                         # the box on the parabolic flight; a missing table means none. Every key optional:
+  box_m = [2.5, 1.3, 1.9]          # inside: along the chain (the cabin), across, height (default: the spec's box_mm)
+  strings = [1, 5, 8, 12]          # modules held still in the middle, each by a string up and one down (default:
+                                   # both ends and two in between; [] = none, it floats free in the box)
+  release_s = 1.0                  # play.py --fly / the Fly button: the strings let go this long after zero g begins
+  start_s = 1.5                    # ... and the sequence starts this long after
+  hyper_s = 23.0                   # each 1.8 g phase, ramps included (the spec's hypergravity_s); at least 7
+  jitter = true                    # the leftover g in zero g (the spec's jitter_g), the same every take for one seed
+  seed = 1
+
 facing is the surface's outward normal (up = the floor; down, +x, -x, +y, -y), and the chain leaves the surface along
 it. On a rod it's the side of the rod the chain is on. If both ends are attached, ee1 sets where the chain starts.
 
@@ -48,17 +57,20 @@ import numbers
 import os
 import tomllib
 
-from make_chain import EE_DEFAULTS, EE_TYPES, FACINGS, N_MODULES, PRESETS, ROD_MM
+from make_chain import EE_DEFAULTS, EE_TYPES, FACINGS, FLIGHT, N_MODULES, PRESETS, ROD_MM
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 SETUP_DIR = os.path.join(HERE, "setups")
 SEQ_DIR = os.path.join(REPO, "sequences")  # at the repo root, shared with the robot software
 DEFAULTS = dict(sequence="", move_s=3.0, hold_s=1.0, speed=1.0, playback=1.0, gravity_m_s2=0.0, spin_deg_s=[0.0, 0.0, 0.0],
-                air=False, cage=False, preset="original14", modules=N_MODULES, slip_ring=False,
-                ee1=dict(EE_DEFAULTS), ee_n=dict(EE_DEFAULTS), rod={})
+                air=False, preset="original14", modules=N_MODULES, slip_ring=False,
+                ee1=dict(EE_DEFAULTS), ee_n=dict(EE_DEFAULTS), rod={}, flight={})
 ENDS = ("ee1", "ee_n")  # in a setup dict; in the file they're the tables [ee1] and [ee{modules}]
-TABLES = ENDS + ("rod",)
+TABLES = ENDS + ("rod", "flight")
+FLIGHT_DEFAULTS = dict(box_m=[x / 1000 for x in FLIGHT["box_mm"]], strings=None, release_s=1.0, start_s=1.5,
+                       hyper_s=float(FLIGHT["hypergravity_s"]), jitter=True, seed=1)  # strings None: default_strings
+RAMPS_S = 7.0  # the 1 -> 1.8 g and 1.8 -> 0 g ramps (play.Parabola): a 1.8 g phase can't be shorter
 SETTINGS = dict(none=(), anchor=("attach",), suction=("attach", "pull_N", "cup_mm", "friction"), thruster=("thrust_N",))
 ALWAYS = ("sequence", "move_s", "hold_s")  # save() writes these; the other keys only where they differ from DEFAULTS
 DEMOS = [("1  Free float", "1a_turn"), ("2  Anchored", "2a_arm"), ("3  Thrusters", "3a_U"),  # the control window's
@@ -139,6 +151,29 @@ def read_rod(name, val):
     return rod
 
 
+def default_strings(n):
+    """Which modules the strings hold if a setup doesn't say: both ends and two in between (1, 5, 8, 12 of 12)."""
+    return sorted({1, n // 3 + 1, n - n // 3, n})
+
+
+def read_flight(name, val, n):
+    if not isinstance(val, dict) or set(val) - set(FLIGHT_DEFAULTS):
+        raise ValueError(f"{name}: [flight] keys are {', '.join(FLIGHT_DEFAULTS)}")
+    out = {}
+    for key, default in FLIGHT_DEFAULTS.items():
+        if key == "strings":
+            got = val.get("strings", default_strings(n))
+            if not (isinstance(got, list) and all(isinstance(i, int) and not isinstance(i, bool) and 1 <= i <= n for i in got)
+                    and len(set(got)) == len(got)):
+                raise ValueError(f"{name}: [flight] strings = {got!r}: a list of different module numbers, 1 to {n}")
+            out[key] = sorted(got)
+        else:
+            out[key] = value(name, f"[flight] {key}", val.get(key, default), default)
+    if min(out["box_m"]) <= 0 or out["release_s"] < 0 or out["start_s"] < 0 or out["hyper_s"] < RAMPS_S:
+        raise ValueError(f"{name}: [flight] needs box_m above 0, release_s and start_s 0 or more, hyper_s {RAMPS_S:g} or more")
+    return out
+
+
 def load(path):
     """The setup in `path` as a dict like DEFAULTS: ee1 / ee_n / rod are dicts, and sequence is a full path or "".
     Raises ValueError, naming the file, for anything it doesn't understand."""
@@ -156,11 +191,13 @@ def load(path):
             raise ValueError(f"{name}: [{key}]: the ends of a {n}-module chain are [ee1] and [ee{n}]")
         elif key == "rod":
             setup["rod"] = read_rod(name, val)
+        elif key == "flight":
+            setup["flight"] = read_flight(name, val, n)
         elif key in DEFAULTS and key not in TABLES:
             setup[key] = value(name, key, val, DEFAULTS[key])
         else:
             keys = ", ".join(k for k in DEFAULTS if k not in TABLES)
-            raise ValueError(f"{name}: unknown key {key!r}. Setup keys: {keys}, and tables [ee1], [ee{n}] and [rod]")
+            raise ValueError(f"{name}: unknown key {key!r}. Setup keys: {keys}, and tables [ee1], [ee{n}], [rod] and [flight]")
     for key, ok, rule in (("move_s", setup["move_s"] > 0, "more than 0"), ("hold_s", setup["hold_s"] >= 0, "0 or more"),
                           ("speed", setup["speed"] > 0, "more than 0"), ("playback", setup["playback"] > 0, "more than 0")):
         if not ok:
@@ -225,8 +262,9 @@ def save(path, setup, about=""):
         if e["type"] != "none":
             lines += ["", f"[{table}]", f"type = {toml(e['type'])}"]
             lines += [f"{k} = {toml(e[k])}" for k in SETTINGS[e["type"]] if not (k == "attach" and not e[k])]
-    if setup["rod"]:
-        lines += ["", "[rod]"] + [f"{k} = {toml(v)}" for k, v in setup["rod"].items()]
+    for table in ("rod", "flight"):
+        if setup[table]:
+            lines += ["", f"[{table}]"] + [f"{k} = {toml(v)}" for k, v in setup[table].items()]
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
 
@@ -234,7 +272,12 @@ def save(path, setup, about=""):
 def summary(setup):
     """What's in a setup besides its moves, in one line: the world, the chain, the end effectors, how it starts."""
     parts = [f"gravity {setup['gravity_m_s2']:g} m/s²" if setup["gravity_m_s2"] else "zero g"]
-    parts += [name for name, on in (("air drag", setup["air"]), ("net cage", setup["cage"])) if on]
+    parts += ["air drag"] if setup["air"] else []
+    if setup["flight"]:
+        f = setup["flight"]
+        parts.append(f"in the flight box ({' x '.join(f'{x:g}' for x in f['box_m'])} m)" +
+                     (f", held by strings at {', '.join(f'm{i}' for i in f['strings'])} until T+{f['release_s']:g} s"
+                      if f["strings"] else ", no strings"))
     if setup["rod"]:
         parts.append(f"a Ø{setup['rod']['diameter_mm']:g} mm rod" + (", starting wrapped round it" if "wrap_m" in setup["rod"] else ""))
     if (setup["preset"], setup["modules"], setup["slip_ring"]) != (DEFAULTS["preset"], DEFAULTS["modules"], False):
@@ -277,4 +320,4 @@ def single_axis_spin(spin):
 def build_args(setup):
     """make_chain.build()'s keyword arguments for this setup."""
     return dict(preset=setup["preset"], n=setup["modules"], slip_ring=setup["slip_ring"], gravity=setup["gravity_m_s2"],
-                air=setup["air"], cage=setup["cage"], ee1=setup["ee1"], ee_n=setup["ee_n"], rod=setup["rod"])
+                air=setup["air"], ee1=setup["ee1"], ee_n=setup["ee_n"], rod=setup["rod"], flight=setup["flight"] or None)

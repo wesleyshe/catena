@@ -1,6 +1,6 @@
 """Generate chain.xml: a free-floating, zero-gravity MuJoCo model of the self-folding chain.
 
-Usage:  .venv/bin/python make_chain.py [--preset original14|dyna7|feetech7] [-n 12] [--slip-ring] [--gravity 0] [-o chain.xml]
+Usage:  .venv/bin/python make_chain.py [--preset original14|feetech85|dyna7|feetech7] [-n 12] [--slip-ring] [--gravity 0] [-o chain.xml]
 
 The chain floats horizontally (along world +Y) above a floor, high enough that it can never reach the floor while
 folding in zero gravity. Turn gravity on (--gravity 9.81, or the viewer's Physics panel: 0 0 -9.81) to drop it.
@@ -12,6 +12,8 @@ Kinematics (measured from 'complete chain.3dm', see ../hardware/AGENTS.md). Per 
 Module 1 has no yaw servo and the last module has no pitch servo or arm, so N modules have 2N-2 joints.
 End effectors (optional, one module each): ee1 one pitch before m1, on module 1's yaw servo m1_yaw (2N-1 joints), and
 ee{N} one pitch past module N, rigid. Each is none, anchor, suction or thruster.
+The flight box (optional): the acrylic box on the plane with a net across it, and strings that hold the chain still in
+the middle until play.py lets them go at zero g.
 """
 import argparse
 import math
@@ -26,13 +28,17 @@ with open(SPEC_FILE, "rb") as fh:
 HW, SERVO, MASS, FLIGHT = SPEC["chain"], SPEC["servo"], SPEC["mass"], SPEC["flight"]
 WEIGHED = [g / 1000 for g in MASS.get("module_g", [])]  # whole modules (base + arm, kg), once they've been weighed
 
-# original14 is the real chain: its servo, pitch and masses come from the spec. The 7 cm presets are what-ifs.
+# original14 is the real chain: its servo, pitch and masses come from the spec. feetech85 is the flight build (STS3032,
+# Ø85 mm shells 0.5 mm apart, hardware/AGENTS.md), scaled from it until its CAD exists; the 7 cm presets are what-ifs.
 # Lengths of the meshes and primitives are for the 140 mm AX-12A module; other pitches scale them.
 PRESETS = {
     "original14": dict(servo=SERVO["model"], torque=SERVO["stall_torque_Nm"], speed=SERVO["no_load_speed_rad_s"],
                        pitch=HW["pitch_mm"] / 1000, timestep=0.0005, base_mass=MASS["base_g"] / 1000,
                        end_mass=MASS["end_g"] / 1000, arm_mass=MASS["arm_g"] / 1000, module_masses=WEIGHED,
                        shell_frac=0.33, armature=0.002, kv=1.0),
+    # scale 85.5/140: printed parts 91 g x 0.228 + two 20 g STS3032 = 61 g, arm 30 g x 0.228; the shell 15 g of that
+    "feetech85": dict(servo="STS3032", torque=0.44, speed=11.6, pitch=0.0855, timestep=0.0002,
+                      base_mass=0.061, end_mass=0.061, arm_mass=0.007, shell_frac=0.25, armature=0.0002, kv=0.25),
     "dyna7": dict(servo="XL330-M288", torque=0.52, speed=10.8, pitch=0.070, timestep=0.0001,
                   base_mass=0.047, end_mass=0.047, arm_mass=0.004, shell_frac=0.18, armature=0.0002, kv=0.25),
     "feetech7": dict(servo="STS3032", torque=0.44, speed=11.6, pitch=0.070, timestep=0.0001,
@@ -83,6 +89,13 @@ CUP_MARGIN = 0.001      # m: a cup's contact margin: it pulls (and pushes) from 
 FACINGS = {"up": (0, 0, 1), "down": (0, 0, -1), "+x": (1, 0, 0), "-x": (-1, 0, 0), "+y": (0, 1, 0), "-y": (0, -1, 0)}
 PLATE = (0.5, 0.005)    # m: half-size and half-thickness of the plate an end is attached to when it isn't the floor
 ROD_MM = 35             # default rod diameter (mm), about a handrail
+ACRYLIC_T = 0.006       # m: half-thickness of the flight box's walls and lid
+ACRYLIC_RGBA, NET_RGBA, STRING_RGBA = "0.70 0.85 1.00 0.10", "0.92 0.92 0.88 0.35", "1 1 1 1"
+STRING_SOLREF = "0.01 1"  # the strings: stretchy enough to settle, stiff enough to hold the chain within mm at 1.8 g
+STRING_FAN = 1.4        # each held module's strings run to the box's top and bottom edges (both sides) at this many
+                        # times its distance from the middle along the chain, so together they hold it every way
+NET_IMPEDANCE, NET_DAMPING = 0.05, 0.3  # the net: a weak contact (so gravity isn't cancelled) with a spring and a
+                                        # damping ratio; nets bounce, hence the low damping
 
 
 def v(*xs):
@@ -112,11 +125,35 @@ def leading_end(ends):
     return next((k for k, e in enumerate(ends) if e["type"] in ("anchor", "suction") and e["attach"]), None)
 
 
-def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=False, cage=False, ee1="none", ee_n="none",
-          rod=None):
-    """air: cabin air drag on the shells. cage: the net cage around the chain's start position (sizes in the spec).
-    ee1, ee_n: the end effector past m1 and past module N (ee12 on 12 modules): a type from EE_TYPES, or a dict like
-    EE_DEFAULTS. rod: {"from": [x, y, z], "to": [x, y, z], "diameter_mm": 35} for a fixed rod, or None."""
+def net_contact(sag_mm):
+    """The net's contact: the spring of a net that sags sag_mm under a module at 1 g, so a landing sinks in as far as it
+    would on that net. (At rest MuJoCo's soft contact sits a few mm deep, shallower than sag_mm.) MuJoCo scales a direct
+    stiffness and damping (negative solref) by the impedance, hence the (1 - d)."""
+    k = (1 - NET_IMPEDANCE) * 9.81 / (sag_mm / 1000)
+    return dict(solref=v(-k, -2 * NET_DAMPING * math.sqrt(k)), solimp=v(NET_IMPEDANCE, NET_IMPEDANCE, 0.001))
+
+
+def string_ends(i, n, pitch, box_m):
+    """Module i's four strings: where each ends on the box (on the top and bottom edges of its long sides) and the
+    direction to there from the module's centre, with the chain straight in the middle of the box."""
+    along, across, tall = box_m
+    y = (-(n - 1) / 2 + i - 1) * pitch
+    out = []
+    for x, z in ((-across / 2, tall), (across / 2, tall), (-across / 2, 0.0), (across / 2, 0.0)):
+        end = (x, max(-along / 2, min(along / 2, y * STRING_FAN)), z)
+        w = [end[0], end[1] - y, end[2] - tall / 2]
+        out.append((end, [c / math.sqrt(sum(c * c for c in w)) for c in w]))
+    return out
+
+
+def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=False, ee1="none", ee_n="none", rod=None,
+          flight=None):
+    """air: cabin air drag on the shells. ee1, ee_n: the end effector past m1 and past module N (ee12 on 12 modules): a
+    type from EE_TYPES, or a dict like EE_DEFAULTS. rod: {"from": [x, y, z], "to": [x, y, z], "diameter_mm": 35} for a
+    fixed rod, or None. flight: {"box_m": [along, across, height], "strings": [modules]} puts the chain in the flight
+    box (its floor at z = 0, centred, the net across it), straight in the middle, with two strings per listed module:
+    to the top and bottom edges of the box's long sides, fanned out along the chain (STRING_FAN), the bottom ones through
+    the net. play.py holds and releases them."""
     ends = [{**EE_DEFAULTS, **({"type": e} if isinstance(e, str) else e)} for e in (ee1, ee_n)]
     for e in ends:
         if e["type"] not in EE_TYPES:
@@ -129,6 +166,11 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
     damping = p["torque"] / p["speed"]           # servo slows to its no-load speed at stall torque
     span = n + sum(e["type"] != "none" for e in ends)  # modules end to end, counting end effectors
     height = span * p["pitch"] / 2 + 2 * R_SHELL * s  # float height: more than half the chain plus a shell
+    if flight:
+        along, across, tall = flight["box_m"]
+        if span * p["pitch"] > along or 2 * R_SHELL * s > min(across, tall):
+            raise ValueError(f"the chain ({span * p['pitch']:.2f} m) doesn't fit in a {along:g} x {across:g} x {tall:g} m box")
+        height = tall / 2  # held in the middle of the box
     roll = math.radians(CHAIN_ROLL)
     weighed = p.get("module_masses") or []
     if weighed and len(weighed) != n:
@@ -145,7 +187,8 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
     if rod and "wrap_m" in rod and not spot:  # wrapped around the rod: look at the coil
         a, b = rod["from"], rod["to"]
         center = v(*(a[k] + (b[k] - a[k]) * (rod["wrap_m"] + 0.3) / math.dist(a, b) for k in range(3)))
-    ET.SubElement(root, "statistic", center=center, extent=v(span * p["pitch"]))  # viewer frames the whole chain
+    extent = max(flight["box_m"]) if flight else span * p["pitch"]  # the viewer frames the whole chain, or the box
+    ET.SubElement(root, "statistic", center=center, extent=v(extent))
     vis = ET.SubElement(root, "visual")
     ET.SubElement(vis, "global", offwidth="1600", offheight="1200", azimuth="0", elevation="-25")  # viewer starts side-on
     ET.SubElement(vis, "headlight", ambient="0.4 0.4 0.4", diffuse="0.6 0.6 0.6")
@@ -174,15 +217,16 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
     ET.SubElement(world, "light", directional="true", pos="0 0 3", dir="0 0 -1", diffuse="0.5 0.5 0.5")
     ET.SubElement(world, "geom", name="floor", type="plane", size="0 0 0.05", material="grid", condim="6",  # 20 cm squares
                   friction=v(1, 0.005, ROLLING_RESISTANCE * R_SHELL * s))
-    if cage:  # six thin walls around the chain's start position; a net gives more than a wall, hence the soft solref
-        half, t = [x / 2000 for x in (FLIGHT["cage_mm"][1], FLIGHT["cage_mm"][0], FLIGHT["cage_mm"][2])], 0.005
-        for k in range(3):
-            for sign in (-1, 1):
-                pos, size = [0, 0, height], list(half)
-                pos[k] += sign * (half[k] + t)
-                size[k] = t
-                ET.SubElement(world, "geom", name=f"cage{k}{'-+'[sign > 0]}", type="box", pos=v(*pos), size=v(*size),
-                              rgba="0.5 0.6 0.7 0.12", solref="0.05 1")
+    if flight:  # acrylic walls and lid; the net is a soft block from the box floor up to its height, so a chain that
+        # lands hard sinks into it and, if it gives all the way, meets the box floor (the plane's floor)
+        x, y, z, t = across / 2, along / 2, tall, ACRYLIC_T
+        for name, pos, size in (("box_lid", (0, 0, z + t), (x, y, t)), ("box_wall_-x", (-x - t, 0, z / 2), (t, y, z / 2)),
+                                ("box_wall_+x", (x + t, 0, z / 2), (t, y, z / 2)), ("box_wall_-y", (0, -y - t, z / 2), (x, t, z / 2)),
+                                ("box_wall_+y", (0, y + t, z / 2), (x, t, z / 2))):
+            ET.SubElement(world, "geom", name=name, type="box", pos=v(*pos), size=v(*size), rgba=ACRYLIC_RGBA)
+        net_z = FLIGHT["net_height_mm"] / 1000
+        ET.SubElement(world, "geom", name="net", type="box", pos=v(0, 0, net_z / 2), size=v(x, y, net_z / 2), rgba=NET_RGBA,
+                      **net_contact(FLIGHT["net_sag_mm"]))
     if spot and "at" in ends[lead]["attach"] and not (ends[lead]["attach"]["facing"] == "up" and spot[0][2] == 0):
         point, normal = spot  # a wall, ceiling or table to be attached to (the floor is already there)
         ET.SubElement(world, "geom", name="plate", type="box", size=v(PLATE[0], PLATE[0], PLATE[1]), zaxis=v(*normal),
@@ -213,6 +257,11 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
                                      "size": v(*(h * s for h in CORE_BOX[1])), "mass": v(base_mass * (1 - p["shell_frac"]))})
         if i == imu:
             ET.SubElement(body, "site", name="imu", size=v(0.01 * s))  # at the module centre, axes = the module frame
+        if flight and i in flight["strings"]:  # where its strings tie on: the shell, facing each string's far end
+            for k, (end, w) in enumerate(string_ends(i, n, p["pitch"], flight["box_m"])):
+                axes = ((math.sin(roll), 0, math.cos(roll)), (math.cos(roll), 0, -math.sin(roll)), (0, 1, 0))  # m1's
+                ET.SubElement(body, "site", name=f"m{i}_string{k}", size=v(0.004 * s),
+                              pos=v(*(R_SHELL * s * sum(a * b for a, b in zip(axis, w)) for axis in axes)))
         if i == n:
             break
         arm = ET.SubElement(body, "body", name=f"m{i}_arm")
@@ -275,10 +324,20 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
     for i in range(1, n):
         ET.SubElement(contact, "exclude", body1=f"m{i}", body2=f"m{i + 1}")
     for name, e in (("ee1", ends[0]), (f"ee{n}", ends[1])):
-        if e["type"] == "suction":  # a cup touches only fixed things: the floor, plates, the rod, the cage
+        if e["type"] == "suction":  # a cup touches only fixed things: the floor, plates, the rod, the flight box
             for g in world.findall("geom"):
                 ET.SubElement(contact, "pair", geom1=f"{name}_cup", geom2=g.get("name"), condim="3", margin=v(CUP_MARGIN),
                               friction=v(e["friction"], e["friction"], 0.005, 0.0001, 0.0001))
+
+    if flight and flight["strings"]:  # play.py sets each string's length (holding) or makes it endless (let go)
+        tendon = ET.SubElement(root, "tendon")
+        for i in flight["strings"]:
+            for k, (end, _) in enumerate(string_ends(i, n, p["pitch"], flight["box_m"])):
+                ET.SubElement(world, "site", name=f"m{i}_string{k}_end", pos=v(*end), size=v(0.005))
+                string = ET.SubElement(tendon, "spatial", name=f"m{i}_string{k}", limited="true", range="0 100",
+                                       width="0.0015", rgba=STRING_RGBA, solreflimit=STRING_SOLREF)
+                ET.SubElement(string, "site", site=f"m{i}_string{k}_end")
+                ET.SubElement(string, "site", site=f"m{i}_string{k}")
 
     sensor = ET.SubElement(root, "sensor")
     ET.SubElement(sensor, "subtreecom", name="com", body="m1")
@@ -298,12 +357,13 @@ if __name__ == "__main__":
     ap.add_argument("--slip-ring", action="store_true", help="remove the yaw joint limits")
     ap.add_argument("--gravity", type=float, default=0.0, help="m/s^2 downward, towards the floor (Earth: 9.81)")
     ap.add_argument("--air", action="store_true", help="cabin air drag on the shells")
-    ap.add_argument("--cage", action="store_true", help="the net cage around the chain (size in hardware/spec.toml)")
+    ap.add_argument("--box", action="store_true", help="in the flight box, size in hardware/spec.toml (no strings)")
     ap.add_argument("-o", "--out", default=os.path.join(HERE, "chain.xml"))
     a = ap.parse_args()
     assert a.modules >= 2, "need at least 2 modules"
     with open(a.out, "w") as f:
-        f.write(build(a.preset, a.modules, a.slip_ring, a.gravity, a.air, a.cage) + "\n")
+        box = dict(box_m=[x / 1000 for x in FLIGHT["box_mm"]], strings=[]) if a.box else None
+        f.write(build(a.preset, a.modules, a.slip_ring, a.gravity, a.air, flight=box) + "\n")
     p = PRESETS[a.preset]
     print(f"wrote {a.out}: {a.modules} x {a.preset} ({p['servo']}, {p['torque']} N·m, {p['pitch'] * 100:g} cm pitch)"
           f"{', slip ring' if a.slip_ring else ''}{f', gravity {a.gravity:g} m/s^2' if a.gravity else ''}")

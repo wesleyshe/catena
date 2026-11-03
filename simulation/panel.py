@@ -14,7 +14,7 @@ from tkinter import filedialog, simpledialog, ttk
 
 import setup_file
 from make_chain import EE_DEFAULTS, EE_TYPES, FACINGS, N_MODULES, PRESETS
-from setup_file import DEMOS, SEQ_DIR, SETUP_DIR
+from setup_file import DEMOS, FLIGHT_DEFAULTS, SEQ_DIR, SETUP_DIR, default_strings
 from viewer_link import ViewerLink
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -137,6 +137,7 @@ class Panel:
         self.loaded = setup_file.new()  # the last setup loaded: it keeps whatever has no field here
         self.played = False  # a take has run since the viewer opened or Reset pose: the next Play starts from the start
         self.autoplay = False  # a demo button was clicked: play as soon as the viewer connects
+        self.loaded_flight = False  # the open viewer has the flight box (Fly works)
 
         self.preset, self.modules, self.slip = tk.StringVar(value="original14"), tk.IntVar(value=N_MODULES), tk.BooleanVar()
         self.seq, self.move, self.hold = tk.StringVar(), tk.DoubleVar(value=3.0), tk.DoubleVar(value=1.0)
@@ -145,7 +146,11 @@ class Panel:
         self.gravity, self.g = tk.BooleanVar(), tk.DoubleVar(value=9.81)
         self.logging, self.status = tk.BooleanVar(), tk.StringVar(value="starting the viewer...")
         self.spin_rate, self.spin_axis = tk.DoubleVar(value=20.0), tk.StringVar(value=SPIN_AXES[0])
-        self.air, self.cage, self.rod, self.rod_mm = tk.BooleanVar(), tk.BooleanVar(), tk.BooleanVar(), tk.DoubleVar(value=35.0)
+        self.air, self.rod, self.rod_mm = tk.BooleanVar(), tk.BooleanVar(), tk.DoubleVar(value=35.0)
+        self.box_on, self.box_m = tk.BooleanVar(), [tk.DoubleVar(value=x) for x in FLIGHT_DEFAULTS["box_m"]]
+        self.strings_text, self.jitter = tk.StringVar(value=" ".join(map(str, default_strings(N_MODULES)))), tk.BooleanVar(value=True)
+        self.release, self.start = tk.DoubleVar(value=FLIGHT_DEFAULTS["release_s"]), tk.DoubleVar(value=FLIGHT_DEFAULTS["start_s"])
+        self.hyper = tk.DoubleVar(value=FLIGHT_DEFAULTS["hyper_s"])
         self.setup_name, self.about, self.about_text = tk.StringVar(), tk.StringVar(), ""
         self.seq_about = tk.StringVar()  # what the picked sequence does, and which setups it was written for
         self.spin_at_play = tk.BooleanVar()
@@ -182,7 +187,6 @@ class Panel:
         spinbox(f, self.modules, 2, 40, 1, 4).grid(row=0, column=3)
         ttk.Checkbutton(f, text="Slip ring", variable=self.slip).grid(row=0, column=4, padx=8, sticky="w")
         ttk.Checkbutton(f, text="Air drag (cabin air)", variable=self.air).grid(row=1, column=0, columnspan=2, sticky="w")
-        ttk.Checkbutton(f, text="Net cage (size in spec.toml)", variable=self.cage).grid(row=1, column=2, columnspan=3, sticky="w")
         ttk.Checkbutton(f, text="Rod to grab (where: in the setup), Ø mm", variable=self.rod).grid(row=2, column=0, columnspan=4, sticky="w")
         spinbox(f, self.rod_mm, 10, 100, 5, 4).grid(row=2, column=4, sticky="w")
         f.columnconfigure(4, weight=1)
@@ -242,6 +246,32 @@ class Panel:
         ttk.Checkbutton(f, text="Also spin like this when Play starts (the spin at release)",
                         variable=self.spin_at_play).grid(row=1, column=0, columnspan=5, sticky="w", pady=(4, 0))
 
+        f = frame("Flight: the box on the plane, and one parabola (Novespace A310)", right)
+        box = ttk.Frame(f)
+        box.grid(row=0, column=0, sticky="w")
+        ttk.Checkbutton(box, text="In the flight box, m:", variable=self.box_on).pack(side="left")
+        for label, var in zip(("along", "across", "high"), self.box_m):
+            ttk.Label(box, text=label).pack(side="left", padx=(6, 2))
+            spinbox(box, var, 0.3, 5, 0.1, 4).pack(side="left")
+        held = ttk.Frame(f)
+        held.grid(row=1, column=0, sticky="w", pady=(4, 0))
+        ttk.Label(held, text="Strings hold modules").pack(side="left")
+        ttk.Entry(held, textvariable=self.strings_text, width=11).pack(side="left", padx=4)
+        ttk.Label(held, text="1.8 g phases, s").pack(side="left", padx=(6, 2))
+        spinbox(held, self.hyper, 7, 60, 1, 4).pack(side="left")
+        ttk.Checkbutton(held, text="g-jitter", variable=self.jitter).pack(side="left", padx=(8, 0))
+        times = ttk.Frame(f)
+        times.grid(row=2, column=0, sticky="w", pady=(4, 0))
+        ttk.Label(times, text="Let go at T+").pack(side="left")
+        spinbox(times, self.release, 0, 20, 0.5, 4).pack(side="left")
+        ttk.Label(times, text="s, sequence at T+").pack(side="left", padx=(4, 0))
+        spinbox(times, self.start, 0, 20, 0.5, 4).pack(side="left")
+        ttk.Label(times, text="s (T+0: zero g begins)").pack(side="left", padx=(4, 0))
+        ttk.Button(f, text="✈  Fly a parabola", command=self.fly).grid(row=3, column=0, sticky="we", pady=(6, 0))
+        ttk.Label(f, text="The box and the strings need Rebuild; the rest applies at Fly. Fly runs 1 g, the 1.8 g pull-up "
+                          "(held by the strings), zero g, the pull-out onto the net.", wraplength=470,
+                  foreground="gray40").grid(row=4, column=0, sticky="w")
+
         f = frame("Record", right)
         ttk.Checkbutton(f, text="Log to logs/", variable=self.logging, command=lambda: self.send("log", on=self.logging.get())).grid(row=0, column=0)
         ttk.Button(f, text="Screenshot", command=lambda: self.send("screenshot")).grid(row=0, column=1, padx=6)
@@ -294,10 +324,20 @@ class Panel:
         s.update(sequence=os.path.join(SEQ_DIR, seq) if seq else "", move_s=float(self.move.get()),
                  hold_s=float(self.hold.get()), speed=float(self.speed.get()), playback=float(self.playback.get()),
                  gravity_m_s2=float(self.g.get()) if self.gravity.get() else 0.0, spin_deg_s=spin, air=self.air.get(),
-                 cage=self.cage.get(), preset=self.preset.get(), modules=int(self.modules.get()), slip_ring=self.slip.get(),
+                 preset=self.preset.get(), modules=int(self.modules.get()), slip_ring=self.slip.get(),
                  rod={**(s["rod"] or ROD), "diameter_mm": float(self.rod_mm.get())} if self.rod.get() else {},
-                 ee1=self.ends[0].get(s["ee1"]), ee_n=self.ends[1].get(s["ee_n"]))
+                 ee1=self.ends[0].get(s["ee1"]), ee_n=self.ends[1].get(s["ee_n"]),
+                 flight={**FLIGHT_DEFAULTS, **s["flight"], **self.flight_fields()} if self.box_on.get() else {})
         return s
+
+    def flight_fields(self):
+        """The Flight box's fields, as a setup's [flight] entries (raises ValueError on a string list it can't read)."""
+        try:
+            strings = sorted(int(x) for x in self.strings_text.get().replace(",", " ").split())
+        except ValueError:
+            raise ValueError(f"Strings hold modules: {self.strings_text.get()!r}: module numbers, e.g. 1 5 8 12") from None
+        return dict(box_m=[float(v.get()) for v in self.box_m], strings=strings, release_s=float(self.release.get()),
+                    start_s=float(self.start.get()), hyper_s=float(self.hyper.get()), jitter=self.jitter.get())
 
     def demo(self, name):
         """One of the six demos: load its setup, and play it once the viewer is up."""
@@ -316,7 +356,12 @@ class Panel:
             return False
         self.loaded = s
         self.preset.set(s["preset"]), self.modules.set(s["modules"]), self.slip.set(s["slip_ring"])
-        self.air.set(s["air"]), self.cage.set(s["cage"]), self.rod.set(bool(s["rod"]))
+        self.air.set(s["air"]), self.rod.set(bool(s["rod"])), self.box_on.set(bool(s["flight"]))
+        f = {**FLIGHT_DEFAULTS, "strings": default_strings(s["modules"]), **s["flight"]}
+        for var, x in zip(self.box_m, f["box_m"]):
+            var.set(x)
+        self.strings_text.set(" ".join(map(str, f["strings"]))), self.jitter.set(f["jitter"])
+        self.release.set(f["release_s"]), self.start.set(f["start_s"]), self.hyper.set(f["hyper_s"])
         if s["rod"]:
             self.rod_mm.set(s["rod"]["diameter_mm"])
         self.ends[0].set(s["ee1"]), self.ends[1].set(s["ee_n"])
@@ -364,12 +409,13 @@ class Panel:
         """Write the current settings to panel_setup.toml and (re)start the viewer from it."""
         try:
             setup_file.save(PANEL_SETUP, self.current(), "What the control window last opened the viewer with.")
-            setup_file.load(PANEL_SETUP)
+            built = setup_file.load(PANEL_SETUP)
         except (tk.TclError, ValueError, OSError) as e:
             self.about.set(f"Can't open the viewer with these settings: {e}")
             return False
         self.logging.set(False)
         self.played = False
+        self.loaded_flight = bool(built["flight"])  # what the viewer was built with
         self.link.open(PANEL_SETUP)
         self.status.set("starting the viewer...")
         return True
@@ -398,6 +444,30 @@ class Panel:
         if self.spin_at_play.get():
             self.send("spin", rate=self.spin_rate.get(), axis=self.spin_axis.get()[-2])
         self.send("play", file=os.path.join(SEQ_DIR, path), move=self.move.get(), hold=self.hold.get())  # abs path stays
+
+    def fly(self):
+        """Fly one parabola: a fresh start (held by the strings), the countdown, then the viewer runs it all."""
+        if not self.loaded_flight:
+            self.status.set("the viewer has no flight box: tick 'In the flight box', then 'Rebuild + open viewer'")
+            return
+        try:
+            f = self.flight_fields()
+        except (ValueError, tk.TclError) as e:
+            self.status.set(str(e))
+            return
+        self.send("reset")
+        self.played = True
+        self.send("speed", value=self.speed.get())
+        self.send_playback()
+        try:
+            count = self.countdown.get()
+        except tk.TclError:
+            count = COUNTDOWN_S
+        if count > 0:
+            self.send("countdown", s=count)
+        seq = self.seq.get()
+        self.send("fly", file=os.path.join(SEQ_DIR, seq) if seq else "", move=self.move.get(), hold=self.hold.get(),
+                  release=f["release_s"], start=f["start_s"], hyper=f["hyper_s"], jitter=f["jitter"])
 
     def reset_pose(self):
         self.send("reset")

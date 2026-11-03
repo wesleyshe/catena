@@ -27,9 +27,15 @@ arm_g = 30                    # yoke + hub
 [imu]
 module = 1                    # which module carries the IMU (placeholder until decided); the sim logs its attitude
 
-[flight]                      # the environment on the parabolic flight
-parabola_s = 20               # microgravity per parabola (check the provider's Payload User Guide)
-cage_mm = [2000, 1000, 1000]  # inside of the net cage: along the chain, across, height (placeholder until designed)
-cabin_air_kg_m3 = 1.0         # cabin air density (pressurised cabin, ~0.8 bar); used when air drag is on
+[flight]                      # the parabolic flight: Novespace A310 ZERO-G (docs/ITF-2025-01-Interfaces-EN.pdf, "ITF")
+parabola_s = 22               # microgravity per parabola (ITF §3.6, §3.10)
+hypergravity_g = 1.8          # the pull-up before it and the pull-out after it (ITF §3.10)
+hypergravity_s = 23           # each, from leaving 1 g to reaching zero g (ITF §3.10: "approximately 23 seconds each")
+jitter_g = [0.015, 0.015, 0.02]  # ± leftover g in zero g, normally: across the cabin, along it, vertical (ITF §3.10)
+box_mm = [2500, 1300, 1900]   # inside of the experiment box: along the cabin, across, height. The largest that fits
+                              # one side of the aisle (experiments/flight_space.md); placeholder until designed
+net_height_mm = 200           # the net across the box, above the box floor (placeholder)
+net_sag_mm = 20               # how far the net gives under the chain at 1 g (placeholder until the net is chosen)
+cabin_air_kg_m3 = 1.0         # cabin air density (cabin at 825 hPa, ITF §3.2); used when air drag is on
 
 # Software: add servo IDs, turning directions and zero offsets here once they're measured on the chain.

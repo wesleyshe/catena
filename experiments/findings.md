@@ -126,7 +126,7 @@ An outside reviewer read the code cold, and separate sim runs tested flight cond
 - **Stay within the servos.** Keep sequences slower than about 3 s per loop and inside one parabola (`--speed`, and the
   `sequence` readout flags anything longer).
 - **The cabin:**
-  - At 0.01 g of leftover pull, the chain moves 0.9 m in 4.3 s. It needs the net cage, and every touch spoils the
+  - At 0.01 g of leftover pull, the chain moves 0.9 m in 4.3 s. It needs the flight box, and every touch spoils the
     result.
   - The plane rotates about 90° over a parabola, so video needs the aircraft's attitude log.
   - At 1.8 g, holding just two modules out sideways takes about 1.7 N·m, above the 1.5 N·m stall torque. The chain must
@@ -192,3 +192,26 @@ servos near stall (1.3 of 1.5 N·m) for as long as it grips, which a real AX-12A
 pole: two 4-module coils take turns squeezing while the middle stretches (from 315 to 499 mm along the pole), ~13 cm per
 step; a quarter of the designed stretch is lost to slip.
 
+## The flight box (2026-11-03)
+`../simulation/setups/1d_flight_turn.toml`, flown with `play.py --fly` (or **Fly a parabola**): the 8.5 cm flight build
+(`feetech85`, scaled from the AX-12A chain: Ø84.9 mm shells 0.6 mm apart, STS3032, 0.81 kg) in the 2.5 × 1.3 × 1.9 m
+box from `flight_space.md`, through one A310 parabola (1.8 g, 22 s of zero g with the ITF's leftover g, 1.8 g). Four
+strings each hold m1, m5, m8 and m12 still in the middle, running to the box's top and bottom edges; they let go at
+T+1 s (T = 0 when zero g begins), and the turn sequence (`reorient_loop.csv`, 20.25 s) starts at T+1.5 s.
+
+- **Holding through 1.8 g is easy for the servos.** The chain moves 0.36 mm at most and the strings pull up to 3.5 N,
+  but the servos carry 0.01 N·m of their 0.44: with the pitch axes vertical, gravity can't bend any joint, so the
+  hinges take the load.
+- **The strings must be angled.** With strings only straight up and down (the first try), the leftover g swung the
+  chain about 10 mm sideways and it left the strings at 17 mm/s. Fanned out to the box's edges they hold it every way,
+  and the release is clean: 2 s after letting go, with no jitter, it drifts 0.1 mm/s and spins 0.000°/s.
+- **The turn survives the real cabin.** With the leftover g, the 30° turn comes out at −30.1° (−30.3° in perfect zero
+  g). The chain wanders 0.66 m from where it was let go and comes within ~220 mm of the box, without touching it. That's one jitter
+  pattern (seed 1); other seeds will touch sooner or later.
+- **Size doesn't change the turn.** The 8.5 cm chain turns the same −30.3° as the 14 cm one: the turn follows the shape
+  and where the mass sits, not the size.
+- **The landing.** At the pull-out it lands on the net at 2–3 m/s, depending on where it has drifted, and sinks
+  48–72 mm of the net's 200 mm. Both net numbers are placeholders (20 mm of sag at 1 g, 200 mm above the box floor).
+- **Not modelled yet:** strings letting go at slightly different times, the plane's own rotation (~3–6°/s, which the
+  chain keeps when it's let go), and a real net's cloth. The sim's net matches a net's spring for the landing but
+  sits only a few mm deep at rest.

@@ -54,7 +54,8 @@ add a row to the second table. The control window lists every `.csv` in this fol
   profile. The defaults are `move` 3 s and `hold` 1 s, set by `--move` and `--hold` or in the control window. Targets
   update every 10 ms, like commands on a servo bus.
 - **Speed:** `--speed 4` (or **Speed x** in the control window) plays the whole sequence 4× faster.
-- **Flight sequences** must fit one parabola, about 20 s (`parabola_s` in `../hardware/spec.toml`). The sim flags
+- **Flight sequences** must fit one parabola, about 22 s (`parabola_s` in `../hardware/spec.toml`), less the time
+  before the chain is let go (`release_s` in a setup's `[flight]`). The sim flags
   longer ones. Faster than about 3 s per loop the servos can't keep up, and the result changes; see
   `../experiments/findings.md`.
 

@@ -3,6 +3,33 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- **The flight box and a whole parabola** (Wesley: an acrylic box with a net beneath, the chain held still in the middle
+  by "a few string tethers... releasing upon we hit zero g"):
+  - `make_chain.build(flight=)`: the box (stiff walls and lid) with its floor at z = 0, the net as a soft block from the
+    floor up to its height, and four strings per held module (tendons with a length limit) to the top and bottom edges
+    of the box's long sides, fanned along the chain. Strings straight up and down were tried first: the leftover g
+    swung the chain ~10 mm sideways and it left at 17 mm/s.
+  - The net's contact: impedance 0.05 with a direct spring and damping ratio 0.3. A timeconst solref settled a resting
+    shell 0.4 mm deep instead of 20 mm, because MuJoCo's soft contact cancels most of gravity; MuJoCo also divides a
+    direct stiffness by the impedance. Landings now sink as deep as on a 20 mm-sag net; at rest it's ~3 mm deep.
+  - `play.Parabola` (the ITF's 1 g / 1.8 g / 22 s zero g / 1.8 g, with jitter waves timed from T = 0 so every take is
+    the same) and `Session.fly`: hold, let go at T+release_s, start the sequence at T+start_s, track the gap to the box,
+    the first touch, the landing. Readouts, a big g / T banner in the viewer, 5 log columns, `play.py --fly`, the
+    `fly` command, and the control window's **Flight** box with **Fly a parabola**.
+  - Setups gain a `[flight]` table; the old `cage` key, `--cage` and the panel's Net cage tick box are gone (the box
+    replaces the cage). New setup `1d_flight_turn`.
+- **Preset `feetech85`:** the flight build (Wesley: 8.5 cm modules, 0.5 mm apart), the AX-12A module scaled by
+  85.5/140 (Ø84.9 mm shells), STS3032, masses scaled (61 g base, 7 g arm), timestep 0.2 ms.
+- Results in `../experiments/findings.md`, "The flight box"; the cabin limits in `../experiments/flight_space.md`.
+- **Checked:** `verify.py` ALL CHECKS PASSED, now 15 sections (~100 s): section 7's cage check is now the box, and 15
+  flies `1d_flight_turn` (held within 0.36 mm at 1.8 g, a clean release, −30.1° with the jitter, lands at 3.2 m/s without
+  reaching the floor). `feetech85` passes the momentum (0.0004 mm) and floor-drop checks. With no box, `build()` is
+  byte-identical to before for all presets, and the logs of `fold_sequence.csv` and all 19 older setups are
+  byte-identical. The control window by script (viewer stubbed): Load 1d hands the viewer exactly its setup, Fly sends
+  reset, speed, playback, countdown, fly; Fly without a box and a bad string list are refused. Offscreen renders of
+  the box at 1.8 g, in zero g and after landing looked right. Not run in the live viewer.
+
+## 2026-11-03 · Wesley (Claude Code)
 - **Cleanup after the demo week** (Wesley: "make sure that someone who is trying to use the engine could use it
   easily"):
   - **Nothing had been taken out of the control window.** Every control from before the demos is still there. The only

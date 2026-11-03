@@ -12,7 +12,7 @@ History is in `LOG.md`.
 
 ## Status (2026-11-03)
 - **Internally consistent, not yet checked against the real chain.**
-  - `verify.py` passes all 14 sections.
+  - `verify.py` passes all 15 sections.
   - Predictions hold for the numbers in `../hardware/spec.toml`, and some of those are placeholders.
   - An outside review found the core sound but not yet a flight prediction; see "Is the sim good enough for flight?"
     in `../experiments/findings.md`.
@@ -22,16 +22,21 @@ History is in `LOG.md`.
   Anchors, suction cups, thrusters, placement, the rod, grip and nozzle columns, the stall sweep, Playback x, the
   countdown. 19 setups make the six class simulations (1a–1c, 2a–2c, 3a ×4, 4a–4b, 5a–5b, 6a); results in
   `../experiments/findings.md`. The control window's six demo buttons play one each.
+- **The flight box and a whole parabola** (2026-11-03): a setup's `[flight]` puts the chain in the acrylic box sized
+  from the A310 cabin (`../experiments/flight_space.md`), held by strings that let go at zero g; Fly a parabola /
+  `--fly` runs the ITF's g profile. The 8.5 cm flight build is preset `feetech85`, scaled from the AX-12A chain (the
+  spec stays on the AX-12A chain until the STS3032 CAD exists). Setup `1d_flight_turn`.
 - **Owner: Wesley.** Wesley double-clicks `Chain Sim.command` rather than using the shell, and uses the sim to answer
   the professor's physics questions (`../experiments/findings.md`).
 
 ## Setup and commands (from this folder)
 ```
 uv venv --python 3.11 .venv && uv pip install --python .venv/bin/python -r requirements.txt   # once
-.venv/bin/python verify.py                                   # all checks + renders/, ~60 s, opens no windows
-.venv/bin/python make_chain.py [--preset dyna7] [-n 12] [--slip-ring] [--gravity 9.81]   # writes chain.xml
+.venv/bin/python verify.py                                   # all checks + renders/, ~100 s, opens no windows
+.venv/bin/python make_chain.py [--preset feetech85] [-n 12] [--slip-ring] [--gravity 9.81] [--box]   # writes chain.xml
 .venv/bin/python play.py --seq ../sequences/fold_sequence.csv --headless                 # logs/run_log.csv
-.venv/bin/python play.py --seq ../sequences/reorient_loop.csv --headless --speed 4 --spin 0 0 1 --air --cage  # flight-like
+.venv/bin/python play.py --seq ../sequences/reorient_loop.csv --headless --speed 4 --spin 0 0 1 --air   # flight-like
+.venv/bin/python play.py --setup setups/1d_flight_turn.toml --headless --fly   # one whole parabola in the flight box
 .venv/bin/python play.py --setup setups/1a_turn.toml --headless   # a whole run from a setup file; flags given win
 .venv/bin/mjpython play.py                                   # viewer only (macOS needs mjpython)
 .venv/bin/python panel.py                                    # control window + viewer (= double-click Chain Sim.command)
@@ -96,7 +101,8 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
     - m11_pitch 90° from rest → turned −2.2°.
   - **Log columns:** `time, com_x/y/z, L_x/y/z, L_norm, max_torque, contacts, imu_qw/qx/qy/qz, imu_wx/wy/wz`.
     Software and experiments read these, so add columns at the end rather than reordering. `max_torque` is over joint
-    servos only.
+    servos only. After the end-effector columns, a model with the flight box adds `g_x, g_y, g_z` (the g applied, in g),
+    `box_gap_mm` and `string_N` (`Session.log_names`).
   - For a pure refactor, the headless run (`play.py --seq ../sequences/fold_sequence.csv --headless --log FILE`) must
     give a byte-identical log before and after.
 - **Names in the model** (`make_chain.build`):
@@ -122,11 +128,18 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
 - **`play.py` API used elsewhere:**
   - `verify.py` uses `Session` (`advance`, `command`, `readouts`, `spin`, `spin_rate`, `imu_turn`, `inertia`, `turned`,
     `d`), plus `read_sequence` and `target`.
-  - `make_chain.build(preset, n, slip_ring, gravity, air, cage, ee1, ee_n, rod)`. `air` and `cage` take their numbers
-    from `[flight]` in the spec; `ee1`/`ee_n` are a type from `EE_TYPES` or a dict like `EE_DEFAULTS`.
+  - `make_chain.build(preset, n, slip_ring, gravity, air, ee1, ee_n, rod, flight)`. `air` takes its density from
+    `[flight]` in the spec; `ee1`/`ee_n` are a type from `EE_TYPES` or a dict like `EE_DEFAULTS`; `flight` is a
+    setup's `[flight]` (`box_m`, `strings`) or None. With it: world geoms `box_lid`, `box_wall_±x/±y`, `net`; sites
+    `m{i}_string{k}` and `m{i}_string{k}_end`; tendons `m{i}_string{k}` (k = 0–3), limited, range set by `play.py`.
+    With None, `build()` is byte-identical to before the box existed.
   - `Session(model, data, log_path, setup)`: with a setup, `reset()` (Reset pose) goes to its start pose. `Session.ends`
     maps `ee1`/`ee{N}` to `End` (kind, armed, clamped, held, load, torque, peak, pops); `grip(end, on)`,
     `nozzle(end, k, throttle)`. Per fitted end the log appends `ee{k}_held, ee{k}_load_N, ee{k}_torque_Nm, ee{k}_thrust_N`.
+  - Flight: `Session.fly(path, move, hold, release_s, start_s, hyper_s, jitter)` (call `reset()` first; missing values
+    come from the setup's `[flight]`), `fly_t` (None unless flying), `parabola` (`play.Parabola.at(t)` → phase, g
+    vector, T), `released`, `touch`, `gap_min`, `landing`, `dip`, `flight_result()`; `strings_on(on)`, `tension()`,
+    `box_gap()`. `reset()` and Stop let the strings go and put gravity back to the setup's.
   - `Session.mid` is module n//2, which is m6 of 12. `turned` tracks its heading. `Session.nj` is the joint-servo count:
     sequences write `ctrl[:nj]`. `Session.summary()` is the headless run's last line.
 - **Panel ↔ viewer protocol:**
@@ -139,13 +152,14 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
     play {file, move, hold}, pause, resume, restart, stop, speed {value}, playback {value}, grip {end, on},
     nozzle {end, n, on},
     gravity {g}, straighten, reset, log {on}, screenshot, physics {run}, spin {rate, axis: "x" | "y" | "z" | "all"},
-    countdown {s}, quit.
+    countdown {s}, fly {file, move, hold, release, start, hyper, jitter}, quit. Fly a parabola sends reset, speed,
+    playback, countdown, fly.
   - Readouts are JSON lines of display strings, sent 5 times a second. The panel shows them all and reads
     `info["physics"]` to label its pause button.
 - **Keep `make_chain.py`, `setup_file.py` and `panel.py` stdlib-only.** `panel.py` imports only the stdlib plus those
   two, which is what lets it run under the throwaway-bundle screenshot trick (see Gotchas).
 - **Setup files:** keys are `setup_file.DEFAULTS`, plus tables `[ee1]`, `[ee{modules}]` (type + that type's
-  `SETTINGS`) and `[rod]`. A relative `sequence` is relative to `../sequences/`. New keys go in `DEFAULTS` (and
+  `SETTINGS`), `[rod]` and `[flight]` (`FLIGHT_DEFAULTS`; strings default to `default_strings(modules)`). A relative `sequence` is relative to `../sequences/`. New keys go in `DEFAULTS` (and
   `build_args` if `build()` needs them); `load` refuses anything else. `[rod] wrap_m` starts the bare chain wrapped
   around the rod (`Session.wrap`): its sequence's first row must be a coil (every pitch the same, every yaw the same).
   The panel keeps the loaded setup and lays its fields over it, so keys without a field survive Save as. `save` writes
@@ -166,26 +180,22 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
 - **`README.md` is the user guide.** Keep its commands and control-window tables in sync with the code.
 
 ## Open issues / next steps
-1. **Key-reset report (unresolved).**
-   - On 2026-10-17 Wesley reported that Fn + Left/Right "reset everything". Home (straighten) was unbound on 2026-10-18;
-     End was never bound.
-   - **Hypothesis:** our Space (physics pause) also pauses MuJoCo's viewer, whose Left/Right then step through its
-     history, which looks like a reset.
-   - **To reproduce:** in your own viewer (`.venv/bin/mjpython play.py --log ""`), press Space, then Right, and watch
-     `time`.
-   - **Likely fix:** move pause off Space and/or the yaw nudges off Left/Right; ask Wesley which keys.
+1. **Key-reset report (unresolved).** On 2026-10-17 Wesley reported that Fn + Left/Right "reset everything".
+   Hypothesis: our Space (physics pause) also pauses MuJoCo's viewer, whose Left/Right then step through its history.
+   To reproduce: in your own viewer, press Space, then Right, and watch `time`. Likely fix: move pause off Space or the
+   yaw nudges off Left/Right; ask Wesley which keys.
 2. **Dock app (offered, never answered).** A "Chain Sim.app" with no Terminal window: a bundle running
    `.venv/bin/python panel.py`, or an `osacompile` AppleScript applet that starts it in the background, logging to
    `logs/`.
 3. **Placeholder parameters** (`../hardware/AGENTS.md` lists what to measure):
    - In `../hardware/spec.toml`: masses of 200 g per base and 30 g per arm, with the end modules equal to the middle
      ones. Once the modules are weighed, `module_g` takes each module's weight.
-   - Also in the spec: the IMU module (`[imu]`), the cage size and the cabin air density (`[flight]`).
+   - Also in the spec: the IMU module (`[imu]`), the box size and the net (`[flight]`). The `feetech85` masses are
+     scaled estimates.
    - In `make_chain.py`: the 7 cm preset masses are rough.
    - `armature`, `kv` and `GEAR_FRICTION` are tuned estimates.
    - `ROLLING_RESISTANCE = 0.03` is tuned for settling, not measured. `KP_SATURATE = 10°`.
-4. **Sliders and drift.** Slider drags are instant target jumps. One 200 s session drifted 0.68 mm, against 0.005 mm in
-   `verify.py`. That's acceptable.
+4. **Sliders and drift.** Slider drags are instant target jumps (one 200 s session drifted 0.68 mm; acceptable).
 5. **Window placement.** The control window is always on top and covers part of the viewer's left panel.
 6. **`turned` and `spin` are about the world vertical only.**
    - That's the axis pitch folds turn about, because `CHAIN_ROLL = 0` makes the pitch axes vertical.
@@ -206,6 +216,10 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
    - **Fix:** step-response and speed-under-load tests of one joint on the bench, then fit `kp`, `kv`, `armature` and
      friction.
 
+11. **The flight, not yet modelled:** the plane's own rotation (~90° per parabola; the chain keeps that spin when it's
+   let go), strings letting go at different times, a cloth net (the sim's net is a spring for landings, a few mm deep
+   at rest), and Novespace's measured acceleration record in place of the jitter waves.
+
 ## Physics choices
 The reasons behind the servo model, masses, integrator, floor, world layout, end effectors and flight options are
 in "Physics choices" at the end of `README.md`. Read them before changing any of those.
@@ -222,11 +236,8 @@ How `spin`, the readouts, timing, screenshots and the viewer keys work is in "In
   opens, and MuJoCo's Python API can't change it. See "Interface details" in `README.md`.
 - **The passive viewer ignores `<visual><global azimuth/elevation>`.** `run_viewer` calls `mjv_defaultFreeCamera`
   instead, and `statistic extent` = the chain length, so the whole chain fits.
-- **Screenshots (macOS):** the mjpython viewer can be granted to screen tools (`org.mujoco.mjpython`), but only the
-  first one running. The Tk panel can't (a plain-python process has no app bundle); the workaround:
-    1. Copy the uv `python3.11` into a throwaway `X.app/Contents/MacOS/` with an Info.plist bundle id.
-    2. `lsregister -f` it, and run it with `PYTHONHOME=<uv base prefix>`.
-    3. Delete it and `lsregister -u` afterwards.
+- **Screenshots (macOS):** screen tools can see the mjpython viewer but not the Tk panel; the throwaway-bundle
+  workaround is in "Interface details" in `README.md`. Offscreen renders (`mujoco.Renderer`) need no permission.
 - **Scripted GUI tests can press real buttons:** find the `ttk.Button` by its text, call `.invoke()`, and run with
   `python -u`.
 - **End-effector actuators must override the servo defaults.** `<default><position kp kv forcerange timeconst>` sets
@@ -240,5 +251,5 @@ How `spin`, the readouts, timing, screenshots and the viewer keys work is in "In
   - Remove `__pycache__/` after test runs.
 
 ## Verification
-`verify.py` has 14 sections, from compiling against the current CAD to the countdown before a take. Its docstring
+`verify.py` has 15 sections, from compiling against the current CAD to a parabola in the flight box. Its docstring
 says what each checks, and the key numbers are under Contracts.
