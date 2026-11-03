@@ -3,11 +3,12 @@
 Read the root `AGENTS.md` first. This folder holds the physical design of the chain: CAD, measurements, kinematics and
 BOM decisions. History is in `LOG.md`.
 
-## Status (2026-10-22)
+## Status (2026-11-03)
 - The 12-module chain with AX-12A servos exists and has been published (Mutis et al., SCF 2025).
 - Per the proposal, flight still needs the soft damping membrane, an IMU and onboard data logging.
 - **The flight build will use STS3032 servos** (decided 2026-10-22). From the BOM:
-  - Shell Ø~80 mm, so the chain is about 0.96 m long.
+  - Shell Ø85 mm with 0.5 mm between modules (Wesley, 2026-11-03), so the chain is about 1.03 m long. The sim models
+    it as preset `feetech85`, the AX-12A module scaled down, until this CAD exists.
   - Pitch servo: STS3032-C036 (double shaft, 32 × 12 × 27.5 mm). Yaw servo: STS3032-C001 (23.2 × 12.1 × 28.5 mm).
   - Stall torque 0.44 N·m, stall current 1.2 A, 12-bit encoder over 360°, yaw ±180°.
   - Per module: a 12 → 6 V buck converter, a junction board and a 100–220 µF capacitor. Each servo has a single lead,
@@ -23,7 +24,7 @@ BOM decisions. History is in `LOG.md`.
 | `cad/complete chain.3dm` | The current design: the whole 12-module chain (Rhino 8, mm). The source for every sim mesh. **Never modify.** |
 | `cad/Single module existing.3dm` | One module of the current design. **Never modify.** |
 | `cad/archive/` | Designs that have been replaced, kept for reference (create it when the first one is retired). |
-| `spec.toml` | The chain's numbers (module count, spacing, shell, ranges, servo, masses), plus the IMU's module and the flight environment (parabola length, cage size, cabin air). **The sim and the robot software read this file**, so it's the one place to change a number. |
+| `spec.toml` | The chain's numbers (module count, spacing, shell, ranges, servo, masses), plus the IMU's module and the flight environment (the A310's g profile and leftover g, the experiment box and its net, cabin air). **The sim and the robot software read this file**, so it's the one place to change a number. |
 
 - The single-module file matches module 2 of the chain to within 0.000 mm.
 - It adds a Ø8.4 × 3 mm plug in the hub hole; ignore the plug.
@@ -93,8 +94,9 @@ All in the module frame: the origin is where the yaw and pitch axes cross, which
   - Weigh each whole module in flight configuration, battery included, and list them in `module_g`. Weigh one arm on
     its own for `arm_g`.
   - It's where the weight sits that changes the predicted turn (a battery at the ends: 9%), not the total.
-- **Placeholders for the flight** (in `spec.toml`): which module carries the IMU (`[imu]`), and the net cage's size
-  (`[flight]`).
+- **Placeholders for the flight** (in `spec.toml`): which module carries the IMU (`[imu]`); the experiment box's size
+  (`box_mm`, 2.0 × 1.3 × 1.9 m: fits one side of the A310 cabin with the aisle clear, built on board from parts,
+  `../experiments/flight_space.md`), the net's height and sag, and the plane's pitch (`pitch_deg`) (`[flight]`).
 - **Gearbox behaviour** (in `simulation/make_chain.py`): friction (7% of stall torque), motor inertia and braking are
   tuned estimates. There are no measured AX-12A values.
 

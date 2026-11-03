@@ -2,6 +2,27 @@
 
 Newest first. The format is in the root `AGENTS.md`.
 
+## 2026-11-03 · Wesley (Claude Code)
+- `spec.toml`: `net_height_mm` 200 → 300 (Wesley: a buffer under the net so a falling chain can't reach the floor; the
+  sim's landings sink at most 115 mm).
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED.
+
+## 2026-11-03 · Wesley (Claude Code)
+- `spec.toml` `[flight]`: `box_mm` 2500 → 2000 along the cabin (Wesley: "a reasonable size that can be carried onto the
+  plane"); it still needs building on board from parts, since it's bigger than the door (`experiments/flight_space.md`).
+  New `pitch_deg` = 45: the plane's nose-up as zero g begins (typical; check Novespace's attitude data).
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED.
+
+## 2026-11-03 · Wesley (Claude Code)
+- **The flight build's module is Ø85 mm, 0.5 mm apart** (Wesley). Until its CAD exists the sim scales the AX-12A module
+  to it (preset `feetech85`); the spec's `[chain]` stays on the AX-12A chain.
+- **`spec.toml` `[flight]`, from the Novespace A310 interface document** (`docs/ITF-2025-01-Interfaces-EN.pdf`):
+  `parabola_s` 20 → 22 s; new `hypergravity_g` (1.8), `hypergravity_s` (23), `jitter_g` (±0.015 / 0.015 / 0.02 g);
+  `cage_mm` replaced by `box_mm` = 2500 × 1300 × 1900 (along the cabin, across, high: the largest box that fits one side
+  of the aisle, worked out in `experiments/flight_space.md`), plus placeholder `net_height_mm` (200) and `net_sag_mm` (20).
+- **For the other areas:** the sim reads all of these (see `simulation/LOG.md`); nothing in software yet.
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED.
+
 ## 2026-10-22 · Wesley (Claude Code)
 - **Recorded the flight build decision:** STS3032 servos, ~80 mm shells, ~0.96 m chain, with the BOM details in
   `AGENTS.md`. Its Rhino model is due in the coming weeks; the spec stays on the AX-12A chain until then.

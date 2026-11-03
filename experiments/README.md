@@ -29,18 +29,29 @@ Measured sim results so far are in `findings.md`.
   - Zero-g folds that conserve momentum (a numerical check: the centre of mass stays put to 0.005 mm).
   - The leftover spin at release: **Spin** with an axis, or `--spin X Y Z`.
   - The IMU's view: its module's 3D attitude and rotation rate in the log (`imu_*` columns) and the `IMU turn` readout.
-  - Cabin air drag (`--air`), the net cage (`--cage`), and a flag when a sequence is longer than one parabola
-    (`--speed` to fit).
-  - `reorient_loop.csv` turns the chain about 7.4° per loop with zero angular momentum.
+  - Cabin air drag (`--air`), and a flag when a sequence is longer than one parabola (`--speed` to fit).
+  - **The flight box and a whole parabola:** a setup with a `[flight]` table puts the chain in the acrylic box (sized
+    from the A310 cabin, `flight_space.md`) with a net across it, held by strings that let go at zero g. Play runs 1.8 g,
+    zero g with the leftover g, 1.8 g, with the box turning with the plane's pitch. Every class simulation in
+    `../simulation/setups/` flies this way now; results in `findings.md`, "The flight box": the plane's pitch rate at
+    release spoils the 30° turn unless the chain's pitch axes lie across the cabin (`1e_turn_across`); started on the
+    net instead of held by strings (`1b_from_net`), it gets far less clean free-float time.
+  - `reorient_loop.csv` turns the chain about 7.4° per loop with zero angular momentum, about the vertical only.
+  - `roll_loop.csv` turns it about its long axis, about 32° per loop. Turning in 3D needs a twist as well as pitch
+    folds.
   - What moves that prediction, and by how much, is in `findings.md` under "Is the sim good enough for flight?".
+  - **A held end and the stall length:** an anchor end effector on a wall (setups `2b_stall_*`), and
+    `../simulation/stall_sweep.py`. The longest chain that stands out level is 3 / 4 / 6 / 12+ modules at Earth /
+    Mars / Moon / zero g (`findings.md`, "The class simulations").
 - **Not in the sim yet:**
-  - **A held end, to find the stall length under gravity.** Today the chain floats free or lies on the floor. Pitch
-    folds lie flat unless `CHAIN_ROLL = 90`.
   - **Prediction ranges.** Repeated runs over release spin, masses and servo settings, so success tier 2 has a
     tolerance.
-  - **The aircraft's own motion:** its ~90° pitch-over (for video) and the 1.8 g phases before and after.
+  - **The plane's measured attitude and acceleration record** in place of the smooth profile (the pitch-over, the
+    1.8 g phases and the leftover g are in, above).
 - **Flight plan must cover:**
-  - Recording the IMU's rate at release. Even 1°/s cancels the whole 30° turn.
+  - Recording the IMU's rate at release. Even 1°/s cancels the whole 30° turn, and a chain let go from the box keeps
+    the plane's pitch rate (~2.7°/s). Fly the turn with the pitch axes across the cabin, where that spin adds
+    predictably (`findings.md`, "The flight box").
   - Stowing the chain before the 1.8 g pull-out. Two modules held out sideways already exceed the servo torque.
   - Sequences inside one parabola, about 20 s.
 
@@ -50,8 +61,10 @@ Measured sim results so far are in `findings.md`.
   - Tip repeatability and available tip force.
   - Reach to a target behind an obstruction.
 - **Hardware:** this needs an anchored fixture, so it's a separate rig. A stands alone if only one flies.
+- **What the sim does now:** an anchor end effector holds one end to a wall, the floor or a rod, with the clamp's force
+  and torque in the readouts and the log (setups `2a_arm`, `2c_let_go`). Suction cups and thrusters too (setups `3a_*`,
+  `4a`, `4b`, `5a`).
 - **Not in the sim yet:**
-  - An anchored-base option. `m1` has the free joint, and `../simulation/AGENTS.md` lists what depends on that.
   - Obstacles.
   - A tip-force readout.
 

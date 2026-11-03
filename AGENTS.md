@@ -25,7 +25,7 @@ Read this file first, then the `AGENTS.md` in the folder you're working in.
 | `docs/` | Proposal, course syllabus, images | |
 
 Each area has its own setup, its own checks, its own `AGENTS.md` and its own `LOG.md`. The repo is
-https://github.com/wesleyshe/catena (private).
+https://github.com/wesleyshe/catena (public).
 
 Each area's status is at the top of its own `AGENTS.md`. There's deliberately none here, because areas editing
 neighbouring lines of one file get merge conflicts.
@@ -39,9 +39,13 @@ These are confirmed by the team. Change one only together with the other areas, 
   - `m{i}_pitch` sits between base i and arm i.
   - `m{i+1}_yaw` sits between arm i and base i+1.
   - Module 1 has no yaw servo and module 12 has no pitch servo, so there are **22 actuated joints**.
+  - **End effectors (in the sim so far):** an optional extra module past m1 (`ee1`) and past m12 (`ee12`). ee1 sits on a
+    twist servo, and that servo is `m1_yaw`: with ee1 fitted there are 23 joints. ee12 is rigid.
   - Both end modules carry the U2D2 and power hub.
 - **Sequence columns:** a fold sequence has 24 columns in the order `m1_yaw, m1_pitch, …, m12_yaw, m12_pitch`.
-  `m1_yaw` and `m12_pitch` are always 0.
+  `m12_pitch` is always 0. `m1_yaw` is 0 unless ee1 is fitted, when it drives ee1's twist servo, with the same sign
+  as every yaw. Optional end-effector columns may follow (`ee1_grip`, `ee12_grip`, `ee1_n0` … `ee12_n4`); see
+  `sequences/README.md`.
 - **Numbers live in `hardware/spec.toml`:** module count, spacing (140 mm), shell (Ø139 mm), ranges (pitch ±124°,
   yaw ±150°), servo and masses. Code reads them from there; never copy them into code.
 - **Units:** degrees in sequence CSVs; SI (m, kg, s, N·m) in code; mm and g in CAD and the spec.
@@ -56,6 +60,8 @@ These are confirmed by the team. Change one only together with the other areas, 
 - Stay inside your area. If a change affects another area (joint names, the sequence format, a shared fact above),
   log it in the root `LOG.md` and tell the person you're working with.
 - Look at anything before deleting or overwriting it.
+- **The repo is public.** Never commit passwords, API keys, tokens, personal data, or files that aren't the team's to
+  share. Git keeps everything in its history, so deleting a file later doesn't un-publish it.
 
 ## When a change crosses areas
 The sim and the robot software both depend on the hardware.

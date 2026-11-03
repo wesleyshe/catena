@@ -1,6 +1,6 @@
 """Generate chain.xml: a free-floating, zero-gravity MuJoCo model of the self-folding chain.
 
-Usage:  .venv/bin/python make_chain.py [--preset original14|dyna7|feetech7] [-n 12] [--slip-ring] [--gravity 0] [-o chain.xml]
+Usage:  .venv/bin/python make_chain.py [--preset original14|feetech85|dyna7|feetech7] [-n 12] [--slip-ring] [--gravity 0] [-o chain.xml]
 
 The chain floats horizontally (along world +Y) above a floor, high enough that it can never reach the floor while
 folding in zero gravity. Turn gravity on (--gravity 9.81, or the viewer's Physics panel: 0 0 -9.81) to drop it.
@@ -10,6 +10,12 @@ Kinematics (measured from 'complete chain.3dm', see ../hardware/AGENTS.md). Per 
   m{i}_arm  U-yoke + hub, joint m{i}_pitch about +X through the module centre.
   m{i+1}    next base, one pitch above, joint m{i+1}_yaw about +Z (its yaw horn is bolted to the hub).
 Module 1 has no yaw servo and the last module has no pitch servo or arm, so N modules have 2N-2 joints.
+End effectors (optional, one module each): ee1 one pitch before m1, on module 1's yaw servo m1_yaw (2N-1 joints), and
+ee{N} one pitch past module N, rigid. Each is none, anchor, suction or thruster.
+The flight box (optional): the acrylic box on the plane with a net across it, and strings that hold the chain still in
+the middle until play.py lets them go at zero g. The box, its net, the strings' far ends and a cabin camera are all on
+one body, "cabin", on a hinge about x (across the cabin), which play.py drives with the plane's pitch; the world is a
+frame moving with the box but not turning, so the chain feels the plane's rotation for itself.
 """
 import argparse
 import math
@@ -24,13 +30,17 @@ with open(SPEC_FILE, "rb") as fh:
 HW, SERVO, MASS, FLIGHT = SPEC["chain"], SPEC["servo"], SPEC["mass"], SPEC["flight"]
 WEIGHED = [g / 1000 for g in MASS.get("module_g", [])]  # whole modules (base + arm, kg), once they've been weighed
 
-# original14 is the real chain: its servo, pitch and masses come from the spec. The 7 cm presets are what-ifs.
+# original14 is the real chain: its servo, pitch and masses come from the spec. feetech85 is the flight build (STS3032,
+# Ø85 mm shells 0.5 mm apart, hardware/AGENTS.md), scaled from it until its CAD exists; the 7 cm presets are what-ifs.
 # Lengths of the meshes and primitives are for the 140 mm AX-12A module; other pitches scale them.
 PRESETS = {
     "original14": dict(servo=SERVO["model"], torque=SERVO["stall_torque_Nm"], speed=SERVO["no_load_speed_rad_s"],
                        pitch=HW["pitch_mm"] / 1000, timestep=0.0005, base_mass=MASS["base_g"] / 1000,
                        end_mass=MASS["end_g"] / 1000, arm_mass=MASS["arm_g"] / 1000, module_masses=WEIGHED,
                        shell_frac=0.33, armature=0.002, kv=1.0),
+    # scale 85.5/140: printed parts 91 g x 0.228 + two 20 g STS3032 = 61 g, arm 30 g x 0.228; the shell 15 g of that
+    "feetech85": dict(servo="STS3032", torque=0.44, speed=11.6, pitch=0.0855, timestep=0.0002,
+                      base_mass=0.061, end_mass=0.061, arm_mass=0.007, shell_frac=0.25, armature=0.0002, kv=0.25),
     "dyna7": dict(servo="XL330-M288", torque=0.52, speed=10.8, pitch=0.070, timestep=0.0001,
                   base_mass=0.047, end_mass=0.047, arm_mass=0.004, shell_frac=0.18, armature=0.0002, kv=0.25),
     "feetech7": dict(servo="STS3032", torque=0.44, speed=11.6, pitch=0.070, timestep=0.0001,
@@ -61,20 +71,157 @@ N_MODULES = HW["modules"]                            # default chain length, fro
 CORE_BOX = ((0, -0.00975, -0.00575), (0.019, 0.02875, 0.04425))  # bracket + servos: centre, half-size
 ARM_BOX = ((0, 0, 0.038), (0.032, 0.012, 0.050))                 # yoke + hub: centre, half-size
 BASE_RGBA, ARM_RGBA = "0.78 0.78 0.80 1", "0.20 0.45 0.95 1"
+# End effectors are concepts, not hardware yet, so their placeholder numbers live here, not in spec.toml.
+# The 7 cm presets scale the masses by s^3.
+EE_TYPES = ("none", "anchor", "suction", "thruster")
+EE_MASS = dict(anchor=0.200, suction=0.200, thruster=0.250)  # kg; the thruster also carries nozzles, valves and gas
+EE_SERVO_MASS = 0.055   # kg, ee1's twist servo (an AX-12A), carried in ee1
+EE_RGBA = dict(anchor="0.80 0.25 0.25 1", suction="0.25 0.70 0.35 1", thruster="0.95 0.70 0.15 1")
+# Each end's settings: attach is where an anchor or cup starts attached ({} = floating, see setup_file.py); pull_N, cup_mm
+# and friction are the suction cup's pull limit, diameter and friction; thrust_N is each thruster nozzle's push.
+EE_DEFAULTS = dict(type="none", attach={}, pull_N=20.0, cup_mm=40.0, friction=0.8, thrust_N=0.1)
+TIP = (0.020, 0.004)    # m: an anchor's grip face, a disc on its outer pole (radius, thickness)
+CLAMP_SOLREF = "0.002 1"  # the clamp's weld: stiff (the default let a clamped end move 36 mm while the chain folded)
+CUP_T = 0.002           # m: half-thickness of a suction cup (its diameter is a setting)
+NOZZLES = ((0, 0, 1), (1, 0, 0), (0, 1, 0), (-1, 0, 0), (0, -1, 0))  # n0-n4 exhausts, in the end's frame (n0's z flips
+                        # to point away from the chain at ee1); each pushes the opposite way
+NOZZLE_RGBA = ("0.35 0.25 0.10 1", "1 0.55 0.1 1")  # off, firing (play.py swaps them)
+CUP_MARGIN = 0.001      # m: a cup's contact margin: it pulls (and pushes) from this far away. Bigger makes it hover
+                        # (MuJoCo 3.16 doesn't let gap switch the push off), so a cup has to be pressed on to stick
+FACINGS = {"up": (0, 0, 1), "down": (0, 0, -1), "+x": (1, 0, 0), "-x": (-1, 0, 0), "+y": (0, 1, 0), "-y": (0, -1, 0)}
+PLATE = (0.5, 0.005)    # m: half-size and half-thickness of the plate an end is attached to when it isn't the floor
+DECK_T = 0.025          # m: half-thickness of the walking deck in the flight box (a landing foot presses ~9 mm in)
+ROD_MM = 35             # default rod diameter (mm), about a handrail
+ACRYLIC_T = 0.006       # m: half-thickness of the flight box's walls and lid
+ACRYLIC_RGBA, NET_RGBA, STRING_RGBA = "0.70 0.85 1.00 0.10", "0.92 0.92 0.88 0.04", "1 1 1 1"
+# What the box looks like (visual only: no mass, no contacts). Representation, not a design: 40 mm aluminium extrusion on
+# every edge and up the middle of the long sides, the net on its own 20 mm frame with a 50 mm mesh, a door on the aisle
+# side (-x), and feet on the seat tracks.
+FRAME_MM, NET_FRAME_MM, MESH_MM = 40, 20, 50
+ALU_RGBA, MESH_RGBA, DOOR_RGBA = "0.66 0.68 0.71 1", "0.95 0.95 0.90 1", "0.30 0.32 0.35 1"
+STRING_SOLREF = "0.01 1"  # the strings: stretchy enough to settle, stiff enough to hold the chain within mm at 1.8 g
+STRING_FAN = 1.4        # each held module's strings run to the box's top and bottom edges (both sides) at this many
+                        # times its distance from the middle along the chain, so together they hold it every way
+NET_IMPEDANCE, NET_DAMPING = 0.05, 0.3  # the net: a weak contact (so gravity isn't cancelled) with a spring and a
+                                        # damping ratio; nets bounce, hence the low damping
 
 
 def v(*xs):
     return " ".join(f"{x:.6g}" for x in xs)
 
 
-def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=False, cage=False):
-    """air: cabin air drag on the shells. cage: the net cage around the chain's start position (sizes in the spec)."""
+def level_axis(normal):
+    """The pitch axis an attached end starts with, before its roll: level (world x, or world y on an x-facing wall)."""
+    return (0, 1, 0) if abs(normal[0]) > 0.5 else (1, 0, 0)
+
+
+def attach_point(attach, rod):
+    """Where an attach setting puts an end's tip: (point on the surface, outward normal). None if it floats."""
+    if not attach:
+        return None
+    normal = FACINGS[attach["facing"]]
+    if "at" in attach:
+        return tuple(attach["at"]), normal
+    a, b = rod["from"], rod["to"]
+    length = math.dist(a, b)
+    return tuple(a[k] + (b[k] - a[k]) * attach["rod_m"] / length + normal[k] * rod["diameter_mm"] / 2000
+                 for k in range(3)), normal
+
+
+def leading_end(ends):
+    """Which end sets where the chain starts: the first anchor or suction cup with an attach setting (0 = ee1, 1 = ee_n)."""
+    return next((k for k, e in enumerate(ends) if e["type"] in ("anchor", "suction") and e["attach"]), None)
+
+
+def net_contact(sag_mm):
+    """The net's contact: the spring of a net that sags sag_mm under a module at 1 g, so a landing sinks in as far as it
+    would on that net. (At rest MuJoCo's soft contact sits a few mm deep, shallower than sag_mm.) MuJoCo scales a direct
+    stiffness and damping (negative solref) by the impedance, hence the (1 - d)."""
+    k = (1 - NET_IMPEDANCE) * 9.81 / (sag_mm / 1000)
+    return dict(solref=v(-k, -2 * NET_DAMPING * math.sqrt(k)), solimp=v(NET_IMPEDANCE, NET_IMPEDANCE, 0.001))
+
+
+def held_height(box_m):
+    """Where the strings hold the chain: in the middle of the room above the net (m above the box floor)."""
+    net = FLIGHT["net_height_mm"] / 1000
+    return net + (box_m[2] - net) / 2
+
+
+def string_ends(i, n, pitch, box_m):
+    """Module i's four strings: where each ends on the box (on the top and bottom edges of its long sides) and the
+    direction to there from the module's centre, with the chain straight where the strings hold it."""
+    along, across, tall = box_m
+    y, h = (-(n - 1) / 2 + i - 1) * pitch, held_height(box_m)
+    out = []
+    for x, z in ((-across / 2, tall), (across / 2, tall), (-across / 2, 0.0), (across / 2, 0.0)):
+        end = (x, max(-along / 2, min(along / 2, y * STRING_FAN)), z)
+        w = [end[0], end[1] - y, end[2] - h]
+        out.append((end, [c / math.sqrt(sum(c * c for c in w)) for c in w]))
+    return out
+
+
+def box_looks(cabin, x, y, h, net):
+    """The flight box's look (visual geoms on the cabin): its frame, the net's frame and mesh, the door, the feet.
+    x, y, h: half-sizes to the panels' outer faces; net: the net's height in the cabin's frame."""
+    look = dict(contype="0", conaffinity="0", mass="0", group="1")
+    bar = lambda name, a, b, w, rgba=ALU_RGBA: ET.SubElement(cabin, "geom", name=name, type="box", rgba=rgba, **look,
+                                                         pos=v(*((p + q) / 2 for p, q in zip(a, b))),
+                                                         size=v(*(max(abs(q - p) / 2, w) for p, q in zip(a, b))))
+    f, k = FRAME_MM / 2000, 0
+    X, Y, Z = x + f, y + f, h + f  # the extrusion's centre lines, just outside the panels
+    for sy in (-1, 1):
+        for sz in (-1, 1):
+            bar(f"frame{k}", (-X, sy * Y, sz * Z), (X, sy * Y, sz * Z), f); k += 1      # across
+            bar(f"frame{k}", (sy * X, -Y, sz * Z), (sy * X, Y, sz * Z), f); k += 1      # along
+            bar(f"frame{k}", (sy * X, sz * Y, -Z), (sy * X, sz * Y, Z), f); k += 1      # up the corners
+        bar(f"frame{k}", (sy * X, 0, -Z), (sy * X, 0, Z), f); k += 1                    # up the middle of the long sides
+    n = NET_FRAME_MM / 2000
+    for sy in (-1, 1):  # the net's frame, just inside the panels, and its mesh
+        bar(f"net_frame{sy}x", (-x + n, sy * (y - n), net), (x - n, sy * (y - n), net), n)
+        bar(f"net_frame{sy}y", (sy * (x - n), -y + n, net), (sy * (x - n), y - n, net), n)
+    m = MESH_MM / 1000
+    for j in range(1, int(2 * x / m)):
+        bar(f"mesh_x{j}", (-x + j * m, -y, net), (-x + j * m, y, net), 0.0012, MESH_RGBA)
+    for j in range(1, int(2 * y / m)):
+        bar(f"mesh_y{j}", (-x, -y + j * m, net), (x, -y + j * m, net), 0.0012, MESH_RGBA)
+    d, top = 0.012, -h + 1.4  # the door in the aisle-side panel: 0.8 m wide, up to 1.4 m, with a handle
+    for name, a, b in (("door_left", (-X, -0.4, -h), (-X, -0.4, top)), ("door_right", (-X, 0.4, -h), (-X, 0.4, top)),
+                       ("door_top", (-X, -0.4, top), (-X, 0.4, top))):
+        bar(name, a, b, d, DOOR_RGBA)
+    bar("door_handle", (-X - 0.03, 0.3, -h + 0.75), (-X - 0.03, 0.3, -h + 0.95), d, DOOR_RGBA)
+    for sx in (-1, 1):  # feet on the seat tracks (studs 40 mm high)
+        for sy in (-1, 1):
+            bar(f"foot{sx}{sy}", (sx * X, sy * Y, -Z - 0.04), (sx * X, sy * Y, -Z), 0.03)
+
+
+def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=False, ee1="none", ee_n="none", rod=None,
+          flight=None):
+    """air: cabin air drag on the shells. ee1, ee_n: the end effector past m1 and past module N (ee12 on 12 modules): a
+    type from EE_TYPES, or a dict like EE_DEFAULTS. rod: {"from": [x, y, z], "to": [x, y, z], "diameter_mm": 35} for a
+    fixed rod, or None. flight: {"box_m": [along, across, height], "strings": [modules], "roll_deg": 0} puts the chain
+    in the flight box (its floor at z = 0, centred, the net across it), straight in the middle and rolled roll_deg about
+    its length (90: the pitch axes across the cabin, along the plane's pitch axis), with four strings per listed module:
+    to the top and bottom edges of the box's long sides, fanned out along the chain (STRING_FAN), the bottom ones through
+    the net. play.py holds and releases them."""
+    ends = [{**EE_DEFAULTS, **({"type": e} if isinstance(e, str) else e)} for e in (ee1, ee_n)]
+    for e in ends:
+        if e["type"] not in EE_TYPES:
+            raise ValueError(f"end effector {e['type']!r}: choose one of {', '.join(EE_TYPES)}")
+    lead = leading_end(ends)
+    spot = attach_point(ends[lead]["attach"], rod) if lead is not None else None
     p = PRESETS[preset]
     s = p["pitch"] / 0.140                       # geometric scale
     kp = p["torque"] / math.radians(KP_SATURATE)
     damping = p["torque"] / p["speed"]           # servo slows to its no-load speed at stall torque
-    height = n * p["pitch"] / 2 + 2 * R_SHELL * s  # float height: more than half the chain plus a shell
-    roll = math.radians(CHAIN_ROLL)
+    span = n + sum(e["type"] != "none" for e in ends)  # modules end to end, counting end effectors
+    height = span * p["pitch"] / 2 + 2 * R_SHELL * s  # float height: more than half the chain plus a shell
+    if flight:
+        along, across, tall = flight["box_m"]
+        if span * p["pitch"] > along or 2 * R_SHELL * s > min(across, tall):
+            raise ValueError(f"the chain ({span * p['pitch']:.2f} m) doesn't fit in a {along:g} x {across:g} x {tall:g} m box")
+        height = (FLIGHT["net_height_mm"] / 1000 + R_SHELL * s + 0.002 if flight.get("on_net")  # lying on the net
+                  else held_height(flight["box_m"]))  # held in the middle of the room above the net
+    roll = math.radians(CHAIN_ROLL + (flight.get("roll_deg", 0.0) if flight else 0.0))  # in the box it can roll
     weighed = p.get("module_masses") or []
     if weighed and len(weighed) != n:
         print(f"note: spec.toml lists {len(weighed)} module weights for a {n}-module chain; using base_g / end_g instead")
@@ -86,7 +233,12 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
     # hand estimate (quadratic drag, Cd ~0.45), so read it as an upper bound.
     fluid = dict(density=v(FLIGHT["cabin_air_kg_m3"]), viscosity=v(1.8e-5)) if air else {}
     ET.SubElement(root, "option", gravity=v(0, 0, -gravity), timestep=v(p["timestep"]), integrator="RK4", **fluid)
-    ET.SubElement(root, "statistic", center=v(0, 0, height), extent=v(n * p["pitch"]))  # viewer frames the whole chain
+    center = v(0, 0, height) if not spot else v(*(spot[0][k] + spot[1][k] * span * p["pitch"] / 2 for k in range(3)))
+    if rod and "wrap_m" in rod and not spot:  # wrapped around the rod: look at the coil
+        a, b = rod["from"], rod["to"]
+        center = v(*(a[k] + (b[k] - a[k]) * (rod["wrap_m"] + 0.3) / math.dist(a, b) for k in range(3)))
+    extent = max(flight["box_m"]) if flight else span * p["pitch"]  # the viewer frames the whole chain, or the box
+    ET.SubElement(root, "statistic", center=center, extent=v(extent))
     vis = ET.SubElement(root, "visual")
     ET.SubElement(vis, "global", offwidth="1600", offheight="1200", azimuth="0", elevation="-25")  # viewer starts side-on
     ET.SubElement(vis, "headlight", ambient="0.4 0.4 0.4", diffuse="0.6 0.6 0.6")
@@ -113,19 +265,53 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
 
     world = ET.SubElement(root, "worldbody")
     ET.SubElement(world, "light", directional="true", pos="0 0 3", dir="0 0 -1", diffuse="0.5 0.5 0.5")
-    ET.SubElement(world, "geom", name="floor", type="plane", size="0 0 0.05", material="grid", condim="6",  # 20 cm squares
-                  friction=v(1, 0.005, ROLLING_RESISTANCE * R_SHELL * s))
-    if cage:  # six thin walls around the chain's start position; a net gives more than a wall, hence the soft solref
-        half, t = [x / 2000 for x in (FLIGHT["cage_mm"][1], FLIGHT["cage_mm"][0], FLIGHT["cage_mm"][2])], 0.005
-        for k in range(3):
-            for sign in (-1, 1):
-                pos, size = [0, 0, height], list(half)
-                pos[k] += sign * (half[k] + t)
-                size[k] = t
-                ET.SubElement(world, "geom", name=f"cage{k}{'-+'[sign > 0]}", type="box", pos=v(*pos), size=v(*size),
-                              rgba="0.5 0.6 0.7 0.12", solref="0.05 1")
+    if not flight:  # in the flight box, the cabin's own floor turns with the plane instead
+        ET.SubElement(world, "geom", name="floor", type="plane", size="0 0 0.05", material="grid", condim="6",  # 20 cm squares
+                      friction=v(1, 0.005, ROLLING_RESISTANCE * R_SHELL * s))
+    if flight:  # the cabin: centred on the box, which has its floor at z = 0 while the plane is level. Acrylic walls, lid
+        # and floor; the net is a soft block from the box floor up to its height, so a chain that lands hard sinks into
+        # it and, if it gives all the way, meets the box floor
+        # a real body, not mocap: a mocap body has no velocity, so whatever rested on the box would slide as it turned.
+        # It's so heavy the chain can't move it, and play.py sets its angle and rate every step
+        cabin = ET.Element("body", name="cabin", pos=v(0, 0, tall / 2))  # joins the world after the chain
+        ET.SubElement(cabin, "inertial", pos="0 0 0", mass="1e4", diaginertia="1e4 1e4 1e4")
+        ET.SubElement(cabin, "joint", name="cabin_pitch", type="hinge", axis="1 0 0", damping="0", armature="0",
+                      frictionloss="0")
+        x, y, h, t = across / 2, along / 2, tall / 2, ACRYLIC_T
+        for name, pos, size in (("box_lid", (0, 0, h + t), (x, y, t)), ("box_floor", (0, 0, -h - t), (x, y, t)),
+                                ("box_wall_-x", (-x - t, 0, 0), (t, y, h)), ("box_wall_+x", (x + t, 0, 0), (t, y, h)),
+                                ("box_wall_-y", (0, -y - t, 0), (x, t, h)), ("box_wall_+y", (0, y + t, 0), (x, t, h))):
+            ET.SubElement(cabin, "geom", name=name, type="box", pos=v(*pos), size=v(*size), rgba=ACRYLIC_RGBA, mass="0")
+        net_z = FLIGHT["net_height_mm"] / 1000
+        ET.SubElement(cabin, "geom", name="net", type="box", pos=v(0, 0, -h + net_z / 2), size=v(x, y, net_z / 2),
+                      rgba=NET_RGBA, mass="0", condim="6", friction=v(1, 0.005, ROLLING_RESISTANCE * R_SHELL * s),
+                      **net_contact(FLIGHT["net_sag_mm"]))  # rolling resistance like the floor's: lying on it, the
+                      # lopsided modules would rock and roll sideways; the cabin is moved, never pushed: no mass
+        ET.SubElement(cabin, "geom", name="cabin_floor", type="box", pos=v(0, 0, -h - 2 * t - 0.045), size="4 4 0.005",
+                      material="grid", contype="0", conaffinity="0", mass="0")  # what the cabin camera sees under the box
+        box_looks(cabin, x + t, y + t, h + t, -h + net_z)
+        eye = (x + 1.6, -y - 1.6, 0.5)  # a camera on the cabin, outside the box at one corner, looking at its middle
+        back = [c / math.sqrt(sum(e * e for e in eye)) for c in eye]
+        right = [-back[1], back[0], 0]
+        right = [c / math.hypot(*right) for c in right]
+        up = [back[1] * right[2] - back[2] * right[1], back[2] * right[0] - back[0] * right[2], back[0] * right[1] - back[1] * right[0]]
+        ET.SubElement(cabin, "camera", name="cabin", pos=v(*eye), xyaxes=v(*right, *up), fovy="60")
+    fixed, lift = (cabin, tall / 2) if flight else (world, 0.0)  # in the flight box, plates and rods are on the cabin
+    if spot and "at" in ends[lead]["attach"] and not (ends[lead]["attach"]["facing"] == "up" and spot[0][2] == 0):
+        point, normal = spot  # a wall, ceiling or table to be attached to (the floor is already there)
+        deck = flight and ends[lead]["attach"]["facing"] == "up"  # in the flight box: a deck across it, over the net,
+        half = (across / 2, along / 2, DECK_T) if deck else (PLATE[0], PLATE[0], PLATE[1])  # thick: feet press into it
+        ET.SubElement(fixed, "geom", name="plate", type="box", size=v(*half), zaxis=v(*normal),
+                      pos=v(*((0 if deck and k < 2 else point[k]) - normal[k] * half[2] - (lift if k == 2 else 0) for k in range(3))),
+                      rgba="0.55 0.60 0.65 1", **({"mass": "0"} if flight else {}))
+    if rod:
+        a, b = list(rod["from"]), list(rod["to"])
+        a[2], b[2] = a[2] - lift, b[2] - lift
+        ET.SubElement(fixed, "geom", name="rod", type="capsule", fromto=v(*a, *b), size=v(rod["diameter_mm"] / 2000),
+                      rgba="0.72 0.72 0.76 1", **({"mass": "0"} if flight else {}))
     imu = min(SPEC["imu"]["module"], n)
     parent = world
+    yaw_limits = {} if slip_ring else dict(range=v(-math.radians(YAW_RANGE), math.radians(YAW_RANGE)))
     for i in range(1, n + 1):
         if weighed:  # a weighed module includes its arm (module N has none)
             base_mass = weighed[i - 1] - (p["arm_mass"] if i < n else 0)
@@ -135,12 +321,10 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
             body = ET.SubElement(parent, "body", name="m1", pos=v(0, -(n - 1) * p["pitch"] / 2, height),
                                  xyaxes=v(math.sin(roll), 0, math.cos(roll), math.cos(roll), 0, -math.sin(roll)))
             ET.SubElement(body, "freejoint", name="root")
+            first = body
         else:
             body = ET.SubElement(parent, "body", name=f"m{i}", pos=v(0, 0, p["pitch"]))
-            yaw = dict(name=f"m{i}_yaw", axis="0 0 1")
-            if not slip_ring:
-                yaw["range"] = v(-math.radians(YAW_RANGE), math.radians(YAW_RANGE))
-            ET.SubElement(body, "joint", yaw)
+            ET.SubElement(body, "joint", dict(name=f"m{i}_yaw", axis="0 0 1", **yaw_limits))
         mesh = "base_first" if i == 1 else "base_last" if i == n else "base_mid"
         ET.SubElement(body, "geom", {"class": "visual", "mesh": mesh, "rgba": BASE_RGBA, "name": f"m{i}_visual"})
         ET.SubElement(body, "geom", {"class": "collision", "name": f"m{i}_sphere", "mass": v(base_mass * p["shell_frac"])})
@@ -148,6 +332,11 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
                                      "size": v(*(h * s for h in CORE_BOX[1])), "mass": v(base_mass * (1 - p["shell_frac"]))})
         if i == imu:
             ET.SubElement(body, "site", name="imu", size=v(0.01 * s))  # at the module centre, axes = the module frame
+        if flight and i in flight["strings"]:  # where its strings tie on: the shell, facing each string's far end
+            for k, (end, w) in enumerate(string_ends(i, n, p["pitch"], flight["box_m"])):
+                axes = ((math.sin(roll), 0, math.cos(roll)), (math.cos(roll), 0, -math.sin(roll)), (0, 1, 0))  # m1's
+                ET.SubElement(body, "site", name=f"m{i}_string{k}", size=v(0.004 * s),
+                              pos=v(*(R_SHELL * s * sum(a * b for a, b in zip(axis, w)) for axis in axes)))
         if i == n:
             break
         arm = ET.SubElement(body, "body", name=f"m{i}_arm")
@@ -158,16 +347,75 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
                                     "size": v(*(h * s for h in ARM_BOX[1])), "mass": v(p["arm_mass"])})
         parent = arm
 
-    # actuators in CSV order: m1_yaw, m1_pitch, ..., mN_yaw, mN_pitch (skipping the two that don't exist)
+    # end effectors go in after the chain, so the chain's body ids don't move (m1 stays body 1)
+    ee_actuators = []  # (tag, attributes): after the joint servos
+    for name, end, side, e in (("ee1", first, -1, ends[0]), (f"ee{n}", body, 1, ends[1])):
+        kind = e["type"]
+        if kind == "none":
+            continue
+        ee = ET.SubElement(end, "body", name=name, pos=v(0, 0, side * p["pitch"]))
+        if name == "ee1":  # module 1's missing yaw. About -Z so that +angle turns the m12 side +, like every other yaw
+            ET.SubElement(ee, "joint", dict(name="m1_yaw", axis="0 0 -1", **yaw_limits))
+        mass = (EE_MASS[kind] + (EE_SERVO_MASS if name == "ee1" else 0)) * s ** 3
+        ET.SubElement(ee, "geom", {"class": "visual", "type": "sphere", "size": v(R_SHELL * s), "rgba": EE_RGBA[kind],
+                                   "name": f"{name}_visual"})
+        ET.SubElement(ee, "geom", {"class": "collision", "name": f"{name}_sphere", "mass": v(mass), "shellinertia": "false"})
+        if kind == "anchor":  # its grip face; play.py clamps when the face is near something fixed and it's told to hold
+            ET.SubElement(ee, "geom", {"class": "visual", "type": "cylinder", "name": f"{name}_tip", "rgba": "0.15 0.15 0.15 1",
+                                       "size": v(TIP[0] * s, TIP[1] / 2 * s), "pos": v(0, 0, side * (R_SHELL - TIP[1] / 2) * s)})
+            # the clamp: a weld to a fixed (mocap) body that play.py moves to the end's pose when it grabs
+            ET.SubElement(world, "body", name=f"{name}_hold", mocap="true")
+            weld = dict(name=f"{name}_clamp", body1=name, body2=f"{name}_hold", relpose="0 0 0 1 0 0 0", active="false",
+                        solref=CLAMP_SOLREF)
+            if root.find("equality") is None:
+                ET.SubElement(root, "equality")
+            ET.SubElement(root.find("equality"), "weld", weld)
+        if kind == "suction":  # the cup on its own body, so the adhesion (which acts on all of a body's contacts) only
+            # pulls where the cup touches. It collides with nothing by itself: the contact pairs below, fixed things only
+            cup = ET.SubElement(ee, "body", name=f"{name}_cup", pos=v(0, 0, side * (R_SHELL * s - CUP_T)))
+            ET.SubElement(cup, "geom", name=f"{name}_cup", type="box", size=v(e["cup_mm"] / 2000, e["cup_mm"] / 2000, CUP_T), mass="0",
+                          contype="0", conaffinity="0", rgba="0.10 0.35 0.15 1")
+            ee_actuators.append(("adhesion", dict(name=f"{name}_suck", body=f"{name}_cup", ctrlrange="0 1",
+                                                  gain=v(e["pull_N"]), forcelimited="false")))
+        if kind == "thruster":  # five nozzles on the shell; a site actuator pushes against each one's exhaust (its z)
+            for k, (x, y, z) in enumerate(NOZZLES):
+                out = (x, y, z * side)
+                ET.SubElement(ee, "site", name=f"{name}_n{k}", type="sphere", size=v(0.012 * s), rgba=NOZZLE_RGBA[0],
+                              pos=v(*(c * R_SHELL * s for c in out)), zaxis=v(*out))
+                ee_actuators.append(("general", dict(name=f"{name}_n{k}", site=f"{name}_n{k}", gear="0 0 -1 0 0 0",
+                                                     ctrlrange="0 1", gainprm=v(e["thrust_N"]), biastype="none",
+                                                     dyntype="none", forcelimited="false")))
+
+    if flight:
+        world.append(cabin)  # after the chain and its end effectors, so m1 stays body 1
+
+    # actuators in CSV order: m1_yaw, m1_pitch, ..., mN_yaw, mN_pitch (skipping mN_pitch, and m1_yaw without ee1)
     act = ET.SubElement(root, "actuator")
     for i in range(1, n + 1):
         for j, lim in ((f"m{i}_yaw", SLIP_RING_TARGETS if slip_ring else YAW_RANGE), (f"m{i}_pitch", PITCH_RANGE)):
-            if j not in ("m1_yaw", f"m{n}_pitch"):
+            if j != f"m{n}_pitch" and (j != "m1_yaw" or ends[0]["type"] != "none"):
                 ET.SubElement(act, "position", name=j, joint=j, ctrlrange=v(-math.radians(lim), math.radians(lim)))
+    for tag, attrs in ee_actuators:
+        ET.SubElement(act, tag, attrs)
 
     contact = ET.SubElement(root, "contact")   # neighbours stay one pitch apart, never touch: skip them
     for i in range(1, n):
         ET.SubElement(contact, "exclude", body1=f"m{i}", body2=f"m{i + 1}")
+    for name, e in (("ee1", ends[0]), (f"ee{n}", ends[1])):
+        if e["type"] == "suction":  # a cup touches only fixed things: the floor, plates, the rod, the flight box
+            for g in world.findall("geom") + (cabin.findall("geom") if flight else []):
+                ET.SubElement(contact, "pair", geom1=f"{name}_cup", geom2=g.get("name"), condim="3", margin=v(CUP_MARGIN),
+                              friction=v(e["friction"], e["friction"], 0.005, 0.0001, 0.0001))
+
+    if flight and flight["strings"]:  # play.py sets each string's length (holding) or makes it endless (let go)
+        tendon = ET.SubElement(root, "tendon")
+        for i in flight["strings"]:
+            for k, (end, _) in enumerate(string_ends(i, n, p["pitch"], flight["box_m"])):
+                ET.SubElement(cabin, "site", name=f"m{i}_string{k}_end", pos=v(end[0], end[1], end[2] - tall / 2), size=v(0.005))
+                string = ET.SubElement(tendon, "spatial", name=f"m{i}_string{k}", limited="true", range="0 100",
+                                       width="0.0015", rgba=STRING_RGBA, solreflimit=STRING_SOLREF)
+                ET.SubElement(string, "site", site=f"m{i}_string{k}_end")
+                ET.SubElement(string, "site", site=f"m{i}_string{k}")
 
     sensor = ET.SubElement(root, "sensor")
     ET.SubElement(sensor, "subtreecom", name="com", body="m1")
@@ -187,12 +435,13 @@ if __name__ == "__main__":
     ap.add_argument("--slip-ring", action="store_true", help="remove the yaw joint limits")
     ap.add_argument("--gravity", type=float, default=0.0, help="m/s^2 downward, towards the floor (Earth: 9.81)")
     ap.add_argument("--air", action="store_true", help="cabin air drag on the shells")
-    ap.add_argument("--cage", action="store_true", help="the net cage around the chain (size in hardware/spec.toml)")
+    ap.add_argument("--box", action="store_true", help="in the flight box, size in hardware/spec.toml (no strings)")
     ap.add_argument("-o", "--out", default=os.path.join(HERE, "chain.xml"))
     a = ap.parse_args()
     assert a.modules >= 2, "need at least 2 modules"
     with open(a.out, "w") as f:
-        f.write(build(a.preset, a.modules, a.slip_ring, a.gravity, a.air, a.cage) + "\n")
+        box = dict(box_m=[x / 1000 for x in FLIGHT["box_mm"]], strings=[]) if a.box else None
+        f.write(build(a.preset, a.modules, a.slip_ring, a.gravity, a.air, flight=box) + "\n")
     p = PRESETS[a.preset]
     print(f"wrote {a.out}: {a.modules} x {a.preset} ({p['servo']}, {p['torque']} N·m, {p['pitch'] * 100:g} cm pitch)"
           f"{', slip ring' if a.slip_ring else ''}{f', gravity {a.gravity:g} m/s^2' if a.gravity else ''}")

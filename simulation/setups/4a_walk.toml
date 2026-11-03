@@ -1,0 +1,31 @@
+# On the flight: it stands on a deck laid over the net, its feet sucked on, through the 1.8 g pull-up; at zero g it walks on two suction cups (80 mm, 60 N), one foot always holding.
+sequence = "inchworm_walk.csv"
+move_s = 0.9
+hold_s = 0.35
+preset = "feetech85"
+
+[ee1]
+type = "suction"
+attach = { at = [0.0, 0.4, 0.35], facing = "up", roll_deg = 0.0 }
+pull_N = 60.0
+cup_mm = 80.0
+friction = 0.8
+
+[ee12]
+type = "suction"
+attach = { at = [0.0, 0.0, 0.35], facing = "up", roll_deg = 0.0 }
+pull_N = 60.0
+cup_mm = 80.0
+friction = 0.8
+
+[flight]
+box_m = [2.0, 1.3, 1.9]
+strings = []
+on_net = false
+roll_deg = 0.0
+level_g = 0.0
+release_s = 1.0
+start_s = 1.5
+hyper_s = 23.0
+jitter = true
+seed = 1

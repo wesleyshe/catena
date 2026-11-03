@@ -1,0 +1,10 @@
+# An arm anchored by ee1 to a wall: curls up, turns a quarter turn on ee1's twist servo, reaches, folds into an L.
+# The twist is m1_yaw, which needs an end effector on ee1. Then it straightens.
+# 6 rows, 18.5 s at move 2.5 s, hold 1 s.
+m1_yaw,m1_pitch,m2_yaw,m2_pitch,m3_yaw,m3_pitch,m4_yaw,m4_pitch,m5_yaw,m5_pitch,m6_yaw,m6_pitch,m7_yaw,m7_pitch,m8_yaw,m8_pitch,m9_yaw,m9_pitch,m10_yaw,m10_pitch,m11_yaw,m11_pitch,m12_yaw,m12_pitch
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+0,0,0,45,0,0,0,0,0,0,0,45,0,0,0,0,0,0,0,0,0,0,0,0
+90,0,0,45,0,0,0,0,0,0,0,45,0,0,0,0,0,0,0,0,0,0,0,0
+90,0,0,0,0,30,0,0,0,0,0,60,0,0,0,0,0,-40,0,0,0,0,0,0
+0,0,0,0,0,0,0,90,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
