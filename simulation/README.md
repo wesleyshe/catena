@@ -2,8 +2,10 @@
 
 A free-floating MuJoCo model of the MIT Universal Self-Folding Chain Robot (Mutis et al., ACM SCF 2025).
 By default there is no gravity and no tether. You can drive it with sliders and the keyboard, or play folding
-sequences, and log how its centre of mass and angular momentum behave. The chain floats horizontally about 1 m above
-a floor; turn gravity on and it drops onto the floor.
+sequences, and log how its centre of mass and angular momentum behave. On its own the chain floats horizontally about
+1 m above a floor; turn gravity on and it drops onto the floor. Every setup in `setups/` instead flies it as on the
+plane: in the flight box, held by strings through the 1.8 g pull-up, let go in zero g, and caught by the net (see
+Flight below).
 
 ![one module](../docs/images/module.png)
 
@@ -115,8 +117,7 @@ Setups are named `{demo}{version}_{what}`: the number is the class demo it belon
 | No viewer: run the sequence and log | `.venv/bin/python play.py --seq ../sequences/fold_sequence.csv --headless` |
 | Viewer with Earth gravity (drops to the floor) | `.venv/bin/mjpython play.py --gravity 9.81` |
 | Flight-like: 4× faster, let go with 1 deg/s of spin, cabin air | `.venv/bin/python play.py --seq ../sequences/reorient_loop.csv --headless --speed 4 --spin 0 0 1 --air` |
-| A whole parabola in the flight box (a setup with `[flight]`, ~30 s) | `.venv/bin/python play.py --setup setups/1d_flight_turn.toml --headless` |
-| Run a whole setup (end effectors, timing, spin...) and log | `.venv/bin/python play.py --setup setups/1a_turn.toml --headless` |
+| Run a whole setup and log: with `[flight]` (every setup in `setups/`), one whole parabola in the flight box, ~1 min | `.venv/bin/python play.py --setup setups/1a_turn.toml --headless` |
 | Run all checks and renders | `.venv/bin/python verify.py` |
 | Control window (same as double-clicking `Chain Sim.command`) | `.venv/bin/python panel.py` |
 
@@ -225,8 +226,8 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
 | `panel.py` | Control window: buttons that build the model and drive the viewer. |
 | `setup_file.py`, `setups/` | Reads and writes setup files, and lists the demo buttons (`DEMOS`); `setups/` holds the example runs. |
 | `panel_setup.toml` | What the control window last opened the viewer with (it starts `play.py --setup` with it). Not in git. |
-| `stall_sweep.py` | The stall length at Earth, Mars, Moon and zero g, from the 2b setups. |
-| `pole_climb_design.py` | Designs the pole climb (pole size, squeeze, stretch) and writes its sequence and setup. |
+| `stall_sweep.py` | The stall length at Earth, Mars, Moon and zero g, on the 14 cm chain in steady gravity (it builds its own setups; the 2b setups fly the same in parabolas). |
+| `pole_climb_design.py` | Designs the pole climb (pole size, squeeze, stretch) and writes `../sequences/pole_climb.csv`. |
 | `play.py` | Viewer, keyboard, sequence playback, logging, live readouts; takes commands from `panel.py`. |
 | `../sequences/` | Fold-sequence CSVs, shared with the robot software; the control window lists these. Its README splits them into those that play on the bare chain and those written for a setup. Add your own here. |
 | `logs/` | Run logs: `run_log.csv` from the shell, `run_<date>_<time>.csv` from the control window. |
@@ -308,7 +309,7 @@ columns per end follow: `ee{k}_held` (0/1), `ee{k}_load_N` (clamp force or cup p
 
 ## Verified (`verify.py`)
 
-- All three presets compile, with and without `--slip-ring`.
+- All four presets compile, with and without `--slip-ring`.
 - Every joint's axis and anchor is correct.
 - A 30° test turn moves everything downstream rigidly about the right axis.
 - The yoke discs are centred on the pitch axis (within 0.002 mm) and the hub on the yaw axis (within 0.014 mm).
@@ -349,7 +350,7 @@ Why the model is built the way it is. Kept here so `AGENTS.md` stays short; read
     - Three additions: `frictionloss` = `GEAR_FRICTION` (7%) × stall torque, a per-preset `armature` (0.002 / 0.0002
       kg·m²), and actuator `kv` (1.0 / 0.25).
     - `kv` acts whenever the servo isn't saturated, which in smooth moves is nearly all the time. It's a stand-in for
-      damping the model doesn't otherwise capture, not something the AX-12A does; see open issue 9.
+      damping the model doesn't otherwise capture, not something the AX-12A does; see open issue 10 in `AGENTS.md`.
     - Effect on a 60° step at m6: before, 9.5° overshoot, 15 swings, 3.5 s to settle, 8° flex. After, 1°, 2 swings,
       0.5 s, 2.7°.
     - **`armature` is what makes `kv` possible** at a 0.5 ms timestep; without it the light twist mode goes unstable.
@@ -445,4 +446,6 @@ Why the model is built the way it is. Kept here so `AGENTS.md` stays short; read
     there, or reopen the viewer on the display you'll use.
 - **Countdown:** the viewer holds the commands after `countdown {s}` (the take's spin and play) and the physics until
   it ends, drawing T-n big at the top, so sim time doesn't move and the take starts exactly at T-0.
-- **Tested in the real GUI:** Play (2026-10-17), layout screenshots, and Spin → Play → Stop spin (2026-10-21).
+- **Tested in the real GUI:** Play (2026-10-17), layout screenshots, and Spin → Play → Stop spin (2026-10-21); the
+  demo buttons, Start the parabola, Let go, Play by hand, the camera tick, Log, Screenshot and Pause physics, driven by
+  script (2026-11-03).

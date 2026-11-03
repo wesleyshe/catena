@@ -3,12 +3,11 @@
   mjpython play.py                                  viewer: Control-panel sliders + keyboard
   mjpython play.py --seq ../sequences/fold_sequence.csv       viewer, playing the sequence
   .venv/bin/python play.py --seq ../sequences/fold_sequence.csv --headless    no viewer, run and log only
-  .venv/bin/python play.py --setup setups/1a_turn.toml --headless   a whole run from a setup file (setups/)
+  .venv/bin/python play.py --setup setups/1a_turn.toml --headless   a whole run from a setup file (setups/); one with
+      [flight] flies a whole parabola: held by strings through the 1.8 g pull-up, let go at zero g, onto the net
   mjpython play.py --gravity 9.81                   start with Earth gravity: the chain drops onto the floor
   .venv/bin/python play.py --seq ../sequences/reorient_loop.csv --headless --speed 4 --spin 0 0 1 --air
       flight-like: the sequence 4x faster (to fit a parabola), let go with 1 deg/s of spin, cabin air
-  .venv/bin/python play.py --setup setups/1d_flight_turn.toml --headless
-      a setup with [flight] flies a whole parabola: held by strings through the 1.8 g pull-up, let go at zero g, onto the net
 The control window (panel.py, or double-click 'Chain Sim.command') starts this with --panel and sends it commands.
 
 Keyboard (viewer): PageUp / PageDown select module, Up / Down nudge its pitch,

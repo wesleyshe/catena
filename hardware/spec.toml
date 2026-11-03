@@ -27,7 +27,8 @@ arm_g = 30                    # yoke + hub
 [imu]
 module = 1                    # which module carries the IMU (placeholder until decided); the sim logs its attitude
 
-[flight]                      # the parabolic flight: Novespace A310 ZERO-G (docs/ITF-2025-01-Interfaces-EN.pdf, "ITF")
+[flight]                      # the parabolic flight: Novespace A310 ZERO-G (Novespace's ITF-2025-01 "Interfaces", "ITF";
+                              # not in git: ask Wesley for docs/ITF-2025-01-Interfaces-EN.pdf)
 parabola_s = 22               # microgravity per parabola (ITF §3.6, §3.10)
 hypergravity_g = 1.8          # the pull-up before it and the pull-out after it (ITF §3.10)
 hypergravity_s = 23           # each, from leaving 1 g to reaching zero g (ITF §3.10: "approximately 23 seconds each")

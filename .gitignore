@@ -16,3 +16,6 @@ simulation/panel_setup.toml
 # Written by verify.py on every run; they differ slightly between computers
 simulation/renders/
 .gstack/
+# Other people's documents, kept locally but not ours to publish (the repo is public): Novespace's ITF, example ESDPs
+docs/ITF-*.pdf
+docs/Example_*.pdf

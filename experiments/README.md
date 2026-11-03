@@ -62,8 +62,8 @@ Measured sim results so far are in `findings.md`.
   - Reach to a target behind an obstruction.
 - **Hardware:** this needs an anchored fixture, so it's a separate rig. A stands alone if only one flies.
 - **What the sim does now:** an anchor end effector holds one end to a wall, the floor or a rod, with the clamp's force
-  and torque in the readouts and the log (setups `2a_arm`, `2c_let_go`). Suction cups and thrusters too (setups `3a_*`,
-  `4a`, `4b`, `5a`).
+  and torque in the readouts and the log (setups `2a_arm`, `2c_let_go`, and on a rail in `5b_rod_crawl`). Thrusters
+  and suction cups too (setups `3a_*`, `4a`, `4b`).
 - **Not in the sim yet:**
   - Obstacles.
   - A tip-force readout.

@@ -4,6 +4,13 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- **Stale docs fixed** (the list in the refactor plan, section 6): `README.md`'s map rows for `simulation/` and `docs/`;
+  `sequences/README.md` (4a walks on a deck over the net, not the lid); `experiments/README.md` (5b uses anchors, 5a has
+  no end effectors). Hardware's and the sim's lines are in their own logs.
+- `.gitignore`: Novespace's ITF and the example ESDP in `docs/` stay local; the repo is public and they aren't ours.
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED.
+
+## 2026-11-03 · Wesley (Claude Code)
 - **`docs/design/2026-11-03-refactor-plan.md`:** a plan to split `simulation/` into files that each do one thing
   (`play.py`, `make_chain.py` and `verify.py` mainly), keeping every contract in `simulation/AGENTS.md`, in 13 small
   steps with checks. It also lists the stale lines found in the docs across the repo. A plan only: no code changed,

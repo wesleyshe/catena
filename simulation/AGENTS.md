@@ -38,8 +38,7 @@ uv venv --python 3.11 .venv && uv pip install --python .venv/bin/python -r requi
 .venv/bin/python make_chain.py [--preset feetech85] [-n 12] [--slip-ring] [--gravity 9.81] [--box]   # writes chain.xml
 .venv/bin/python play.py --seq ../sequences/fold_sequence.csv --headless                 # logs/run_log.csv
 .venv/bin/python play.py --seq ../sequences/reorient_loop.csv --headless --speed 4 --spin 0 0 1 --air   # flight-like
-.venv/bin/python play.py --setup setups/1d_flight_turn.toml --headless   # a [flight] setup: one whole parabola
-.venv/bin/python play.py --setup setups/1a_turn.toml --headless   # a whole run from a setup file; flags given win
+.venv/bin/python play.py --setup setups/1a_turn.toml --headless   # a whole run from a setup: with [flight], a parabola
 .venv/bin/mjpython play.py                                   # viewer only (macOS needs mjpython)
 .venv/bin/python panel.py                                    # control window + viewer (= double-click Chain Sim.command)
 .venv/bin/python export_meshes.py                            # rebuild meshes/ from ../hardware/cad/complete chain.3dm
@@ -129,7 +128,7 @@ verify.py builds models in memory with make_chain.build() and drives play.Sessio
   - `m1` must stay body id 1, with the free joint: `Session` uses `d.xpos[1]`, `subtree_com[1]` and `qvel[:6]`.
 - **`play.py` API used elsewhere:**
   - `verify.py` uses `Session` (`advance`, `command`, `readouts`, `spin`, `spin_rate`, `imu_turn`, `inertia`, `turned`,
-    `d`), plus `read_sequence` and `target`.
+    `d`), plus `read_sequence`, `target`, `joint_servos`, `LOG_DT`, `Commands` and `Parabola`.
   - `make_chain.build(preset, n, slip_ring, gravity, air, ee1, ee_n, rod, flight)`. `air` takes its density from
     `[flight]` in the spec; `ee1`/`ee_n` are a type from `EE_TYPES` or a dict like `EE_DEFAULTS`; `flight` is a
     setup's `[flight]` (`box_m`, `strings`, `roll_deg`) or None. With it: no world floor; a body `cabin` (after the

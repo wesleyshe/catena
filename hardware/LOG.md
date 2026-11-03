@@ -3,6 +3,11 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- `AGENTS.md`, Miniaturisation: the 2026-10-22 "about 80 mm" outcome now says it became Ø85 mm on 2026-11-03.
+- `spec.toml`: a comment only. The ITF it cites is Novespace's, so it isn't in git; ask Wesley for the PDF.
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED (no numbers changed).
+
+## 2026-11-03 · Wesley (Claude Code)
 - `spec.toml`: `net_height_mm` 200 → 300 (Wesley: a buffer under the net so a falling chain can't reach the floor; the
   sim's landings sink at most 115 mm).
 - **Checked:** `simulation/verify.py` ALL CHECKS PASSED.

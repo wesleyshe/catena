@@ -11,10 +11,10 @@ CATENA is a chain of 12 spherical modules that folds itself into shapes: the MIT
 |---|---|---|
 | `hardware/` | CAD and measurements of the chain | `hardware/AGENTS.md` |
 | `software/` | Code for the real chain (to come) | `software/AGENTS.md` |
-| `simulation/` | MuJoCo model: zero-g folding, spin, gravity, logging | `simulation/README.md` |
+| `simulation/` | MuJoCo model: zero-g folding, end effectors, the flight box and one parabola, logging | `simulation/README.md` |
 | `sequences/` | Fold sequences (CSV): scripted moves that the sim plays and the chain will play | `sequences/README.md` |
 | `experiments/` | The flight experiments, what the sim predicts, measured findings | `experiments/README.md` |
-| `docs/` | Proposal and course syllabus | |
+| `docs/` | Proposal, course syllabus, design notes and plans (`docs/design/`), images | |
 
 ## Quick start: the simulation
 This needs [uv](https://docs.astral.sh/uv/).

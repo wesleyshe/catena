@@ -3,6 +3,13 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- **Stale docs fixed** (refactor plan, section 6): `setups/1d_flight_turn.toml` (gone) replaced by `1a_turn` in
+  `AGENTS.md`, `README.md` and `play.py`'s docstring; README: four presets, `stall_sweep.py` builds its own setups,
+  `pole_climb_design.py` writes only the sequence, kv is open issue 10, the opening mentions the flight box, the GUI
+  tests of 2026-11-03; AGENTS.md: what `verify.py` imports from `play.py`.
+- **Checked:** `verify.py` ALL CHECKS PASSED. Docs and a docstring only.
+
+## 2026-11-03 · Wesley (Claude Code)
 - **Demo button 1B** (Wesley: "1B alongside 1A free float on the demo... I want a sequence"): **1A Free float (held)**
   and **1B Free float (from the net)** side by side, then 2–6; one click flies 1b_from_net with its turn sequence. With
   no strings the readout says "none (lying on the net)" instead of "holding (0)".
