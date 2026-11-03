@@ -44,13 +44,13 @@ To quit, close the control window: the viewer closes with it.
 
 ## 3. The demo buttons
 The top row of the control window has one button per class simulation. **One click** loads that simulation, reopens
-the viewer with it, and flies it: a whole parabola with its sequence, about 80 seconds. Press **Play** for another take;
+the viewer with it, and flies it: a whole parabola with its sequence, about 55 seconds. Press **Play** for another take;
 every take of the same setup comes out the same.
 
 | Button | What you'll see |
 |---|---|
 | **1A Free float (held)** | Held by strings in the middle of the box, let go, then it folds in loops to turn without pushing on anything (the "falling cat"). The plane's pitch-over makes it roll instead of turn cleanly. It drifts into an end wall near the end of zero g. |
-| **1B Free float (from the net)** | The same moves, but it starts lying on the net with no strings. The leftover g lifts it off the net about 2 s into zero g, and it reaches the lid about 4 s later. |
+| **1B Free float (from the net)** | The same moves, but it starts lying on the net with no strings. It floats off the net as zero g begins, and the leftover g carries it into the lid about 6 s in. |
 | **2 Anchored** | Clamped by its red anchor to the box's end wall, it works like an arm: curls, turns on its twist servo, reaches, and touches a side wall. |
 | **3 Thrusters** | Folds into a U, fires a nozzle on each of its yellow end modules for 2.5 s (a nozzle turns bright orange while it fires), then glides across the box. |
 | **4 Suction walk** | Stands on a deck over the net on its two green suction cups, then walks along it in zero g, one foot always holding. |
@@ -64,7 +64,7 @@ parabolas, other shapes) are in the **Setup** list; see section 4.
 - **The box:** clear acrylic walls with an aluminium frame, a door on the aisle side, and the net across it 300 mm above
   its floor.
 - **The strings:** thin white lines from the box's edges to four modules. They vanish when they let go.
-- **The big text at the top:** a countdown (T-5 … T-1), then where the flight is: `1.8 g  pull-up  -  zero g in 12`,
+- **The big text at the top:** a countdown (T-5 … T-1), then where the flight is: `1.8 g  pull-up  -  zero g in 8`,
   then `zero g  T+3` (seconds since zero g began), then `1.8 g  pull-out`.
 - **The readouts**, top left: the same lines as in the control window (section 6).
 - **One orange module:** that's the one the keyboard moves (section 6).
@@ -87,12 +87,12 @@ Each box in the window is one section. Some settings act at once, some at the ne
 | **Readouts** | What the viewer reports, five times a second (section 6). | |
 
 ## 5. Flying a parabola
-A parabola is about 75 s of simulated time. In order:
+A parabola in the setups takes 48 s of simulated time. In order:
 
 | Time | What happens | Big text |
 |---|---|---|
 | Countdown | The chain waits; nothing moves. | `T-5` … `T-1` |
-| 26 s | Level flight at 1 g (3 s), then the 1.8 g pull-up as the plane noses up. The strings hold the chain still. **This is the stretch where nothing seems to happen.** | `1.8 g  pull-up  -  zero g in 12` |
+| 13 s | Level flight at 1 g (3 s), then the 1.8 g pull-up as the plane noses up (10 s). The strings hold the chain still. **This is the stretch where nothing seems to happen.** | `1.8 g  pull-up  -  zero g in 8` |
 | T+0 | Zero g begins. | `zero g  T+0` |
 | T+1 | The strings let go. | |
 | T+1.5 to about T+21 | The sequence plays. | `zero g  T+9` |
@@ -116,10 +116,10 @@ Let go and press Play within a second or two of T+0, so that a 20 s sequence sti
 **To wait less,** either:
 - set **Playback x** to 2 or 3 before Play. It shows the whole flight faster without changing the physics. If your
   computer can't keep up, the **playback** readout says so (for example `x2 (reaching x0.9)`); or
-- set **1.8 g phases, s** (in Flight) to 7, its smallest. Zero g then begins 10 s after the countdown instead of 26 s,
-  and the whole parabola takes 42 s instead of 74 s. It applies at the next Play, with no Rebuild. It shortens the
-  pull-out too, and it's shorter than the real A310's 23 s, so the chain spends less time held at 1.8 g. A demo button
-  or **Load** sets it back to the setup's 23 s; **Save as...** keeps your 7 s in a new setup.
+- change **1.8 g phases, s** (in Flight). The setups use 10 s, so zero g begins 13 s after the countdown. 7, its
+  smallest, starts zero g after 10 s. 23 is the real A310: zero g after 26 s, and 74 s for the whole parabola. It
+  applies at the next Play, with no Rebuild, and sets the pull-out too. A demo button or **Load** sets it back to the
+  setup's 10 s; **Save as...** keeps your value in a new setup.
 
 ## 6. Watching, readouts, logs and screenshots
 **The camera.** With **Camera turns with the plane** ticked, you watch from inside the cabin, so the box looks still
@@ -196,8 +196,8 @@ setting is described at the top of `setup_file.py`. Adding a demo button of your
 (`DEMOS` in `setup_file.py`).
 
 ## 8. When something goes wrong
-- **Nothing happens for half a minute after I click a demo or Play.** That's the countdown and the 1.8 g pull-up: the
-  strings hold the chain still until zero g, about 31 s after the click. Watch the big text count down to zero g, or
+- **Nothing happens for 18 s after I click a demo or Play.** That's the countdown and the 1.8 g pull-up: the strings
+  hold the chain still until zero g, 5 s + 13 s after the click. Watch the big text count down to zero g, or
   wait less (section 5): **Playback x** 2 or 3, or **1.8 g phases, s** at 7.
 - **I changed the code (or pulled new code) and nothing changed.** Close the control window and double-click
   `Chain Sim.command` again. Running windows keep the old code; Rebuild isn't enough.

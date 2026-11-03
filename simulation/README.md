@@ -83,7 +83,7 @@ roll_deg = 0.0
 level_g = 0.0
 release_s = 1.0
 start_s = 1.5
-hyper_s = 23.0
+hyper_s = 10.0
 jitter = true
 seed = 1
 ```
@@ -140,7 +140,12 @@ Its first line says what it shows. The format is in `setup_file.py`; the files a
 them by hand.
 
 The six class simulations, each flown in the 2.0 × 1.3 × 1.9 m box on the 8.5 cm flight build (`feetech85`): held
-through the 1.8 g pull-up, let go at T+1 s, the sequence from T+1.5 s, the pull-out onto the net. The demo buttons fly
+through the 1.8 g pull-up, let go at T+1 s, the sequence from T+1.5 s, the pull-out onto the net. The setups' 1.8 g
+phases are 10 s (`hyper_s = 10.0`), shorter than the A310's 23 s so there's less waiting; the results below are flown
+with the A310's 23 s (set **1.8 g phases** to 23, or pass `hyper_s=23` to `fly`). With 10 s, what the chain does in zero g
+is the same within 2 mm and 0.5° for 4a, 5a, 5b and 6a; 1a turns +4.8° in the box instead of +2.5°, 2c −78° instead
+of −86°, 1b leaves the net as zero g begins instead of at T+2.4 s, and the clamps take more in the faster pitch-up
+(2a, 2c 41 N instead of 24 N; 5b 36 N instead of 9 N). See `../experiments/findings.md`, "The flight box". The demo buttons fly
 `1a_turn`, `1b_from_net`, `2a_arm`, `3a_U`, `4a_walk`, `5a_pole_climb` and `6a_skater`; the others are in the Setup list. Results are
 headless flights with the leftover g (seed 1), at the sequence's end and counted from the release; "box" is what the
 cabin's camera sees, "space" what the IMU sees. In perfect zero g on the 14 cm chain they're in

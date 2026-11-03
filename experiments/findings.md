@@ -201,6 +201,14 @@ with it; the sim's world doesn't turn, so the chain feels the rotation for itsel
 m12 still in the middle of the room above the net (or the experiment's anchor, pole or deck holds it); they let go at
 T+1 s (T = 0 when zero g begins) and the sequence starts at T+1.5 s.
 
+**These results use the A310's 23 s 1.8 g phases.** Since 2026-11-03 the setups use 10 s (Wesley: less waiting before
+zero g in the demos). Flown both ways, at the sequence's end: 4a, 5a, 5b and 6a are the same within 2 mm and 0.5°; 1a
+turns +4.8° in the box (+18.0° in space) instead of +2.5° (+11.7°); 2c turns −78° instead of −86°; 1b leaves the net as
+zero g begins, still settling from the shorter pull-up, instead of at T+2.4 s at 210 mm/s, and has turned −366° instead
+of −306°; the first touches move by at most 0.4 s, except 1d (T+18.4 s instead of T+20.1 s) and 4b (the lid at T+11.7 s
+instead of an end wall at T+12.1 s). The clamps take more as the plane pitches up faster: 2a and 2c 41 N instead of
+24 N, 5b's rail clamps 36 N instead of 9 N (in zero g, unchanged). For a flight prediction, fly them with 23 s.
+
 **What each class simulation does on the flight** (at the sequence's end, counted from the release; "box" is what the
 cabin's camera sees, "space" what the IMU sees):
 

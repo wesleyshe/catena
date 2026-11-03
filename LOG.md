@@ -4,6 +4,12 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- `experiments/findings.md`, "The flight box": the setups now fly 10 s 1.8 g phases (Wesley, to wait less in the
+  demos); the section's results stay those of the A310's 23 s, with what 10 s changes beside them (zero g mostly the
+  same; 1b's lift-off and the clamps' pull-up loads differ). Details in `simulation/LOG.md`.
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED.
+
+## 2026-11-03 · Wesley (Claude Code)
 - **The refactor of `simulation/` is built** (`docs/design/2026-11-03-refactor-plan.md`, with an "As built" section):
   same commands, same results byte for byte. `README.md` links the new `simulation/GUIDE.md`.
 - `experiments/findings.md`, "The flight box": 6a touches the lid at T+19.5 s, near the end of zero g (it said it

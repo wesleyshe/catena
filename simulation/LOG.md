@@ -3,6 +3,18 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- **The setups' 1.8 g phases are 10 s, not 23 s** (Wesley: "set 1.8 g phases to 10s for me"): `hyper_s = 10.0` in all 21
+  setups, so a demo reaches zero g 13 s after its countdown instead of 26 s, and a parabola takes 48 s instead of 74 s.
+  The A310's is 23 s (ITF §3.10), and the panel's default without a setup stays at the spec's 23 s.
+  - What it changes, each setup flown both ways to the end of its sequence: 4a, 5a, 5b and 6a within 2 mm and 0.5°;
+    1a +4.8° in the box instead of +2.5°; 2c −78° instead of −86°; 1b leaves the net as zero g begins instead of at
+    T+2.4 s (210 mm/s), −366° instead of −306°; the clamps take more in the faster pitch-up (2a, 2c 41 N instead of
+    24 N; 5b 36 N instead of 9 N). README's setups table and `../experiments/findings.md` keep the 23 s results, saying
+    so. `GUIDE.md`'s timings updated.
+- **Checked:** all 21 setups flown headless with the new value; `verify.py` ALL CHECKS PASSED (its flight checks set
+  their own 7 s).
+
+## 2026-11-03 · Wesley (Claude Code)
 - **Fix: flying by hand, Play started a fresh parabola instead of the sequence** (found this morning by driving the
   window). During Start the parabola's countdown the viewer reports "not flying", and `Panel.poll` took that to mean
   the parabola was over and forgot it was by hand; a readout sent just before the viewer got the command could do the

@@ -23,9 +23,9 @@ contracts, decisions and open issues. History is in `LOG.md`.
   window's seven demo buttons (1A, 1B, 2–6) fly one each.
 - **Every setup flies** (2026-11-03) on the 8.5 cm build (`feetech85`, scaled from the AX-12A chain until the STS3032
   CAD exists): in the A310 box (`../experiments/flight_space.md`), held by strings (or its anchor) through the 1.8 g
-  pull-up, let go at T+1 s, the sequence from T+1.5 s, the pull-out onto the net; the box turns with the plane. Play, a
-  demo button or a headless run flies it; the window also flies it by hand. The perfect-zero-g 14 cm results stay in
-  `findings.md` and in verify.py's own setups.
+  pull-up (10 s in the setups, to wait less; findings use the A310's 23 s), let go at T+1 s, the sequence from T+1.5 s,
+  the pull-out onto the net; the box turns with the plane. Play, a demo button or a headless run flies it; the window
+  also flies it by hand. The perfect-zero-g 14 cm results stay in `findings.md` and in verify.py's own setups.
 - **Refactored** (2026-11-03, `../docs/design/2026-11-03-refactor-plan.md`) into files that each do one thing, with
   every result byte-identical to before.
 - **Owner: Wesley.** Wesley double-clicks `Chain Sim.command` rather than using the shell, and uses the sim to answer
