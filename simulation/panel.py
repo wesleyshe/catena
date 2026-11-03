@@ -139,7 +139,7 @@ class Panel:
         self.played = False  # a take has run since the viewer opened or Reset pose: the next Play starts from the start
         self.autoplay = False  # a demo button was clicked: play as soon as the viewer connects
         self.loaded_flight = False  # the open viewer has the flight box: Play flies the parabola
-        self.manual = False  # a parabola started by hand is running: Play plays the sequence now, Let go lets go
+        self.manual = False  # a parabola started by hand is flying: Play plays the sequence now (poll keeps this up to date)
 
         self.preset, self.modules, self.slip = tk.StringVar(value="original14"), tk.IntVar(value=N_MODULES), tk.BooleanVar()
         self.seq, self.move, self.hold = tk.StringVar(), tk.DoubleVar(value=3.0), tk.DoubleVar(value=1.0)
@@ -562,8 +562,9 @@ class Panel:
                 self.play()
         if info:
             self.status.set("\n".join(f"{k:<11}{v}" for k, v in info.items()))
-            if info.get("flight", "").startswith(("done", "not flying")):
-                self.manual = False  # that parabola is over: the next Play flies a fresh one
+            # by hand while the viewer says so: it has a "by hand" line only while a parabola started by hand is flying,
+            # so not during its countdown (which reads "not flying") and not once it's over or stopped
+            self.manual = "by hand" in info
             self.sim_running = info["physics"] == "running"  # also follows the Space key in the viewer
             self.physics_btn.configure(text="⏸  Pause physics" if self.sim_running else "▶  Resume physics")
         if closed:

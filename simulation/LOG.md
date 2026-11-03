@@ -3,6 +3,27 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- **Fix: flying by hand, Play started a fresh parabola instead of the sequence** (found this morning by driving the
+  window). During Start the parabola's countdown the viewer reports "not flying", and `Panel.poll` took that to mean
+  the parabola was over and forgot it was by hand; a readout sent just before the viewer got the command could do the
+  same with no countdown. Now the panel's `manual` follows the viewer: true only while its readouts have a "by hand"
+  line, which they do only while a parabola started by hand is flying.
+- **Checked:** the real window and viewer, driven by script, Countdown s 5: Start the parabola (3a_U), Let go at
+  T+1.2 s, Play at T+2.5 s: `playing thrust_U.csv` at T+6.1 s, no reset; Stop, then Play: a fresh parabola with its
+  countdown. Demo 1A, Play again after a flight, and Stop still behave as before. `checks/same_as_before.py compare
+  --quick` the same; `verify.py` ALL CHECKS PASSED.
+- **`GUIDE.md`, new:** Chain Sim for first-timers who'd rather click: install once, open it, the demo buttons and what
+  the viewer shows, the control window section by section, flying a parabola (Play, or by hand), the camera, readouts,
+  logs and screenshots, making a sequence and a setup, and what to do when something goes wrong. Three viewer
+  screenshots in `../docs/images/guide/`. Linked from `README.md` and the root README.
+  - Tried in the real window by script: the first view, the demo buttons (1A), Load from the Setup list (3a_U) and
+    Play, the countdown and the big text, by hand (Start, Let go, Play), Stop then Play, the camera tick, Screenshot,
+    Log, Pause and Resume physics. The big text's wording through a whole flight, Play and by hand, from a headless run
+    of the same session.
+  - Not tried: installing from nothing (the commands are the ones GitHub runs on every pull request), the keys and the
+    mouse in the viewer, Save as (a file dialog), and the viewer's Font option.
+
+## 2026-11-03 · Wesley (Claude Code)
 - **Refactor, phase 5: the docs.** `AGENTS.md` describes the new layout (the folder map in groups, how the pieces
   connect, the contracts' new homes: `sequence.joint_servos`, `ends.End`, `flight.Parabola`, `viewer.Commands`) and is
   back to 250 lines (from 270): the two end-effector gotchas moved to README's Physics choices, the open issues the
