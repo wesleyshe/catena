@@ -21,7 +21,7 @@ History is in `LOG.md`.
 - **End effectors and setups: all 6 phases built** (design and plans: `../docs/design/2026-10-2*-end-effectors*.md`).
   Anchors, suction cups, thrusters, placement, the rod, grip and nozzle columns, the stall sweep, Playback x, the
   countdown. 21 setups make the six class simulations (1a–1e, 2a–2c, 3a ×4, 4a–4b, 5a–5b, 6a); results in
-  `../experiments/findings.md`. The control window's six demo buttons fly one each.
+  `../experiments/findings.md`. The control window's seven demo buttons (1A, 1B, 2–6) fly one each.
 - **Every setup flies** (2026-11-03): its `[flight]` puts the chain in the acrylic box sized from the A310 cabin
   (`../experiments/flight_space.md`), held by strings (or its anchor) through the 1.8 g pull-up, let go at T+1 s, the
   sequence from T+1.5 s, the pull-out onto the net; the box turns with the plane's pitch. Play, a demo button or a

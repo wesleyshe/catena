@@ -3,6 +3,15 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- **Demo button 1B** (Wesley: "1B alongside 1A free float on the demo... I want a sequence"): **1A Free float (held)**
+  and **1B Free float (from the net)** side by side, then 2–6; one click flies 1b_from_net with its turn sequence. With
+  no strings the readout says "none (lying on the net)" instead of "holding (0)".
+- **Checked:** the real control window and viewer, driven by script: clicking 1B counted down, flew the pull-up with
+  the chain on the net, and played reorient_loop.csv from T+1.5 s to 100% at T+21.7 s, in one viewer process; Start
+  the parabola by hand on 1b ran the countdown and the pull-up the same way (an earlier run showed a stray viewer state
+  once and didn't repeat). `verify.py` not re-run for this (window and readout text only).
+
+## 2026-11-03 · Wesley (Claude Code)
 - **By hand, say what's next** (Wesley: "when I click start the parabola... I am not seeing anything"; it was working,
   but for ~30 s nothing moves in the cabin view and the sequence waits for Play). The viewer's big text now counts down
   to zero g ("1.8 g pull-up - zero g in 12") after the T-5 countdown, then says "Let go when ready" and "Play: the

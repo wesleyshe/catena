@@ -34,7 +34,7 @@ control window and the MuJoCo viewer open side by side. The quickest start is on
 
 | Section | What it does |
 |---|---|
-| The demos | One button per class simulation, each flown as it will be on the plane (see Flight): **1 Free float**, **2 Anchored**, **3 Thrusters**, **4 Suction walk**, **5 Pole climb**, **6 Skater**. One click opens it in the viewer and flies it; press **Play** for another take. The other versions of each (an extra spin at release, the pitch axes across the cabin, the Moon and Mars parabolas, the U / Z / L shapes, the rail crawl) are in the Setup list. |
+| The demos | One button per class simulation, each flown as it will be on the plane (see Flight): **1A Free float (held)** by the strings, **1B Free float (from the net)**, **2 Anchored**, **3 Thrusters**, **4 Suction walk**, **5 Pole climb**, **6 Skater**. One click opens it in the viewer and flies it, sequence and all; press **Play** for another take. The other versions of each (an extra spin at release, the pitch axes across the cabin, the Moon and Mars parabolas, the U / Z / L shapes, the rail crawl) are in the Setup list. |
 | Setup | Pick a whole run from `setups/` (see [Setups](#setups-setups)); the lines under it say what the run shows and what's in it (its world, chain and end effectors, and how it starts). **Load** fills in every setting below and opens the viewer; then press **Play**. **Save as...** saves the current settings as a new setup, with a line saying what it shows. |
 | Model | Pick the preset (`feetech85` is the 8.5 cm flight build), number of modules and slip ring, and tick **Air drag** (cabin air on the shells) for flight-like runs. |
 | End effectors | An extra module on either end: none, **anchor** (a clamp), **suction** cup or **thruster** (five nozzles). The one past m1 sits on module 1's twist servo (`m1_yaw`). Picking a type shows its settings: an anchor or cup can **start** floating, on a surface (x, y, z and the way the surface faces) or on the rod (how far along), with a roll; a cup has its pull limit, diameter and friction; a thruster its push per nozzle. While running: **Hold** / **Let go** (an anchor or cup told to hold grabs whatever fixed thing it touches), or the nozzle tick boxes n0 (out of the end) to n4 (sideways). If ee1 starts attached, it sets where the chain starts, and the other end's placement greys out. **Rod to grab** (in Model) adds the setup's rod. Then click **Rebuild + open viewer**, which applies Model and End effectors and restarts the viewer. |
@@ -135,7 +135,7 @@ them by hand.
 
 The six class simulations, each flown in the 2.0 × 1.3 × 1.9 m box on the 8.5 cm flight build (`feetech85`): held
 through the 1.8 g pull-up, let go at T+1 s, the sequence from T+1.5 s, the pull-out onto the net. The demo buttons fly
-`1a_turn`, `2a_arm`, `3a_U`, `4a_walk`, `5a_pole_climb` and `6a_skater`; the others are in the Setup list. Results are
+`1a_turn`, `1b_from_net`, `2a_arm`, `3a_U`, `4a_walk`, `5a_pole_climb` and `6a_skater`; the others are in the Setup list. Results are
 headless flights with the leftover g (seed 1), at the sequence's end and counted from the release; "box" is what the
 cabin's camera sees, "space" what the IMU sees. In perfect zero g on the 14 cm chain they're in
 `../experiments/findings.md`, "The class simulations".

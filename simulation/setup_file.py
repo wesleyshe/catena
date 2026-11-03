@@ -78,8 +78,9 @@ FLIGHT_DEFAULTS = dict(box_m=[x / 1000 for x in FLIGHT["box_mm"]], strings=None,
 RAMPS_S = 7.0  # the 1 -> 1.8 g and 1.8 -> 0 g ramps (play.Parabola): a 1.8 g phase can't be shorter
 SETTINGS = dict(none=(), anchor=("attach",), suction=("attach", "pull_N", "cup_mm", "friction"), thruster=("thrust_N",))
 ALWAYS = ("sequence", "move_s", "hold_s")  # save() writes these; the other keys only where they differ from DEFAULTS
-DEMOS = [("1  Free float", "1a_turn"), ("2  Anchored", "2a_arm"), ("3  Thrusters", "3a_U"),  # the control window's
-         ("4  Suction walk", "4a_walk"), ("5  Pole climb", "5a_pole_climb"), ("6  Skater", "6a_skater")]  # buttons: setup
+DEMOS = [("1A  Free float (held)", "1a_turn"), ("1B  Free float (from the net)", "1b_from_net"),  # the control window's
+         ("2  Anchored", "2a_arm"), ("3  Thrusters", "3a_U"), ("4  Suction walk", "4a_walk"),  # buttons: label, setup
+         ("5  Pole climb", "5a_pole_climb"), ("6  Skater", "6a_skater")]
 KINDS = dict(anchor="anchor (clamp)", suction="suction cup", thruster="thruster")
 
 

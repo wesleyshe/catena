@@ -805,7 +805,8 @@ class Session:
             out["flight"] = f"{phase}, {-g[2]:.2f} g, T{T:+.1f} s" + (
                 f" ({self.parabola.free} in {-T:.1f} s)" if T < 0 else
                 f" ({FLIGHT['parabola_s'] - T:.1f} s of {self.parabola.free} left)" if phase == self.parabola.free else "")
-            out["strings"] = (f"holding ({len(self.strings)}), pulling up to {self.tension():.1f} N" if self.released is None
+            out["strings"] = ("none" + (" (lying on the net)" if self.flight.get("on_net") else "") if not self.strings else
+                              f"holding ({len(self.strings)}), pulling up to {self.tension():.1f} N" if self.released is None
                               else f"let go at T+{self.released:.1f} s")
             if self.manual:
                 out["by hand"] = ("the strings hold until you click Let go (zero g from T+0)" if self.released is None and self.strings

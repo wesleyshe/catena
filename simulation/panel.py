@@ -167,10 +167,12 @@ class Panel:
             f.pack(fill="x", padx=8, pady=4)
             return f
 
-        f = frame("The six demos, each on the flight: one click opens and flies it (Play again for another take)")
-        for k, (label, name) in enumerate(DEMOS):
-            ttk.Button(f, text=label, command=lambda name=name: self.demo(name)).grid(row=k // 3, column=k % 3, sticky="we")
-            f.columnconfigure(k % 3, weight=1)
+        f = frame("The demos, each on the flight: one click opens it and flies it with its sequence (Play for another take)")
+        places = [(0, 0), (0, 1)] + [(1 + j // 3, j % 3) for j in range(len(DEMOS) - 2)]  # 1A and 1B side by side, then 2-6
+        for (label, name), (row, col) in zip(DEMOS, places):
+            ttk.Button(f, text=label, command=lambda name=name: self.demo(name)).grid(row=row, column=col, sticky="we")
+        for col in range(3):
+            f.columnconfigure(col, weight=1)
 
         f = frame("Setup (a whole run, from setups/)")
         self.setup_box = ttk.Combobox(f, textvariable=self.setup_name, values=self.setups(), state="readonly", width=24,
