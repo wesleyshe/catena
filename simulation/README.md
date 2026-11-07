@@ -240,6 +240,7 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
 | `panel_setup.toml` | What the control window last opened the viewer with (it starts `play.py --setup` with it). Not in git. |
 | `stall_sweep.py` | The stall length at Earth, Mars, Moon and zero g, on the 14 cm chain in steady gravity (it builds its own setups; the 2b setups fly the same in parabolas). |
 | `pole_climb_design.py` | Designs the pole climb (pole size, squeeze, stretch) and writes `../sequences/pole_climb.csv`. |
+| `power_check.py` | The servos' current in every setup and the voltage the farthest servo gets, for the two ways of powering the STS3032 chain (`../hardware/electronics.md`). |
 | `play.py` | The command line: a run headless, or in the viewer. |
 | `session.py`, `flight.py`, `ends.py`, `sequence.py` | The run: `Session` (the state, the start pose, playback, spin, readouts, the log), the parabola and the flight box, the end effectors, the fold-sequence format. |
 | `viewer.py` | The viewer window: keyboard, countdown, camera, readouts; takes commands from `panel.py`. |

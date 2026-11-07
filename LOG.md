@@ -3,6 +3,15 @@
 Newest first. This file covers root files, `sequences/`, `experiments/` and `docs/`. Each area has its own `LOG.md`.
 The format is in the root `AGENTS.md`.
 
+## 2026-11-07 · Wesley (Claude Code)
+- `experiments/findings.md`: new section "Servo power": the STS3032 chain's current in every setup and the voltage its
+  farthest servo gets, for a 6 V cable design and a 12 V design with a converter in each module
+  (`simulation/power_check.py`).
+- **For the software area:** the STS3032 build needs a Feetech (STS protocol) driver through one FE-URT-1, not Dynamixel
+  Protocol 1.0 through the U2D2, with servo IDs in the sequence CSV's column order. See `hardware/electronics.md`,
+  "IDs and bring-up". Nothing in `software/` changed.
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED.
+
 ## 2026-11-03 · Wesley (Claude Code)
 - `experiments/findings.md`, "The flight box": the setups now fly 10 s 1.8 g phases (Wesley, to wait less in the
   demos); the section's results stay those of the A310's 23 s, with what 10 s changes beside them (zero g mostly the

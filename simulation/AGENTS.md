@@ -45,6 +45,7 @@ uv venv --python 3.11 .venv && uv pip install --python .venv/bin/python -r requi
 .venv/bin/python panel.py                                    # control window + viewer (= double-click Chain Sim.command)
 .venv/bin/python export_meshes.py                            # rebuild meshes/ from ../hardware/cad/complete chain.3dm
 .venv/bin/python inspect_3dm.py [FILE.3dm]                   # summary of a .3dm (default: the single module)
+.venv/bin/python power_check.py [--modules 8] [--chain-awg 20] [--both-ends]   # servo current and voltage per setup, ~1 min
 ```
 Default paths are relative to this folder, so the scripts also work when run from somewhere else.
 
@@ -72,6 +73,7 @@ Default paths are relative to this folder, so the scripts also work when run fro
 | `verify.py`, `checks/` | `verify.py` runs the 16 sections in `checks/` (one file per subject); see "Verification". `checks/same_as_before.py` (with `window_recorder.py`) is for refactors: verify's printout, the fold log, every setup flown headless, the XML of 47 models, every button's commands and the window's layout, the stdlib check. |
 | `stall_sweep.py` | Experiment A's stall length: the longest 14 cm chain that stands out level from a wall at Earth, Mars, Moon and zero g, in steady gravity (~1 min; its setups are built in the script). |
 | `pole_climb_design.py` | Writes `../sequences/pole_climb.csv` for the 14 cm chain on a Ø100 mm pole; the angles fit any size with the pole scaled (5a: Ø61 mm). |
+| `power_check.py` | The STS3032 build's power: flies every setup headless and reports the servos' peak current and the lowest servo voltage for the 6 V cable design and the 12 V converter design (`../hardware/electronics.md`). Its STS3032 and wire constants are at the top; setups with flight-box strings only build at 12 modules. |
 | `export_meshes.py`, `inspect_3dm.py` | 3dm → `meshes/` (one STL per rigid body, module frame, metres, under 20k triangles); a 3dm's summary (units, layers, objects, tight mesh boxes). |
 | **Data and output** | |
 | `setups/` | The class simulations as flights, named `{demo}{version}_{what}` (e.g. `5a_pole_climb`). `verify.py` checks each loads and builds, and that every `DEMOS` setup exists. |
