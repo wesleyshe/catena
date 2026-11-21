@@ -14,10 +14,10 @@ import os
 import mujoco
 
 import setup_file
-from make_chain import HW, MASS, SERVO, build
-from play import Session, modules
+from sequence import modules
+from session import Session, load_model
+from spec import HW, MASS, SERVO
 
-HERE = os.path.dirname(os.path.abspath(__file__))
 GRAVITY = dict(Earth=9.81, Mars=3.71, Moon=1.62, zero=0.0)
 LENGTHS = range(2, 13)
 LEVEL_DEG = 10
@@ -32,8 +32,7 @@ def elevation(m, d):
 def run(n, g):
     setup = setup_file.new(sequence=os.path.join(setup_file.SEQ_DIR, "stand_out.csv"), move_s=4.0, hold_s=4.0, modules=n,
                            gravity_m_s2=g, ee1=setup_file.end("anchor", attach={"at": [0.0, -1.0, 1.8], "facing": "+y", "roll_deg": 0.0}))
-    xml = build(**setup_file.build_args(setup)).replace('meshdir="meshes"', f'meshdir="{HERE}/meshes"')
-    m = mujoco.MjModel.from_xml_string(xml)
+    m = load_model(**setup_file.build_args(setup))
     s = Session(m, mujoco.MjData(m), None, setup)
     s.play(setup["sequence"], setup["move_s"], setup["hold_s"])
     while s.seq_t < s.duration() - 1e-9:

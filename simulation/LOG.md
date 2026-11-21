@@ -3,6 +3,104 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-11-03 · Wesley (Claude Code)
+- **The setups' 1.8 g phases are 10 s, not 23 s** (Wesley: "set 1.8 g phases to 10s for me"): `hyper_s = 10.0` in all 21
+  setups, so a demo reaches zero g 13 s after its countdown instead of 26 s, and a parabola takes 48 s instead of 74 s.
+  The A310's is 23 s (ITF §3.10), and the panel's default without a setup stays at the spec's 23 s.
+  - What it changes, each setup flown both ways to the end of its sequence: 4a, 5a, 5b and 6a within 2 mm and 0.5°;
+    1a +4.8° in the box instead of +2.5°; 2c −78° instead of −86°; 1b leaves the net as zero g begins instead of at
+    T+2.4 s (210 mm/s), −366° instead of −306°; the clamps take more in the faster pitch-up (2a, 2c 41 N instead of
+    24 N; 5b 36 N instead of 9 N). README's setups table and `../experiments/findings.md` keep the 23 s results, saying
+    so. `GUIDE.md`'s timings updated.
+- **Checked:** all 21 setups flown headless with the new value; `verify.py` ALL CHECKS PASSED (its flight checks set
+  their own 7 s).
+
+## 2026-11-03 · Wesley (Claude Code)
+- **Fix: flying by hand, Play started a fresh parabola instead of the sequence** (found this morning by driving the
+  window). During Start the parabola's countdown the viewer reports "not flying", and `Panel.poll` took that to mean
+  the parabola was over and forgot it was by hand; a readout sent just before the viewer got the command could do the
+  same with no countdown. Now the panel's `manual` follows the viewer: true only while its readouts have a "by hand"
+  line, which they do only while a parabola started by hand is flying.
+- **Checked:** the real window and viewer, driven by script, Countdown s 5: Start the parabola (3a_U), Let go at
+  T+1.2 s, Play at T+2.5 s: `playing thrust_U.csv` at T+6.1 s, no reset; Stop, then Play: a fresh parabola with its
+  countdown. Demo 1A, Play again after a flight, and Stop still behave as before. `checks/same_as_before.py compare
+  --quick` the same; `verify.py` ALL CHECKS PASSED.
+- **`GUIDE.md`, new:** Chain Sim for first-timers who'd rather click: install once, open it, the demo buttons and what
+  the viewer shows, the control window section by section, flying a parabola (Play, or by hand), the camera, readouts,
+  logs and screenshots, making a sequence and a setup, and what to do when something goes wrong. Three viewer
+  screenshots in `../docs/images/guide/`. Linked from `README.md` and the root README.
+  - Tried in the real window by script: the first view, the demo buttons (1A), Load from the Setup list (3a_U) and
+    Play, the countdown and the big text, by hand (Start, Let go, Play), Stop then Play, the camera tick, Screenshot,
+    Log, Pause and Resume physics. The big text's wording through a whole flight, Play and by hand, from a headless run
+    of the same session.
+  - Not tried: installing from nothing (the commands are the ones GitHub runs on every pull request), the keys and the
+    mouse in the viewer, Save as (a file dialog), and the viewer's Font option.
+
+## 2026-11-03 · Wesley (Claude Code)
+- **Refactor, phase 5: the docs.** `AGENTS.md` describes the new layout (the folder map in groups, how the pieces
+  connect, the contracts' new homes: `sequence.joint_servos`, `ends.End`, `flight.Parabola`, `viewer.Commands`) and is
+  back to 250 lines (from 270): the two end-effector gotchas moved to README's Physics choices, the open issues the
+  experiments list were merged. README: the new files, `verify.py 15`, `checks/same_as_before.py`, `KEYS` now in
+  `viewer.py`, the end effectors' numbers in `make_ends.py`, a link to the guide. Code comments that pointed at
+  `play.py` for what `ends.py` and `flight.py` now do were corrected.
+  - README's setups table (and `../experiments/findings.md`): 6a "touches nothing in zero g" was out of date: the headless
+    flight, before the refactor and after, first touches the lid at T+19.5 s.
+- **Checked:** every file name the docs mention exists; nothing still names a moved function; quick compare the same
+  (XML, window, stdlib) after the comment changes.
+
+## 2026-11-03 · Wesley (Claude Code)
+- **Refactor, phase 4: the checks.** `verify.py` (796 lines) is now 40 lines that run `checks/` in order: `model.py`
+  (sections 1, 2, 4), `physics.py` (3, 5, 6, 13), `in_flight.py` (7, 15), `renders.py` (8), `end_effectors.py`
+  (9–12), `controls.py` (14, 16), helpers in `common.py`. `verify.py 15` runs one section.
+  - New section 16, "setup files": the setup-file checks that sat in section 9, plus two new ones: the shortest 1.8 g
+    phase a setup may ask for (`setup_file.RAMPS_S`) matches `Parabola`'s ramps, and `panel.py` and what it imports use
+    only the stdlib (read from their imports, so it runs on GitHub too).
+  - Section 7 puts back the preset it borrows even if the build fails (`try`/`finally`).
+- **Checked:** `verify.py` ALL CHECKS PASSED; its printout matched the baseline line for line before section 16, and
+  after it differs only by the six lines that moved from 9 to 16 and the two new checks. `verify.py 14 16` runs just
+  those. Not checked: the `verify` check on GitHub (it runs when the pull request is opened).
+
+## 2026-11-03 · Wesley (Claude Code)
+- **Refactor, phase 3: the windows.** The viewer window (`run_viewer`, `Commands`, screenshots, the keys) moved from
+  `play.py` to `viewer.py`; `play.py` is now 92 lines of command line. `panel.py`: one `section_*` method per box
+  instead of a 167-line `__init__`, `start_take()` shared by Play and the parabola, and `spin_vector()` / `axis()` in
+  place of three copies. `checks/window_recorder.py` also records the window's layout (every widget's name, place and
+  size).
+- **Checked:** `checks/same_as_before.py compare`: 48 of 48 the same, including every button's commands and the layout
+  (728 widget lines). The real control window and viewer, driven by script: 1A flew to the same `done:` line, then
+  by hand, the camera tick, Screenshot, Log, Pause and Stop gave the same 26 events as before the refactor. The viewer's
+  keys weren't pressed (no screen access): their code moved word for word.
+
+## 2026-11-03 · Wesley (Claude Code)
+- **Refactor, phase 2: the run in five files.** `play.py` (1,066 lines) is now `sequence.py` (the CSV format, `LOG_DT`),
+  `ends.py` (`End` with its behaviour: hold, latch, capture, cups, nozzles, loads), `flight.py` (`Parabola` and
+  `FlightBox`), `session.py` (`Session`, `Logger`, `load_model`) and `play.py` (265 lines: the command line and the
+  viewer). `verify.py` and `stall_sweep.py` import from the new files and use `load_model`.
+  - Not as planned: `Flight` as a separate object would have needed most of `Session`'s insides (spin, inertia, play,
+    the ends, the shells, the sequence state), so by the plan's stop rule its methods moved as a block, `FlightBox`,
+    which `Session` inherits. Every contract name stays on `Session` with no forwarding.
+- **Checked:** `checks/same_as_before.py compare`: 48 of 48 the same (verify ALL CHECKS PASSED, fold and 21 setup logs
+  byte-identical, XML, window, stdlib). `stall_sweep.py`: 3 / 4 / 6 / 12+ modules at Earth / Mars /
+  Moon / zero g, as in `../experiments/findings.md`.
+
+## 2026-11-03 · Wesley (Claude Code)
+- **Refactor, phases 0 and 1** (`../docs/design/2026-11-03-refactor-plan.md`; Wesley: "your plan looks good. Carry on").
+  - `checks/same_as_before.py` (with `checks/window_recorder.py`): save a snapshot before a change, compare after.
+  - The model in three files: `make_chain.py` keeps `PRESETS`, the chain's numbers and `build()`; the end effectors'
+    XML and numbers moved to `make_ends.py`, the flight box's to `make_box.py`; `spec.py` reads the spec once. `build()`
+    is 156 lines instead of 232, and its signature is unchanged. Imports updated in `play.py`, `setup_file.py`,
+    `panel.py`, `verify.py`, `stall_sweep.py`.
+- **Checked:** `checks/same_as_before.py compare`: 48 of 48 the same as the baseline from `292d939`: verify.py's
+  printout (ALL CHECKS PASSED), the fold log and all 21 setups' logs and printouts byte-identical, the XML of 47 models,
+  every button's commands, and the stdlib-only check.
+
+## 2026-11-03 · Wesley (Claude Code)
+- **Stale docs fixed** (refactor plan, section 6): `setups/1d_flight_turn.toml` (gone) replaced by `1a_turn` in
+  `AGENTS.md`, `README.md` and `play.py`'s docstring; README: four presets, `stall_sweep.py` builds its own setups,
+  `pole_climb_design.py` writes only the sequence, kv is open issue 10, the opening mentions the flight box, the GUI
+  tests of 2026-11-03; AGENTS.md: what `verify.py` imports from `play.py`.
+- **Checked:** `verify.py` ALL CHECKS PASSED. Docs and a docstring only.
+
+## 2026-11-03 · Wesley (Claude Code)
 - **Demo button 1B** (Wesley: "1B alongside 1A free float on the demo... I want a sequence"): **1A Free float (held)**
   and **1B Free float (from the net)** side by side, then 2–6; one click flies 1b_from_net with its turn sequence. With
   no strings the readout says "none (lying on the net)" instead of "holding (0)".

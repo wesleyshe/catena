@@ -62,12 +62,10 @@ import numbers
 import os
 import tomllib
 
-from make_chain import EE_DEFAULTS, EE_TYPES, FACINGS, FLIGHT, N_MODULES, PRESETS, ROD_MM
+from make_chain import N_MODULES, PRESETS, ROD_MM
+from make_ends import EE_DEFAULTS, EE_TYPES, FACINGS
+from spec import FLIGHT, REPO, SEQ_DIR, SETUP_DIR  # sequences are at the repo root, shared with the robot software
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-REPO = os.path.dirname(HERE)
-SETUP_DIR = os.path.join(HERE, "setups")
-SEQ_DIR = os.path.join(REPO, "sequences")  # at the repo root, shared with the robot software
 DEFAULTS = dict(sequence="", move_s=3.0, hold_s=1.0, speed=1.0, playback=1.0, gravity_m_s2=0.0, spin_deg_s=[0.0, 0.0, 0.0],
                 air=False, preset="original14", modules=N_MODULES, slip_ring=False,
                 ee1=dict(EE_DEFAULTS), ee_n=dict(EE_DEFAULTS), rod={}, flight={})
@@ -75,7 +73,7 @@ ENDS = ("ee1", "ee_n")  # in a setup dict; in the file they're the tables [ee1] 
 TABLES = ENDS + ("rod", "flight")
 FLIGHT_DEFAULTS = dict(box_m=[x / 1000 for x in FLIGHT["box_mm"]], strings=None, on_net=False, roll_deg=0.0, level_g=0.0, release_s=1.0,
                        start_s=1.5, hyper_s=float(FLIGHT["hypergravity_s"]), jitter=True, seed=1)  # strings None: default_strings
-RAMPS_S = 7.0  # the 1 -> 1.8 g and 1.8 -> 0 g ramps (play.Parabola): a 1.8 g phase can't be shorter
+RAMPS_S = 7.0  # the 1 -> 1.8 g and 1.8 -> 0 g ramps (flight.Parabola): a 1.8 g phase can't be shorter
 SETTINGS = dict(none=(), anchor=("attach",), suction=("attach", "pull_N", "cup_mm", "friction"), thruster=("thrust_N",))
 ALWAYS = ("sequence", "move_s", "hold_s")  # save() writes these; the other keys only where they differ from DEFAULTS
 DEMOS = [("1A  Free float (held)", "1a_turn"), ("1B  Free float (from the net)", "1b_from_net"),  # the control window's
