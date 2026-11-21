@@ -52,7 +52,7 @@ add a row to the second table. The control window lists every `.csv` in this fol
     They don't ease. A missing column leaves that end as it started; a column for an end that can't do it is ignored
     with a warning.
   - The robot software should read the same columns as end-effector commands.
-- **Ranges:** pitch ±124° and yaw ±150°. The sim clamps targets to these.
+- **Ranges:** pitch ±119° and yaw ±150° (`hardware/spec.toml`). The sim clamps targets to these.
 - **Playback:** the sim holds each row for `hold` seconds, then eases to the next over `move` seconds with a cosine
   profile. The defaults are `move` 3 s and `hold` 1 s, set by `--move` and `--hold` or in the control window. Targets
   update every 10 ms, like commands on a servo bus.

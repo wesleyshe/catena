@@ -1,11 +1,14 @@
-"""Export one STL per rigid body from '../hardware/cad/complete chain.3dm' into meshes/.
+"""Export one STL per rigid body from '../hardware/cad/7cm module.3dm' into meshes/.
 
-Each STL is in its module frame: module centre (yaw/pitch axis intersection) at the origin,
-joints at zero, chain along +Z, metres. Bodies:
-  base_first  module 1: shell + pitch servo + U2D2 + power hub (no yaw servo)
-  base_mid    modules 2-11: shell + bracket + yaw servo + pitch servo
-  base_last   module 12: shell + yaw servo + U2D2 + power hub (no pitch servo, no arm)
-  arm         U-yoke + hub (modules 1-11), pivots about +X at the module centre
+The file is one module; the chain repeats it every pitch (spec.toml) along +Z. Each STL is in its module frame: module
+centre (yaw/pitch axis intersection) at the origin, joints at zero, chain along +Z, metres. Bodies:
+  base_first  module 1: shell + body + yaw servo + pitch servo (its yaw servo turns ee1 when one is fitted)
+  base_mid    modules 2-11: the same
+  base_last   module 12: shell + body + yaw servo (no pitch servo, no C-handle)
+  arm         the C-handle (modules 1-11), pivots about +X at the module centre
+Layers: V6::shell, V6::body and V6::servos make the base, V6::C-handle the arm; V6::axis holds the yaw and pitch axis
+lines, which give the module centre. The pitch servo's parts are the servo
+parts centred within 6.1 mm of the pitch axis's height (it's 12.1 mm thick, lying along X); the yaw servo's sit below.
 Usage: .venv/bin/python export_meshes.py
 """
 import hashlib
@@ -15,11 +18,11 @@ import rhino3dm as r3
 import trimesh
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.join(os.path.dirname(HERE), "hardware", "cad", "complete chain.3dm")  # never modified
+SRC = os.path.join(os.path.dirname(HERE), "hardware", "cad", "7cm module.3dm")  # never modified
 OUT = os.path.join(HERE, "meshes")
 STAMP = os.path.join(OUT, "SOURCE.txt")  # which CAD file the meshes came from; verify.py checks it still matches
-C0 = np.array([-400.70, -399.53, 52.0])  # module 1 centre in the file (mm)
-PITCH = 140.0                            # module centre-to-centre (mm), chain runs along +Z
+ARM_LAYER, SHELL_LAYER, SERVO_LAYER, AXIS_LAYER = "V6::C-handle", "V6::shell", "V6::servos", "V6::axis"
+PITCH_SERVO_Z = 6.1                      # mm: servo parts centred this close to the pitch axis are the pitch servo's
 MAX_TRIS = 20000                         # per body; shells are kept at full resolution
 
 
@@ -52,12 +55,23 @@ def render_mesh(g):
     return trimesh.util.concatenate(parts)
 
 
-def body_of(layer, zc):
-    """(body, module index) for an object, from its layer and the height of its centre."""
-    k = (zc - C0[2]) / PITCH
-    if layer.startswith("Link"):      # yoke spans -12..+88 mm about its own module centre
-        return "arm", int(np.floor(k + 20 / PITCH))
-    return "base", int(round(k))
+def centre(model):
+    """The module centre (mm): where the axis layer's pitch line (along X) and yaw line (along Z) cross."""
+    ends = {}
+    for o in model.Objects:
+        if model.Layers[o.Attributes.LayerIndex].FullPath == AXIS_LAYER:
+            a, b = (np.array([p.X, p.Y, p.Z]) for p in (o.Geometry.PointAtStart, o.Geometry.PointAtEnd))
+            ends["pitch" if abs(b - a)[0] > abs(b - a)[2] else "yaw"] = a
+    return np.array([ends["yaw"][0], ends["pitch"][1], ends["pitch"][2]])
+
+
+def part_of(layer, t):
+    """'arm', 'pitch_servo' or 'base' for an object, from its layer and (for servo parts) the height of its centre."""
+    if layer == ARM_LAYER:
+        return "arm"
+    if layer == SERVO_LAYER and abs(t.bounds.mean(0)[2]) <= PITCH_SERVO_Z:
+        return "pitch_servo"
+    return "base"
 
 
 def cluster(t, cell):
@@ -89,25 +103,29 @@ def decimate(parts):
 
 def main():
     model = r3.File3dm.Read(SRC)
-    bodies = {}
+    c0 = centre(model)
+    print(f"module centre in the file: {c0.round(3)} mm")
+    parts = {"base": [], "pitch_servo": [], "arm": []}
     for o in model.Objects:
         t = render_mesh(o.Geometry)
         if t is None:
             continue
-        name, k = body_of(model.Layers[o.Attributes.LayerIndex].FullPath, t.bounds.mean(0)[2])
-        t.apply_translation(-(C0 + [0, 0, PITCH * k]))
+        layer = model.Layers[o.Attributes.LayerIndex].FullPath
+        if layer == AXIS_LAYER:
+            continue
+        t.apply_translation(-c0)
         t.merge_vertices()
-        t.metadata["keep"] = model.Layers[o.Attributes.LayerIndex].FullPath == "Shell::Shell"
-        bodies.setdefault((name, k), []).append(t)
-
-    for (name, k), parts in sorted(bodies.items()):
-        print(f"module {k + 1:2d} {name:4}: {len(parts):3d} objects, {sum(len(p.faces) for p in parts):6d} tris")
+        t.metadata["keep"] = layer == SHELL_LAYER
+        parts[part_of(layer, t)].append(t)
+    for name, p in parts.items():
+        print(f"{name:11}: {len(p):3d} objects, {sum(len(t.faces) for t in p):6d} tris")
 
     os.makedirs(OUT, exist_ok=True)
-    pick = {"base_first": ("base", 0), "base_mid": ("base", 1), "base_last": ("base", 11), "arm": ("arm", 0)}
-    for fname, key in pick.items():
-        n0 = sum(len(p.faces) for p in bodies[key])
-        t = decimate(bodies[key]) if n0 > MAX_TRIS else trimesh.util.concatenate(bodies[key])
+    full = parts["base"] + parts["pitch_servo"]
+    pick = {"base_first": full, "base_mid": full, "base_last": parts["base"], "arm": parts["arm"]}
+    for fname, body in pick.items():
+        n0 = sum(len(p.faces) for p in body)
+        t = decimate(body) if n0 > MAX_TRIS else trimesh.util.concatenate(body)
         t.apply_scale(0.001)  # mm -> m
         t.export(f"{OUT}/{fname}.stl")
         lo, hi = t.bounds * 1000

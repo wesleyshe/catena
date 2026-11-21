@@ -16,17 +16,15 @@ contracts, decisions and open issues. History is in `LOG.md`.
   - Predictions hold for the numbers in `../hardware/spec.toml`, and some of those are placeholders.
   - An outside review found the core sound but not yet a flight prediction; see "Is the sim good enough for flight?"
     in `../experiments/findings.md`.
-- **It models the AX-12A chain in the current Rhino file.** The STS3032 flight build's Rhino model is due in the coming
-  weeks, and comes in through "Incorporating a new design" in `../hardware/AGENTS.md`.
+- **It models the 7 cm SCS0009 chain in `../hardware/cad/7cm module.3dm`** (since 2026-11-21; `original14` is the
+  spec's chain whatever its size). Results in `findings.md` before then are for the 14 cm AX-12A chain, or `feetech85`
+  scaled from it. The build's module with no servos past m1 isn't an end-effector type yet (see Open issues).
 - **End effectors** (anchors, suction cups, thrusters; `../docs/design/2026-10-2*-end-effectors*.md`).
 - **The class demos are on branch `sim/demos-14cm`, not `main`** (since 2026-11-21): the 21 setups for the six class
   simulations, their 8 demo-only sequences and the window's demo buttons. Their results stay in
   `../experiments/findings.md`. `verify.py` flies two of them from `checks/setups/` (`1a_turn`, `4a_walk`).
-- **Every setup flies** (2026-11-03) on the 8.5 cm build (`feetech85`, scaled from the AX-12A chain until the STS3032
-  CAD exists): in the A310 box (`../experiments/flight_space.md`), held by strings (or its anchor) through the 1.8 g
-  pull-up (10 s in the setups, to wait less; findings use the A310's 23 s), let go at T+1 s, the sequence from T+1.5 s,
-  the pull-out onto the net; the box turns with the plane. Play or a headless run flies it; the window
-  also flies it by hand. The perfect-zero-g 14 cm results stay in `findings.md` and in verify.py's own setups.
+- **A setup with `[flight]` flies a whole A310 parabola** in the box (`../experiments/flight_space.md`): held by strings
+  (or its anchor) through 1.8 g, let go at T+1 s, the sequence from T+1.5 s, the pull-out onto the net. README: Flight.
 - **Refactored** (2026-11-03, `../docs/design/2026-11-03-refactor-plan.md`) into files that each do one thing, with
   every result byte-identical to before.
 - **Owner: Wesley.** Wesley double-clicks `Chain Sim.command` rather than using the shell, and uses the sim to answer
@@ -44,8 +42,8 @@ uv venv --python 3.11 .venv && uv pip install --python .venv/bin/python -r requi
 .venv/bin/python play.py --setup checks/setups/1a_turn.toml --headless   # a whole run from a setup: with [flight], a parabola
 .venv/bin/mjpython play.py                                   # viewer only (macOS needs mjpython)
 .venv/bin/python panel.py                                    # control window + viewer (= double-click Chain Sim.command)
-.venv/bin/python export_meshes.py                            # rebuild meshes/ from ../hardware/cad/complete chain.3dm
-.venv/bin/python inspect_3dm.py [FILE.3dm]                   # summary of a .3dm (default: the single module)
+.venv/bin/python export_meshes.py                            # rebuild meshes/ from ../hardware/cad/7cm module.3dm
+.venv/bin/python inspect_3dm.py [FILE.3dm]                   # summary of a .3dm (default: the current CAD)
 .venv/bin/python power_check.py [--modules 8] [--chain-awg 20] [--both-ends]   # servo current and voltage per setup, ~1 min
 ```
 Default paths are relative to this folder, so the scripts also work when run from somewhere else.
@@ -72,10 +70,10 @@ Default paths are relative to this folder, so the scripts also work when run fro
 | `Chain Sim.command` | Finder double-click launcher for `panel.py`. A Terminal window stays open while it runs. |
 | **Checks and tools** | |
 | `verify.py`, `checks/` | `verify.py` runs the 16 sections in `checks/` (one file per subject); see "Verification". `checks/same_as_before.py` (with `window_recorder.py`) is for refactors: verify's printout, the fold log, every setup flown headless, the XML of 47 models, every button's commands and the window's layout, the stdlib check. |
-| `stall_sweep.py` | Experiment A's stall length: the longest 14 cm chain that stands out level from a wall at Earth, Mars, Moon and zero g, in steady gravity (~1 min; its setups are built in the script). |
+| `stall_sweep.py` | Experiment A's stall length: the longest chain (original14) that stands out level from a wall at Earth, Mars, Moon and zero g, in steady gravity (~1 min; its setups are built in the script). |
 | `pole_climb_design.py` | Writes `../sequences/pole_climb.csv` for the 14 cm chain on a Ø100 mm pole; the angles fit any size with the pole scaled (5a: Ø61 mm). |
 | `power_check.py` | The STS3032 build's power: flies every setup in `setups/` and `checks/setups/` headless and reports the servos' peak current and the lowest servo voltage for the 6 V cable design and the 12 V converter design (`../hardware/electronics.md`). Its STS3032 and wire constants are at the top; setups with flight-box strings only build at 12 modules. |
-| `export_meshes.py`, `inspect_3dm.py` | 3dm → `meshes/` (one STL per rigid body, module frame, metres, under 20k triangles); a 3dm's summary (units, layers, objects, tight mesh boxes). |
+| `export_meshes.py`, `inspect_3dm.py` | 3dm → `meshes/` (one STL per rigid body, module frame, metres, under 20k triangles; the module centre from the CAD's axis lines); a 3dm's summary (units, layers, objects, tight mesh boxes). |
 | **Data and output** | |
 | `setups/` | Setups saved from the control window (empty on `main`; the class demos are on branch `sim/demos-14cm`). `verify.py` checks each loads and builds. |
 | `checks/setups/` | The two flights `verify.py` flies (`1a_turn`, `4a_walk`, copied from the class demos), and `power_check.py`'s default. |
@@ -90,7 +88,7 @@ are visual only: stale ones give a wrong picture but the same physics.
 
 ## How the pieces connect
 ```
-../hardware/cad/complete chain.3dm --export_meshes.py--> meshes/*.stl --make_chain.py--> chain.xml --> play.py
+../hardware/cad/7cm module.3dm --export_meshes.py--> meshes/*.stl --make_chain.py--> chain.xml --> play.py
                                                                                      ^ JSON lines over 127.0.0.1
 Chain Sim.command --> panel.py (Tk) -- writes panel_setup.toml, spawns `mjpython play.py --setup it --panel PORT` --+
 setups/*.toml --setup_file.py--> build() args + run settings --> play.py --setup, or the panel's fields (Load / Save as)
@@ -110,7 +108,7 @@ verify.py runs checks/, which build models with session.load_model() and drive s
 - **Regression suite.**
   - Run `.venv/bin/python verify.py` before and after. It must end with `ALL CHECKS PASSED`.
   - Key numbers for original14: the centre of mass moves ≤ 0.005 mm in the random-motion test and |L| stays below
-    1e-7 of the summed body momenta; Spin 20 → 20.0 deg/s; an L fold → 31.9 deg/s; m11_pitch 90° from rest → −2.2°.
+    1e-7 of the summed body momenta; Spin 20 → 20.0 deg/s; an L fold → 32.1 deg/s; m11_pitch 90° from rest → −2.0° (7 cm chain).
   - **Log columns:** `time, com_x/y/z, L_x/y/z, L_norm, max_torque, contacts, imu_qw/qx/qy/qz, imu_wx/wy/wz`.
     Software and experiments read these, so add columns at the end rather than reordering. `max_torque` is over joint
     servos only. After the end-effector columns, a model with the flight box adds `g_x, g_y, g_z` (the g applied, in g),
@@ -208,7 +206,7 @@ verify.py runs checks/, which build models with session.load_model() and drive s
    To reproduce: in your own viewer, press Space, then Right, and watch `time`. Likely fix: move pause off Space or the
    yaw nudges off Left/Right; ask Wesley which keys.
 2. **Dock app (offered, never answered):** a "Chain Sim.app" with no Terminal window (a bundle or `osacompile` applet).
-3. **Placeholder parameters** (`../hardware/AGENTS.md` lists what to measure). In the spec: 200 g per base and 30 g per
+3. **Placeholder parameters** (`../hardware/AGENTS.md` lists what to measure). In the spec: 90 g per base and 6 g per
    arm (end modules equal to the middle ones; `module_g` takes each weighed module), the IMU module, the box and net.
    In `make_chain.py`: the `feetech85` and 7 cm masses are scaled estimates; `armature`, `kv`, `GEAR_FRICTION` are
    tuned; `ROLLING_RESISTANCE = 0.03` is tuned for settling, not measured; `KP_SATURATE = 10°`.
@@ -218,13 +216,15 @@ verify.py runs checks/, which build models with session.load_model() and drive s
    since `CHAIN_ROLL = 0` makes the pitch axes vertical. For 3D, use `IMU turn` and the `imu_*` log columns.
 7. **Rotor momentum isn't modelled.** `armature` adds the motors' inertia but not their spin momentum,
    ~(armature/254)·q̇. It cancels over a closed shape loop; for the slip-ring reaction-wheel finding it's ~3%.
-8. **The servo model is tuned, not identified.** `kv` (no AX-12A counterpart) makes joints lag their targets (7.6° at
-   default timing, 2.2° without it); net turns barely depend on it (±50% on any servo setting moves a 4-loop turn by
+8. **The servo model is tuned, not identified.** `kv` (no servo counterpart; 0.15 on the SCS0009 so a 60° step settles in
+   0.44 s with 0.5° overshoot) makes joints lag their targets (on the AX-12A chain: 7.6° at default timing, 2.2° without it); net turns barely depend on it (±50% on any servo setting moves a 4-loop turn by
    ≤ 1.2°), joint timing and peak torque do. Fix: bench step-response and speed-under-load tests, then fit them.
 9. **Not modelled yet** (`../experiments/README.md` lists what the experiments need): prediction ranges over release
    errors; strings letting go at different times; a cloth net (the sim's is a spring, a few mm deep at rest); the
    plane's measured attitude and acceleration record, its roll and yaw.
-10. **Small things from the phase 1 review** (the rest was fixed in phase 2): `joint_servos` doesn't assert the joint
+10. **The build's module with no servos** (ee1, on m1's yaw servo): no end-effector type draws it yet, and `make_ends.py`
+   puts the twist servo's mass (`EE_SERVO_MASS`) in ee1, where in the build it's in m1. A `module` type would fix both.
+11. **Small things from the phase 1 review** (the rest was fixed in phase 2): `joint_servos` doesn't assert the joint
    servos come first; the setup's about line follows the picker before Load, and Save as prefills it.
 
 ## Physics choices and interface details

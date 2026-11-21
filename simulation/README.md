@@ -110,8 +110,8 @@ setup and the chain just coils up in mid-air.
 
 | What | Command |
 |---|---|
-| Summarise a .3dm file (units, layers, objects, boxes) | `.venv/bin/python inspect_3dm.py "../hardware/cad/Single module existing.3dm"` |
-| Re-export the STLs from `../hardware/cad/complete chain.3dm` | `.venv/bin/python export_meshes.py` |
+| Summarise a .3dm file (units, layers, objects, boxes) | `.venv/bin/python inspect_3dm.py "../hardware/cad/7cm module.3dm"` |
+| Re-export the STLs from `../hardware/cad/7cm module.3dm` | `.venv/bin/python export_meshes.py` |
 | Generate `chain.xml` (12 × original14) | `.venv/bin/python make_chain.py` |
 | Viewer: sliders + keyboard | `.venv/bin/mjpython play.py` |
 | Viewer: play the fold sequence | `.venv/bin/mjpython play.py --seq ../sequences/fold_sequence.csv` |
@@ -142,7 +142,7 @@ control window) are on branch `sim/demos-14cm`; their results stay in `../experi
 box". `verify.py` flies two of them itself, from `checks/setups/`: `1a_turn` (held by strings, the falling-cat turn)
 and `4a_walk` (suction cups on a deck over the net). Setups you save go in `setups/`.
 
-`stall_sweep.py` gives experiment A's number (the 14 cm chain in steady gravity), the longest chain that stands out level at each
+`stall_sweep.py` gives experiment A's number (the chain in the spec, in steady gravity), the longest chain that stands out level at each
 gravity (about a minute). Results and what they mean are in `../experiments/findings.md`, "The class simulations".
 
 ### Keyboard (viewer)
@@ -182,13 +182,13 @@ overrides both the keys and the sliders. If a key clashes with a viewer shortcut
 
 | Preset | Servo | Stall torque | Pitch | Mesh scale | Timestep |
 |---|---|---|---|---|---|
-| `original14` | Dynamixel AX-12A | 1.5 N·m | 14 cm | 1.0 | 0.5 ms |
-| `feetech85` | Feetech STS3032 (the flight build, scaled until its CAD exists) | 0.44 N·m | 8.55 cm (Ø84.9 mm shells) | 0.61 | 0.2 ms |
-| `dyna7` | Dynamixel XL330-M288 | 0.52 N·m | 7 cm | 0.5 | 0.1 ms |
-| `feetech7` | Feetech STS3032 | 0.44 N·m (peak) | 7 cm | 0.5 | 0.1 ms |
+| `original14` | the chain in `spec.toml`: Feetech SCS0009 (the 7 cm build since 2026-11-21) | 0.226 N·m | 7 cm | 1.0 | 0.5 ms |
+| `feetech85` | Feetech STS3032 (the superseded 8.5 cm build, scaled from the spec's CAD) | 0.44 N·m | 8.55 cm | 1.22 | 0.2 ms |
+| `dyna7` | Dynamixel XL330-M288 | 0.52 N·m | 7 cm | 1.0 | 0.1 ms |
+| `feetech7` | Feetech STS3032 | 0.44 N·m (peak) | 7 cm | 1.0 | 0.1 ms |
 
 Other flags: `-n 8` sets the number of modules (minimum 2), and `--slip-ring` removes the yaw limits. Yaw targets then span ±360°, which
-keeps the sliders usable. Pitch stays at ±124° because the shell, not the cable, limits it. The real chain's numbers (masses, sizes, ranges,
+keeps the sliders usable. Pitch stays at ±119° because the shell, not the cable, limits it. The real chain's numbers (masses, sizes, ranges,
 servo) are in `../hardware/spec.toml`. The what-if presets and the sim's own tuning are in `PRESETS` and the constants at
 the top of `make_chain.py`. Run `verify.py` again after changing either.
 
@@ -196,7 +196,7 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
 
 | File | What it does |
 |---|---|
-| `../hardware/cad/*.3dm` | The CAD inputs (mm): `Single module existing.3dm`, `complete chain.3dm`. These are never modified. |
+| `../hardware/cad/*.3dm` | The CAD input (mm): `7cm module.3dm`, one module (the 14 cm chain's files are in `cad/archive/`). Never modified. |
 | `inspect_3dm.py` | Prints units, layers, objects, colours, types and tight mesh bounding boxes. |
 | `export_meshes.py` | Writes `meshes/*.stl`, one per rigid body, in the module frame, in metres, under 20k triangles. |
 | `meshes/` | `base_first.stl` (module 1), `base_mid.stl` (2–11), `base_last.stl` (12), `arm.stl` (1–11). |
@@ -210,7 +210,7 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
 | `panel.py` | Control window: buttons that build the model and drive the viewer. |
 | `setup_file.py`, `setups/` | Reads and writes setup files; `setups/` holds the runs you save, `checks/setups/` the two that `verify.py` flies. |
 | `panel_setup.toml` | What the control window last opened the viewer with (it starts `play.py --setup` with it). Not in git. |
-| `stall_sweep.py` | The stall length at Earth, Mars, Moon and zero g, on the 14 cm chain in steady gravity (it builds its own setups; the 2b setups fly the same in parabolas). |
+| `stall_sweep.py` | The stall length at Earth, Mars, Moon and zero g, on the chain in the spec in steady gravity (it builds its own setups; the 2b setups fly the same in parabolas). |
 | `pole_climb_design.py` | Designs the pole climb (pole size, squeeze, stretch) and writes `../sequences/pole_climb.csv`. |
 | `power_check.py` | The servos' current in every setup and the voltage the farthest servo gets, for the two ways of powering the STS3032 chain (`../hardware/electronics.md`). |
 | `play.py` | The command line: a run headless, or in the viewer. |
@@ -226,11 +226,11 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
 
 ## The model in brief
 
-- **Two rigid bodies per module.** The **base** is the shell, bracket and both servos; it's one body because the
-  connector pins lock the core to both shell halves. The **arm** is the U-yoke and hub.
+- **Two rigid bodies per module.** The **base** is the shell, the body (the plates joining the servos) and both servos.
+  The **arm** is the C-handle.
 - **Pitch** is about +X through the module centre: the pitch servo's horn turns the yoke. **Yaw** is about +Z: module
-  *i*'s hub bolts onto module *i+1*'s downward-facing yaw horn. These axes are in each module's own frame. With all
-  joints at zero the chain is straight, 140 mm centre to centre, and in the world it lies along +Y.
+  *i*'s hub takes module *i+1*'s downward-facing yaw spline. These axes are in each module's own frame. With all
+  joints at zero the chain is straight, 70 mm centre to centre, and in the world it lies along +Y.
 - **In zero g a joint turns both sides, split by how hard each side is to turn.** That's moment of inertia, mass ×
   distance², not mass alone. The relative angle is always what you commanded, and the centre of mass doesn't move.
   Measured with one joint commanded to 60°:
@@ -245,26 +245,28 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
 
   So end joints move the end module, not the chain. m1_pitch spins module 1's whole base (shell, servo, U2D2), and
   that's real behaviour, not a disconnected part.
-- **22 actuated joints, not 24.** Module 1 has no yaw servo; it carries the U2D2 and power hub instead. Module 12 has
-  no pitch servo or arm. Both of these come from `complete chain.3dm`.
-- **End effectors** (optional): one module-sized sphere (Ø139 mm) one pitch past m1 and/or past m12. The one past m1
+- **22 actuated joints, not 24.** Module 12 has no pitch servo or arm. Module 1's yaw servo is a joint only with ee1
+  fitted (23 joints): in the 7 cm build it turns a module with no servos. The meshes come from `7cm module.3dm`.
+- **End effectors** (optional): one module-sized sphere (the shell's diameter) one pitch past m1 and/or past m12. The one past m1
   turns on `m1_yaw` (±150°, the same sign as every yaw); the one past m12 is rigid. Masses are placeholders in
-  `make_ends.py`: anchor and suction cup 200 g, thruster 250 g, plus 55 g for the twist servo.
+  `make_ends.py`: anchor and suction cup 200 g, thruster 250 g, plus 55 g for the twist servo, all for the 14 cm module;
+  they scale with its size (cubed for masses), so the 7 cm chain's are an eighth.
   - **Anchor:** a clamp that never slips (a weld to a fixed body moved to where the end is). Told to hold, it grabs
-    when its Ø40 mm tip face comes within 15 mm of something fixed, pulling the face onto it over 0.2 s.
+    when its tip face (Ø40 mm on the 14 cm module, scaled) comes within 15 mm of something fixed, pulling the face onto it over 0.2 s.
   - **Suction cup:** a square pad on the tip (side `cup_mm`) that only ever touches fixed things, sucking with its pull limit. It holds by
     friction sideways, pops above the limit and peels if it tips: it has to be pressed on to stick.
   - **Thruster:** five nozzles, n0 out of the end and n1–n4 sideways; each pushes against its exhaust and lights up.
-- **Visuals vs physics.** Meshes are visual only. Each module collides as one sphere (Ø139 mm). Mass sits on simple
+- **Visuals vs physics.** Meshes are visual only. Each module collides as one sphere (the shell's diameter); neighbours, which touch on the 7 cm chain, never collide. Mass sits on simple
   primitives: a hollow sphere for the shells, plus a box for the core and a box for the arm.
 - **Servos** are position actuators. Their force limit is the stall torque plus the gear friction, so the net output at
   stall is the rated stall torque. Stall torque is reached at 10° of position error. Damping is stall torque divided by no-load speed, so a saturated servo moves at its rated speed.
   A 5 ms lag smooths each target.
 - **No springy wobble.** Each joint also has gearbox friction (7% of stall torque), the motor's inertia through the
-  gearbox (`armature`), and velocity braking whenever the servo isn't saturated (`kv`). The AX-12A has no such
+  gearbox (`armature`), and velocity braking whenever the servo isn't saturated (`kv`). The servo has no such
   braking of its own; `kv` stands in for damping the model doesn't otherwise capture, until a joint is measured on
   the bench.
-  - A 60° jump at m6 now overshoots about 1° and settles in 0.5 s. Before, it overshot 9.5° and swung 15 times.
+  - A 60° jump at m6 overshoots 0.5° and settles in 0.44 s on the 7 cm SCS0009 chain (kv 0.15). On the AX-12A chain it
+    overshot about 1° and settled in 0.5 s; with no kv, 9.5° and 15 swings.
   - These values are estimates. Raise `kv` in `PRESETS` for stiffer, slower stops, or lower it for snappier ones.
 - **Integrator.** It uses RK4, because the default integrator let the centre of mass wander tens of millimetres during
   random motion. RK4 is only stable below a timestep limit, so lighter modules need a smaller timestep (see Physics choices below).
@@ -315,7 +317,7 @@ columns per end follow: `ee{k}_held` (0/1), `ee{k}_load_N` (clamp force or cup p
   pitches up, it leaves turning with the plane and moving with the box where it was held, and the pull-out lands it on
   the net without reaching the box floor. `4a_walk` stands on the deck through 1.8 g and walks 0.67 m on the turning
   deck with no cup popping; a Mars parabola holds 0.38 g and pitches over less. A free chain let go at 0.5°/s about the
-  across axis turns −20.9° instead of −30.3°. The 8.5 cm build conserves momentum like the real chain.
+  across axis turns −23.1° instead of −31.2°. The 8.5 cm build conserves momentum like the real chain.
 - End effectors: every type at either end compiles and leaves the 12 modules exactly as they were; `m1_yaw` twists
   about the chain axis; with both ends fitted the centre of mass still moves ≤ 0.006 mm in 12 s of random motion.
 - Setup files refuse misspelt keys and missing sequences, and Save as then Load gives the same setup back. Every
@@ -336,10 +338,11 @@ Why the model is built the way it is. Kept here so `AGENTS.md` stays short; read
   - Damping = stall torque / no-load speed, so the no-load speed emerges when the servo saturates.
   - `timeconst` = 5 ms lag on targets.
   - **Anti-wobble (2026-10-20):**
-    - Three additions: `frictionloss` = `GEAR_FRICTION` (7%) × stall torque, a per-preset `armature` (0.002 / 0.0002
-      kg·m²), and actuator `kv` (1.0 / 0.25).
+    - Three additions: `frictionloss` = `GEAR_FRICTION` (7%) × stall torque, a per-preset `armature` (0.0002
+      kg·m²; the AX-12A's was 0.002), and actuator `kv` (0.15 for the SCS0009, 0.25 for the other small presets; the
+      AX-12A's was 1.0).
     - `kv` acts whenever the servo isn't saturated, which in smooth moves is nearly all the time. It's a stand-in for
-      damping the model doesn't otherwise capture, not something the AX-12A does; see "The servo model is tuned, not identified" under Open issues in `AGENTS.md`.
+      damping the model doesn't otherwise capture, not something the servo does; see "The servo model is tuned, not identified" under Open issues in `AGENTS.md`.
     - Effect on a 60° step at m6: before, 9.5° overshoot, 15 swings, 3.5 s to settle, 8° flex. After, 1°, 2 swings,
       0.5 s, 2.7°.
     - **`armature` is what makes `kv` possible** at a 0.5 ms timestep; without it the light twist mode goes unstable.
@@ -365,7 +368,7 @@ Why the model is built the way it is. Kept here so `AGENTS.md` stays short; read
   - The chain floats along world +Y at height n·pitch/2 + 2R, so a zero-g fold can't reach the floor at z = 0.
   - `CHAIN_ROLL = 0` makes the pitch axes vertical, so pitch folds lie flat on the floor.
   - Gravity defaults to 0.
-- **Ranges:** pitch ±124°, yaw ±150°. `--slip-ring` frees yaw only, with targets spanning ±360°.
+- **Ranges:** pitch ±119°, yaw ±150°. `--slip-ring` frees yaw only, with targets spanning ±360°.
 - **Flight options** (`--air`, a setup's `[flight]`, the panel; numbers in `[flight]` in the spec, from the A310 ITF):
   - **The frame:** the world moves with the box but doesn't turn. The box, its net, its deck, rods and plates, the
     strings' far ends and the cabin camera are one body, `cabin`, on a hinge about x (across the cabin), which

@@ -37,7 +37,7 @@ Double-click **`Chain Sim.command`** in the `simulation` folder.
   If macOS refuses to open the file at all, right-click it, choose **Open**, then **Open** again.
 - Then two windows appear:
   - the **Chain Sim** control window, which stays on top of other windows;
-  - the **viewer**, a 3D view of the chain. At first it shows the bare 14 cm chain floating straight above a grey floor,
+  - the **viewer**, a 3D view of the chain. At first it shows the bare 7 cm chain floating straight above a grey floor,
     with no box. A setup with the flight box (section 4) changes that.
 
 To quit, close the control window: the viewer closes with it.
@@ -78,7 +78,7 @@ Each box in the window is one section. Some settings act at once, some at the ne
 | Section | What it's for | When a change takes effect |
 |---|---|---|
 | **Setup** | Pick a whole run from the list, and **Load** it: it fills in every field below and reopens the viewer. The lines underneath say what the run shows and what's in it. **Save as...** saves the current settings as a new setup. | Load: at once |
-| **Model** | The chain: the preset (`feetech85` is the 8.5 cm flight build, `original14` the 14 cm AX-12A chain), how many modules, the slip ring, air drag, and a rod to grab. | Rebuild |
+| **Model** | The chain: the preset (`original14` is the chain in `spec.toml`, the 7 cm SCS0009 build; `feetech85` the superseded 8.5 cm build), how many modules, the slip ring, air drag, and a rod to grab. | Rebuild |
 | **End effectors** | An extra module on either end: none, an **anchor** (a clamp), a **suction** cup or a **thruster**. Picking a type shows its settings, and where it starts (floating, on a surface, or on the rod). While it runs: **Hold** / **Let go**, or the nozzle tick boxes n0–n4. | Rebuild (Hold, Let go and the nozzles: at once) |
 | **Rebuild + open viewer** | Applies Model, End effectors and the flight box, and restarts the viewer from the start. | |
 | **Fold sequence** | The moves: pick a CSV, set **Move s** (time between rows) and **Hold s** (time on each row), then **Play / Pause / Resume / Restart / Stop**. **Speed x** makes the moves faster (the physics changes); **Playback x** only shows the simulation faster than real time (the physics doesn't change). **Countdown s** shows T-5 … T-1 before each take; 0 skips it. | Play |
@@ -181,7 +181,7 @@ just coils up in mid-air.
 **A new sequence:**
 1. Copy a CSV in `sequences/` that's close to what you want, and give it a new name.
 2. Open it in Numbers, Excel or a text editor. Each row is 24 angles in degrees, in the order `m1_yaw, m1_pitch, …,
-   m12_yaw, m12_pitch`. Pitch goes to ±124°, yaw to ±150°. `m12_pitch` is always 0, and so is `m1_yaw` unless there's
+   m12_yaw, m12_pitch`. Pitch goes to ±119°, yaw to ±150°. `m12_pitch` is always 0, and so is `m1_yaw` unless there's
    an end effector past m1. The full format is in `sequences/README.md`.
 3. Make the first line a `#` comment saying what it does: the control window shows that line.
 4. For the flight, keep it to about 20 s (rows × (move + hold)); the readout warns you if it's longer.

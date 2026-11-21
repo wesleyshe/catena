@@ -8,6 +8,12 @@ stated otherwise.
 `../hardware/spec.toml` at the time, and the masses there are still placeholders. Nothing here has been checked against
 the real chain yet.
 
+**Since 2026-11-21 `original14` is the 7 cm SCS0009 chain** (`../hardware/AGENTS.md`), and `feetech85` is scaled from
+its CAD. Every finding below was measured before then, on the 14 cm AX-12A chain (or `feetech85` scaled from it):
+re-run one before quoting it for the 7 cm build. Re-run so far (2026-11-21): the 4-loop falling-cat turn
+(`reorient_loop.csv` at flight timing, perfect zero g, let go at rest) is −30.9° on the 7 cm chain and −31.2° on
+`feetech85` (−30.3° before); the L fold spins a 20°/s chain up to 32.1°/s (31.9 before).
+
 To add one, write the question, the run (sequence, joint and angle, or command), and the measured numbers.
 
 ## A joint splits its turn by inverse moment of inertia (mass × distance²); length dominates

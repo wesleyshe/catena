@@ -5,7 +5,8 @@ Read this file first, then the `AGENTS.md` in the folder you're working in.
 
 ## What this is
 - **CATENA** is a chain of 12 spherical modules joined by hinges that folds itself into shapes: the MIT Universal
-  Self-Folding Chain Robot (Mutis et al., ACM SCF 2025). Each module has up to two Dynamixel AX-12A servos, yaw and pitch.
+  Self-Folding Chain Robot (Mutis et al., ACM SCF 2025). Each module has up to two servos, yaw and pitch: Dynamixel
+  AX-12A on the published 14 cm chain, Feetech SCS0009 on the 7 cm build (`hardware/AGENTS.md`).
 - **Goal:** design microgravity (parabolic flight) experiments with it for MIT 16.88J / Columbia AERO E4450,
   Fall 2026. The proposal is `docs/CATENA Proposal.docx`, and `experiments/README.md` summarises the experiments.
 - **Course dates:**
@@ -33,20 +34,22 @@ neighbouring lines of one file get merge conflicts.
 ## Facts every area shares
 These are confirmed by the team. Change one only together with the other areas, and log it in the root `LOG.md`.
 - **Modules:** `m1` … `m12`.
-  - Each has a base `m{i}` (shell, bracket, servos) and an arm `m{i}_arm` (yoke and hub).
+  - Each has a base `m{i}` (shell, the body or bracket holding the servos, servos) and an arm `m{i}_arm` (the C-handle;
+    a yoke and hub on the 14 cm chain).
   - Module 12 has no arm.
 - **Joints:**
   - `m{i}_pitch` sits between base i and arm i.
   - `m{i+1}_yaw` sits between arm i and base i+1.
-  - Module 1 has no yaw servo and module 12 has no pitch servo, so there are **22 actuated joints**.
+  - Module 12 has no pitch servo, and module 1's yaw servo only drives ee1 (below), so there are **22 actuated joints**,
+    23 with ee1.
   - **End effectors (in the sim so far):** an optional extra module past m1 (`ee1`) and past m12 (`ee12`). ee1 sits on a
     twist servo, and that servo is `m1_yaw`: with ee1 fitted there are 23 joints. ee12 is rigid.
-  - Both end modules carry the U2D2 and power hub.
+  - The 7 cm build fits ee1 for good (2026-11-21): a module with no servos on m1's yaw servo, so it has 23 joints.
 - **Sequence columns:** a fold sequence has 24 columns in the order `m1_yaw, m1_pitch, …, m12_yaw, m12_pitch`.
   `m12_pitch` is always 0. `m1_yaw` is 0 unless ee1 is fitted, when it drives ee1's twist servo, with the same sign
   as every yaw. Optional end-effector columns may follow (`ee1_grip`, `ee12_grip`, `ee1_n0` … `ee12_n4`); see
   `sequences/README.md`.
-- **Numbers live in `hardware/spec.toml`:** module count, spacing (140 mm), shell (Ø139 mm), ranges (pitch ±124°,
+- **Numbers live in `hardware/spec.toml`:** module count, spacing (70 mm), shell (Ø70 mm), ranges (pitch ±119°,
   yaw ±150°), servo and masses. Code reads them from there; never copy them into code.
 - **Units:** degrees in sequence CSVs; SI (m, kg, s, N·m) in code; mm and g in CAD and the spec.
 

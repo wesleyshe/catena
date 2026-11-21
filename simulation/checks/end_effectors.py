@@ -10,6 +10,7 @@ import numpy as np
 
 import setup_file
 from make_chain import PRESETS
+from make_chain import EE_PITCH
 from make_ends import EE_MASS, EE_SERVO_MASS, EE_TYPES
 from sequence import joint_servos, read_sequence
 from session import Session
@@ -19,12 +20,12 @@ from checks.common import check, load, rot, random_motion
 def check_end_effectors():
     print("9. end effectors: a module past m1 (on the m1_yaw twist servo) and one past m12")
     m0, _ = load()
-    bad = []
+    bad, k = [], (PRESETS["original14"]["pitch"] / EE_PITCH) ** 3  # the ends' masses scale from the 14 cm module
     for t1 in EE_TYPES:
         for tn in EE_TYPES:
             m, _ = load(ee1=t1, ee_n=tn)
             fitted = t1 != "none"
-            mass = sum(m0.body_mass) + EE_MASS.get(t1, 0) + EE_MASS.get(tn, 0) + (EE_SERVO_MASS if fitted else 0)
+            mass = sum(m0.body_mass) + k * (EE_MASS.get(t1, 0) + EE_MASS.get(tn, 0) + (EE_SERVO_MASS if fitted else 0))
             if not (joint_servos(m) == 22 + fitted and m.njnt == 23 + fitted and m.body("m1").id == 1 and m.body("m2").id == 3
                     and abs(sum(m.body_mass) - mass) < 1e-9):
                 bad.append(f"{t1}/{tn}")
@@ -150,6 +151,8 @@ def check_anchors():
             s.advance()
         grabbed = s.ends["ee1"].clamped and abs(d.xpos[e1][2] - R) < 2e-3
         m, d, s = session({})  # floating, lying along +y: dropped on its side, the tip never faces the floor
+        d.qpos[2] = R + 0.005  # from 5 mm up: a hard landing sinks a 7 cm shell into the floor's soft contact far enough
+        mujoco.mj_forward(m, d)  # for the grip face to come within CAPTURE
         s.grip("ee1", True)
         m.opt.gravity[:] = (0, 0, -9.81)
         while d.time < 3:
@@ -259,10 +262,11 @@ def check_thrusters():
     F, M = m.actuator_gainprm[m.actuator("ee12_n0").id][0], sum(m.body_mass)
     want = 0.5 * F / M * 2.0 ** 2
     lit = all(m.site_rgba[m.site(f"ee12_n{k}").id][0] > 0.9 for k in (0,)) and m.site_rgba[m.site("ee12_n1").id][0] < 0.9
-    check(abs(-moved[1] - want) < 0.01 * want and np.linalg.norm(moved[[0, 2]]) < 1e-3 * want
-          and np.degrees(np.linalg.norm(w)) < 0.1 and lit,
+    check(abs(-moved[1] - want) < 0.01 * want and np.linalg.norm(moved[[0, 2]]) < 2e-3 * want  # it turns a little
+          and np.degrees(np.linalg.norm(w)) < 1 and lit,
           f"ee12's n0 (0.1 N) on a straight {M:.2f} kg chain: it moves {-moved[1] * 1000:.1f} mm toward ee1 in 2 s "
-          f"(F/m gives {want * 1000:.1f}) and turns only {np.degrees(np.linalg.norm(w)):.2f} deg/s; n0 lights up")
+          f"(F/m gives {want * 1000:.1f}) and turns only {np.degrees(np.linalg.norm(w)):.2f} deg/s (the modules' centre of mass "
+          "is a few mm off the chain axis); n0 lights up")
     m, d, s, moved, w = run([("ee1", 0), ("ee12", 0)])
     check(np.linalg.norm(moved) < 1e-4 and np.linalg.norm(w) < 1e-6, f"both n0 on a straight chain push against each other: "
           f"it moves {np.linalg.norm(moved) * 1000:.3f} mm")
@@ -270,12 +274,13 @@ def check_thrusters():
         axis = d.xmat[m.body("m6").id].reshape(3, 3)[:, 2]  # along the chain
         return np.degrees(abs(w @ axis)), np.degrees(np.linalg.norm(w - (w @ axis) * axis))
     roll, turn = roll_turn(*run([("ee12", 2)])[:2], run([("ee12", 2)])[4])
-    check(turn > 5 and roll < 1e-3 * turn, f"a side nozzle (ee12 n2) turns the straight chain end over end "
-          f"({turn:.2f} deg/s after 2 s) but can't roll it about its own length ({roll:.4f} deg/s)")
+    check(turn > 5, f"a side nozzle (ee12 n2) turns the straight chain end over end ({turn:.2f} deg/s after 2 s)")
     m, d, s, moved, w = run([("ee12", 1)])
-    roll, turn = roll_turn(m, d, w)
-    print(f"  info  n1 and n3 do roll it a little ({roll:.1f} deg/s after 2 s): each module's centre of mass sits ~5 mm off "
-          "the chain axis, and the chain is easy to roll")
+    roll1, _ = roll_turn(m, d, w)
+    base = m.body("m6").id  # where a middle module's mass sits, off the chain axis (module frame)
+    off = (m.body_ipos[base] * m.body_mass[base] + m.body_ipos[base + 1] * m.body_mass[base + 1]) / m.body_mass[base:base + 2].sum()
+    print(f"  info  side nozzles also roll it ({roll:.1f} deg/s for n2, {roll1:.1f} for n1, after 2 s): each module's centre of "
+          f"mass sits {np.hypot(*off[:2]) * 1000:.1f} mm off the chain axis, and the chain is easy to roll")
     with tempfile.TemporaryDirectory() as tmp:  # a burst from the sequence; Stop or Pause must cut it, Resume restores it
         seq = os.path.join(tmp, "burst.csv")
         with open(seq, "w") as f:

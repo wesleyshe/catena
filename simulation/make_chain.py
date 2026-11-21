@@ -5,7 +5,7 @@ Usage:  .venv/bin/python make_chain.py [--preset original14|feetech85|dyna7|feet
 The chain floats horizontally (along world +Y) above a floor, high enough that it can never reach the floor while
 folding in zero gravity. Turn gravity on (--gravity 9.81, or the viewer's Physics panel: 0 0 -9.81) to drop it.
 
-Kinematics (measured from 'complete chain.3dm', see ../hardware/AGENTS.md). Per module i:
+Kinematics (measured from '7cm module.3dm', see ../hardware/AGENTS.md). Per module i:
   m{i}      base: shell + bracket + servos. Module 1 has the free joint.
   m{i}_arm  U-yoke + hub, joint m{i}_pitch about +X through the module centre.
   m{i+1}    next base, one pitch above, joint m{i+1}_yaw about +Z (its yaw horn is bolted to the hub).
@@ -28,15 +28,17 @@ from spec import FLIGHT, HW, MASS, SERVO, SPEC, v
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEIGHED = [g / 1000 for g in MASS.get("module_g", [])]  # whole modules (base + arm, kg), once they've been weighed
 
-# original14 is the real chain: its servo, pitch and masses come from the spec. feetech85 is the flight build (STS3032,
-# Ø85 mm shells 0.5 mm apart, hardware/AGENTS.md), scaled from it until its CAD exists; the 7 cm presets are what-ifs.
+# original14 is the chain in the spec (the name is from the 14 cm original): the 7 cm SCS0009 build since 2026-11-21.
+# Its servo, pitch and masses come from the spec; its gearbox numbers (armature, kv) and timestep are the sim's
+# estimates for the SCS0009. feetech85 is the superseded STS3032 build (Ø85 mm, hardware/AGENTS.md), scaled from the
+# spec's CAD; the 7 cm presets are older what-ifs.
 # The meshes, R_SHELL and the mass boxes are the CAD module's, at the spec's pitch; other pitches scale them. The end
 # effectors' placeholder sizes (make_ends.py) are for the 140 mm module, so they scale from 140 mm.
 PRESETS = {
     "original14": dict(servo=SERVO["model"], torque=SERVO["stall_torque_Nm"], speed=SERVO["no_load_speed_rad_s"],
                        pitch=HW["pitch_mm"] / 1000, timestep=0.0005, base_mass=MASS["base_g"] / 1000,
                        end_mass=MASS["end_g"] / 1000, arm_mass=MASS["arm_g"] / 1000, module_masses=WEIGHED,
-                       shell_frac=0.33, armature=0.002, kv=1.0),
+                       shell_frac=0.42, armature=0.0002, kv=0.15),  # shell: 38 g of the base's 90 g (CAD, PLA)
     # scale 85.5/140: printed parts 91 g x 0.228 + two 20 g STS3032 = 61 g, arm 30 g x 0.228; the shell 15 g of that
     "feetech85": dict(servo="STS3032", torque=0.44, speed=11.6, pitch=0.0855, timestep=0.0002,
                       base_mass=0.061, end_mass=0.061, arm_mass=0.007, shell_frac=0.25, armature=0.0002, kv=0.25),
@@ -47,8 +49,8 @@ PRESETS = {
 }
 # torque: stall torque (N·m); speed: no-load speed (rad/s); pitch: module centre-to-centre (m).
 # base_mass: middle module without its arm (kg); end_mass: modules 1 and N (one servo fewer, plus U2D2 + power hub).
-# shell_frac: share of the base mass in the two shell halves (hollow sphere); the rest sits on the core box.
-# armature: the motor's inertia as felt at the joint through the gearbox (kg m^2, estimate; AX-12A gearing is 254:1).
+# shell_frac: share of the base mass in the shell (hollow sphere); the rest sits on the core box.
+# armature: the motor's inertia as felt at the joint through the gearbox (kg m^2, estimate; the AX-12A's was 0.002).
 # kv: servo braking as the joint nears its target (N m s/rad). Without it the chain rings like a spring after a move;
 #   these values make a 60 deg step settle in about 0.5 s with ~1 deg overshoot. Raise kv for stiffer, slower stops.
 # timestep: RK4 keeps the free-floating COM still (<0.01 mm in 12 s of random motion; implicitfast drifts ~100 mm),
@@ -69,8 +71,8 @@ R_SHELL = HW["shell_diameter_mm"] / 2000             # shell outer radius (m), f
 CAD_PITCH = HW["pitch_mm"] / 1000                    # m: the pitch of the CAD module the meshes and boxes come from
 EE_PITCH = 0.140                                     # m: the module size make_ends.py's placeholders are for
 N_MODULES = HW["modules"]                            # default chain length, from the spec
-CORE_BOX = ((0, -0.00975, -0.00575), (0.019, 0.02875, 0.04425))  # bracket + servos: centre, half-size
-ARM_BOX = ((0, 0, 0.038), (0.032, 0.012, 0.050))                 # yoke + hub: centre, half-size
+CORE_BOX = ((0.00185, -0.00557, -0.012775), (0.01475, 0.0163, 0.018825))  # body + both servos' cases: centre, half-size
+ARM_BOX = ((0, 0, 0.01665), (0.020, 0.005, 0.02165))                     # the C-handle: centre, half-size
 BASE_RGBA, ARM_RGBA = "0.78 0.78 0.80 1", "0.20 0.45 0.95 1"
 PLATE = (0.5, 0.005)    # m: half-size and half-thickness of the plate an end is attached to when it isn't the floor
 DECK_T = 0.025          # m: half-thickness of the walking deck in the flight box (a landing foot presses ~9 mm in)

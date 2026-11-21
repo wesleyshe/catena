@@ -55,14 +55,18 @@ def check_axes():
             worst = max(worst, np.abs(R1.T @ (d.xpos[k] - p1) - (anchor + turn @ (rest - anchor))).max())
     check(worst < 1e-9, f"30 deg test turn of each joint moves everything after it rigidly about that axis (err {worst:.1e})")
 
-    arm = trimesh.load(f"{HERE}/meshes/arm.stl").vertices * 1000
-    discs = arm[(np.abs(arm[:, 0]) > 20.5) & (np.abs(arm[:, 0]) < 24.5) & (np.hypot(arm[:, 1], arm[:, 2]) < 12.5)]
-    hub = arm[arm[:, 2] > 84.9]
+    arm = trimesh.load(f"{HERE}/meshes/arm.stl").vertices * 1000    # the C-handle, mm
+    base = trimesh.load(f"{HERE}/meshes/base_mid.stl").vertices * 1000
+    discs = arm[(np.abs(arm[:, 0]) > 16.7) & (np.hypot(arm[:, 1], arm[:, 2]) < 5.5)]  # its pitch pivots at x = +-20
+    hub = arm[arm[:, 2] > 35]                                                          # above the shell
     dc = (discs[:, 1:].max(0) + discs[:, 1:].min(0)) / 2
     hc = (hub[:, :2].max(0) + hub[:, :2].min(0)) / 2
-    check(np.abs(dc).max() < 0.05, f"yoke side discs (horn mounts) centred on the pitch axis: y,z offset {dc.round(3)} mm")
-    check(np.abs(hc).max() < 0.05, f"hub flange centred on the yaw axis: x,y offset {hc.round(3)} mm")
-    check(abs(arm[:, 2].max() - 88) < 0.01, f"hub top at +{arm[:, 2].max():.2f} mm; + 52 mm to the next yaw horn face = 140 mm pitch")
+    spline = base[np.hypot(base[:, 0], base[:, 1]) < 2.5][:, 2].min()  # the yaw spline's end, below the module centre
+    into = arm[:, 2].max() - (P * 1000 + spline)
+    check(np.abs(dc).max() < 0.05, f"C-handle's pivots centred on the pitch axis: y,z offset {dc.round(3)} mm")
+    check(np.abs(hc).max() < 0.05, f"C-handle's hub centred on the yaw axis: x,y offset {hc.round(3)} mm")
+    check(abs(arm[:, 2].max() - 38.3) < 0.01 and 0 < into < 3.25, f"hub top at +{arm[:, 2].max():.2f} mm; at the "
+          f"{P * 1000:.0f} mm pitch the next module's yaw spline (its end {-spline:.2f} mm below its centre) sits {into:.2f} mm in")
 
 
 def check_contacts():

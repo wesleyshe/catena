@@ -3,6 +3,31 @@
 Newest first. The format is in the root `AGENTS.md`.
 
 ## 2026-11-21 · Wesley (Claude Code)
+- **The sim models the 7 cm SCS0009 chain** (the CAD and the numbers: `../hardware/LOG.md`). `meshes/` re-exported from
+  `7cm module.3dm`. `export_meshes.py` now reads a one-module file: base = shell, body and both servos (module 12
+  without the pitch servo), arm = the C-handle, centre from the CAD's axis lines. `inspect_3dm.py` defaults to the
+  current CAD.
+- `make_chain.py`: meshes, shell and mass boxes scale from `spec.toml`'s pitch instead of a fixed 140 mm (at the old
+  spec, `checks/same_as_before.py` gave 6 of 6 the same); the end effectors' placeholders still scale from 140 mm
+  (`EE_PITCH`). `CORE_BOX` and `ARM_BOX` measured from the new CAD. `original14`: `shell_frac` 0.42 (the CAD's 38 g
+  shell of the 90 g base), `armature` 0.0002, `kv` 0.15, so a 60° step at m6 settles within 1° in 0.44 s with 0.5°
+  overshoot. With the AX-12A's values (0.002, 1.0) it never got there in 2 s.
+- Checks updated for the new robot:
+  - Section 2 measures the C-handle: its pivots and hub, and the next spline 2.85 mm into the hub.
+  - Section 9 scales the ends' masses.
+  - Section 10 starts the side drop 5 mm up. From 0.5 m, a 7 cm shell sinks 21 mm into the floor's soft contact,
+    bringing the grip face within `CAPTURE`.
+  - Section 12: each module's centre of mass sits 3.2 mm off the chain axis, so n0 turns the chain 0.43°/s, and side
+    nozzles roll it (now an info line).
+  - Section 13 scales the pole to Ø50 mm.
+  - Section 15: `feetech85`'s numbers are now −23.1° / −31.2° (were −20.9° / −30.3°).
+- Key numbers: an L fold 32.1 deg/s (was 31.9), the m11 swing −2.0° (was −2.2°), COM 0.0020 mm.
+- Open: the build's module with no servos isn't an end-effector type, and ee1 carries the twist servo's mass that the
+  build has in m1 (AGENTS.md, open issue 10).
+- **Checked:** `verify.py` ALL CHECKS PASSED; `play.py --seq ../sequences/fold_sequence.csv --headless` (COM moved
+  0.000 mm); `checks/window_recorder.py` pressed every button; the renders show the 7 cm module and chain.
+
+## 2026-11-21 · Wesley (Claude Code)
 - **The class demos are off `main`, kept on branch `sim/demos-14cm`** (Wesley: the demos stay a branch while `main`
   moves to the 7 cm model). Gone from `main`: the 21 setups in `setups/`, the control window's demo row (`DEMOS`,
   `section_demos`, `demo`, `autoplay`), and the 8 sequences only they used. Kept as sim features: the end effectors,

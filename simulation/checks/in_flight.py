@@ -97,7 +97,7 @@ def check_flight_parabola():
             if turned is None and s.keys is not None and s.seq_t >= s.duration():
                 turned = s.turned  # the turn as the sequence ends, before the pull-out
     check(turned is not None and s.landing is not None, f"with the jitter and the turn sequence, it flies and lands")
-    print(f"  info  ... and turns {turned:+.1f} deg about the box's vertical by the sequence's end (-30.3 in perfect zero g, "
+    print(f"  info  ... and turns {turned:+.1f} deg about the box's vertical by the sequence's end (-31.2 in perfect zero g, "
           f"let go at rest); {s.flight_result()}")
     setup = setup_file.load(os.path.join(CHECK_SETUPS, "4a_walk.toml"))
     m, d = load(**setup_file.build_args(setup))
@@ -119,6 +119,6 @@ def check_flight_parabola():
     s.play(os.path.join(os.path.dirname(HERE), "sequences", "reorient_loop.csv"), 1.0, 0.25)
     while s.seq_t < s.duration() - 1e-9:
         s.advance()
-    check(abs(s.turned + 20.9) < 0.5, f"why: a free chain let go spinning 0.5 deg/s about the across axis turns "
-          f"{s.turned:+.1f} deg, not -30.3 (folding turns that spin into roll about its length), and its IMU turns "
+    check(abs(s.turned + 23.1) < 0.5, f"why: a free chain let go spinning 0.5 deg/s about the across axis turns "
+          f"{s.turned:+.1f} deg, not -31.2 (folding turns that spin into roll about its length), and its IMU turns "
           f"{s.imu_turn():.0f} deg")

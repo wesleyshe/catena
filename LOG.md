@@ -4,6 +4,17 @@ Newest first. This file covers root files, `sequences/`, `experiments/` and `doc
 The format is in the root `AGENTS.md`.
 
 ## 2026-11-21 · Wesley (Claude Code)
+- **Shared facts changed: the robot is the 7 cm SCS0009 build** (root `AGENTS.md`): spacing 70 mm, shell Ø70 mm,
+  pitch ±119°, SCS0009 servos, and ee1 (a module with no servos, on m1's yaw servo) is part of the build, so it has 23
+  joints. Joint names and the sequence columns don't change. Details: `hardware/LOG.md`, `simulation/LOG.md`.
+- **For software:** `spec.toml` has the new numbers. The pitch servo's horn now faces −X, so it turns the other way
+  from the AX-12A's for the same joint angle; record that with the servo directions once measured. In the build,
+  `m1_yaw` is live (it turns ee1).
+- **For experiments:** `findings.md` now says its results are for the 14 cm chain, with the two re-run so far.
+  `sequences/README.md`: ranges ±119°.
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED.
+
+## 2026-11-21 · Wesley (Claude Code)
 - **The class demos moved to branch `sim/demos-14cm`** (details in `simulation/LOG.md`). `sequences/`: removed the 8
   sequences only the demos used (`arm_reach`, `arm_let_go`, `thrust_straight/U/Z/L`, `walk_let_go`, `rod_crawl`);
   `stand_out`, `inchworm_walk` and `pole_climb` stay, since the stall sweep and `verify.py` use them. `sequences/README.md`,

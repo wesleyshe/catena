@@ -2,6 +2,21 @@
 
 Newest first. The format is in the root `AGENTS.md`.
 
+## 2026-11-21 · Wesley (Claude Code)
+- **New design: the 7 cm SCS0009 module**, `cad/7cm module.3dm` (Wesley's Rhino file, re-saved 13:11 with a `V6::axis`
+  layer), brought in by "Incorporating a new design". The 14 cm chain's two files moved to `cad/archive/`, prefixed
+  `2026-11-21`.
+- `spec.toml`: pitch 70 mm, shell Ø70 mm, pitch ±119° (the C-handle's stem hits the slot's end at 119.6°), yaw ±150°,
+  SCS0009 at 0.226 N·m and 10.5 rad/s, masses 90 / 90 / 6 g (placeholders). `AGENTS.md`: status, files, reading the
+  CAD, measurements, kinematics.
+- **The build (Wesley):** m1–m11 full, m12 yaw only, and a module with no servos past m1 (`ee1`, on m1's yaw servo):
+  13 shells, 23 joints. Servos ordered: 11 double-shaft SCS0009 for pitch, 12 single-shaft for yaw. The Ø85 mm STS3032
+  build is superseded, and `electronics.md` and `simulation/power_check.py` need redoing for the SCS0009.
+- **To check in the CAD:** the yaw servo's two −Y ear corners reach 33.23 mm from the centre, 0.76 mm into the shell
+  wall (its inside face is at 32.47 mm there). The pitch servo's horn faces −X; the AX-12A's faced +X.
+- **Checked:** the CAD measured with mesh bounds and ray tests; the axis lines cross within 0.004 mm of the centre I had
+  measured; `simulation/verify.py` ALL CHECKS PASSED.
+
 ## 2026-11-07 · Wesley (Claude Code)
 - New `electronics.md`: the STS3032 build's controller (one FE-URT-1, Feetech's Python SDK), bus and servo IDs, the
   first build's order (7 × C036, 9 × C001 and the URT, for 8 modules plus `ee1`), the two power designs with the sim's
