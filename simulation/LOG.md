@@ -2,6 +2,15 @@
 
 Newest first. The format is in the root `AGENTS.md`.
 
+## 2026-11-07 · Wesley (Claude Code)
+- New `power_check.py`: flies every setup headless and reports the servos' peak current and the lowest servo voltage
+  for the STS3032 build's 6 V cable design (tether and chain wire gauges, a second feed as flags) and its 12 V converter
+  design. Current per servo is 1.2 A × |torque| / limit; its constants are at the top. Setups with flight-box strings
+  only build at 12 modules, so `--modules 8` skips them.
+- `AGENTS.md` (commands, folder map) and `README.md` (file table): the new script.
+- **Checked:** `power_check.py` reproduces the earlier hand-run numbers (`5b_rod_crawl` 5.39 V with an 18 AWG chain;
+  `4a_walk` at 8 modules 4.99 V); `verify.py` ALL CHECKS PASSED.
+
 ## 2026-11-03 · Wesley (Claude Code)
 - **The setups' 1.8 g phases are 10 s, not 23 s** (Wesley: "set 1.8 g phases to 10s for me"): `hyper_s = 10.0` in all 21
   setups, so a demo reaches zero g 13 s after its countdown instead of 26 s, and a parabola takes 48 s instead of 74 s.

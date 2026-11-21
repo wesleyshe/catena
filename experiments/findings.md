@@ -267,3 +267,19 @@ cabin's camera sees, "space" what the IMU sees):
   net's spring for the landing but sits only a few mm deep at rest), the plane's measured attitude and acceleration
   record in place of the smooth profile and jitter waves, its roll and yaw, and the box's distance from the plane's
   centre of rotation.
+
+## Servo power: the current, and what the farthest servo gets (2026-11-07)
+**Question (Wesley):** can the STS3032 chain run its servos straight off a 6 V supply, or does every module need a
+12 → 6 V converter?
+
+**Run:** `../simulation/power_check.py`: every setup flown headless on the 8.5 cm build (10 s 1.8 g phases), current per
+servo from its simulated torque (1.2 A at stall), the wires solved as resistors (1.5 m tether, 0.12 m per module gap).
+- **Peak total current, 12 modules + ee1:** 1.9–14.2 A at 6 V. Highest `5b_rod_crawl`, then `3a_*` (11–12 A), mostly at
+  the pull-out and landing and in the anchored arm's 1.8 g pull-up.
+- **6 V with thin wire** (20 AWG tether, 22 AWG chain): the far servo drops below 4.8 V, where it can reset, in 10 of 21
+  setups (to 3.6 V).
+- **6 V with a 12 AWG tether:** lowest over all 21 setups 5.15 / 5.39 / 5.53 V with 20 / 18 / 16 AWG chain wire;
+  fed at both ends, 5.75 V or more.
+- **12 V with a converter in each module:** the lowest converter input is 10.7 V, so every servo keeps 6.0 V.
+- Torque and speed scale roughly with voltage, so 5.4 V at the far servo means about 10% less of both at that moment.
+- The 8-module first build, the all-stalled worst case and the parts lists: `../hardware/electronics.md`.

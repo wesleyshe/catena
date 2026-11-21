@@ -3,7 +3,7 @@
 Read the root `AGENTS.md` first. This folder holds the physical design of the chain: CAD, measurements, kinematics and
 BOM decisions. History is in `LOG.md`.
 
-## Status (2026-11-03)
+## Status (2026-11-07)
 - The 12-module chain with AX-12A servos exists and has been published (Mutis et al., SCF 2025).
 - Per the proposal, flight still needs the soft damping membrane, an IMU and onboard data logging.
 - **The flight build will use STS3032 servos** (decided 2026-10-22). From the BOM:
@@ -11,8 +11,13 @@ BOM decisions. History is in `LOG.md`.
     it as preset `feetech85`, the AX-12A module scaled down, until this CAD exists.
   - Pitch servo: STS3032-C036 (double shaft, 32 × 12 × 27.5 mm). Yaw servo: STS3032-C001 (23.2 × 12.1 × 28.5 mm).
   - Stall torque 0.44 N·m, stall current 1.2 A, 12-bit encoder over 360°, yaw ±180°.
-  - Per module: a 12 → 6 V buck converter, a junction board and a 100–220 µF capacitor. Each servo has a single lead,
-    so there's no daisy chain like the AX-12A's.
+  - **Electronics and power: `electronics.md`.** One Feetech FE-URT-1 drives the bus from a laptop. Each servo has a
+    single lead, so each module splices its servos onto the three chain wires (power, GND, DATA).
+  - **Power isn't decided:** a 12 → 6 V converter in every module, or 6 V straight down a 12 AWG tether and 18–20 AWG
+    chain wire with no converters. Both hold every simulated experiment (`simulation/power_check.py`); the choice
+    waits on a cable-stiffness test of one joint and on whether the converter fits the CAD.
+  - **First build ordered 2026-11-07 (Wesley):** 7 × C036, 9 × C001 and the URT, for 8 modules plus `ee1` on its
+    twist servo (15 servos, one spare).
   - The battery isn't chosen yet.
   - Its Rhino model is due in the coming weeks. Until then the spec and the sim stay on the AX-12A chain; when it
     arrives, follow "Incorporating a new design".
@@ -24,6 +29,7 @@ BOM decisions. History is in `LOG.md`.
 | `cad/complete chain.3dm` | The current design: the whole 12-module chain (Rhino 8, mm). The source for every sim mesh. **Never modify.** |
 | `cad/Single module existing.3dm` | One module of the current design. **Never modify.** |
 | `cad/archive/` | Designs that have been replaced, kept for reference (create it when the first one is retired). |
+| `electronics.md` | The STS3032 build's electronics: controller, servo IDs, the two power designs with the sim's numbers, parts lists, wiring rules, what to check on the test servos. |
 | `spec.toml` | The chain's numbers (module count, spacing, shell, ranges, servo, masses), plus the IMU's module and the flight environment (the A310's g profile and leftover g, the experiment box and its net, cabin air). **The sim and the robot software read this file**, so it's the one place to change a number. |
 
 - The single-module file matches module 2 of the chain to within 0.000 mm.

@@ -2,6 +2,14 @@
 
 Newest first. The format is in the root `AGENTS.md`.
 
+## 2026-11-07 · Wesley (Claude Code)
+- New `electronics.md`: the STS3032 build's controller (one FE-URT-1, Feetech's Python SDK), bus and servo IDs, the
+  first build's order (7 × C036, 9 × C001 and the URT, for 8 modules plus `ee1`), the two power designs with the sim's
+  numbers, parts lists, wiring rules and what to check on the test servos. Worked out with Wesley 2026-10-17 to 11-07.
+- `AGENTS.md` Status: the "converter, junction board and capacitor per module" line became the undecided power choice
+  (converters or a thick 6 V cable) with a pointer to `electronics.md`; the order is recorded. Files table: the new file.
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED (no spec numbers changed).
+
 ## 2026-11-03 · Wesley (Claude Code)
 - `AGENTS.md`, Miniaturisation: the 2026-10-22 "about 80 mm" outcome now says it became Ø85 mm on 2026-11-03.
 - `spec.toml`: a comment only. The ITF it cites is Novespace's, so it isn't in git; ask Wesley for the PDF.
