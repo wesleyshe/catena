@@ -137,8 +137,8 @@ An outside reviewer read the code cold, and separate sim runs tested flight cond
   Bench-test one joint before relying on torque margins.
 
 ## The class simulations (end effectors, 2026-10-29)
-Six simulations for class, measured on 2026-10-29 in perfect zero g on the 14 cm chain. The setups in
-`../simulation/setups/` now fly them in the box instead; those results are under "The flight box" below. End
+Six simulations for class, measured on 2026-10-29 in perfect zero g on the 14 cm chain (the setups are on branch `sim/demos-14cm` since 2026-11-21). The setups
+fly them in the box instead; those results are under "The flight box" below. End
 effectors are extra modules on the ends: an anchor (a clamp), a suction cup or a thruster (five nozzles). Their
 masses and limits are placeholders. All are in zero g unless the table says otherwise; numbers are headless runs.
 
@@ -193,7 +193,7 @@ pole: two 4-module coils take turns squeezing while the middle stretches (from 3
 step; a quarter of the designed stretch is lost to slip.
 
 ## The flight box (2026-11-03)
-Every setup in `../simulation/setups/` now flies as it will on the plane: the 8.5 cm flight build (`feetech85`, scaled
+Every class demo's setup (the setups are on branch `sim/demos-14cm` since 2026-11-21) flies as it will on the plane: the 8.5 cm flight build (`feetech85`, scaled
 from the AX-12A chain: Ø84.9 mm shells 0.6 mm apart, STS3032, 0.81 kg) in the 2.0 × 1.3 × 1.9 m box from
 `flight_space.md`, its net 300 mm above the floor, through one A310 parabola: 1.8 g, 22 s of zero g with the ITF's
 leftover g (seed 1), 1.8 g. The plane pitches nose up ~49°, over the top (up to 5.2°/s) and nose down, and the box turns
@@ -272,7 +272,7 @@ cabin's camera sees, "space" what the IMU sees):
 **Question (Wesley):** can the STS3032 chain run its servos straight off a 6 V supply, or does every module need a
 12 → 6 V converter?
 
-**Run:** `../simulation/power_check.py`: every setup flown headless on the 8.5 cm build (10 s 1.8 g phases), current per
+**Run:** `../simulation/power_check.py`: every class demo's setup (now on branch `sim/demos-14cm`) flown headless on the 8.5 cm build (10 s 1.8 g phases), current per
 servo from its simulated torque (1.2 A at stall), the wires solved as resistors (1.5 m tether, 0.12 m per module gap).
 - **Peak total current, 12 modules + ee1:** 1.9–14.2 A at 6 V. Highest `5b_rod_crawl`, then `3a_*` (11–12 A), mostly at
   the pull-out and landing and in the anchored arm's 1.8 g pull-up.

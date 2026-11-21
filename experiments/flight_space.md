@@ -56,5 +56,5 @@ The box's aisle face sits on the first track, 0.45 m out, so the aisle stays cle
 | Acceleration record | 10 Hz, 0.001 g resolution, given after the flight. Novespace advises your own accelerometer for accurate, time-synced data | ITF §3.10 |
 | Cabin | 825 hPa (air ≈1.0 kg/m³), 17–20 °C in flight, humidity up to 15 % | ITF §3.2–3.4 |
 
-In the sim, a setup with a `[flight]` table puts the chain in the box (every setup in `../simulation/setups/` has one),
+In the sim, a setup with a `[flight]` table puts the chain in the box (every class demo has one; they're on branch `sim/demos-14cm`),
 and Play runs this profile, the plane's pitch included. What it found is in `findings.md`, "The flight box".

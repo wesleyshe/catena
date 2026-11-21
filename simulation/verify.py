@@ -19,7 +19,7 @@
 14. the countdown before a take: the spin and play wait for it, Stop calls it off, Play again starts it afresh
 15. a parabola in the flight box (8.5 cm modules): the strings hold it through 1.8 g, let go cleanly at zero g, the turn
     survives the leftover g, the pull-out lands it on the net
-16. setup files: mistakes are refused, Save as then Load gives the same setup, every setup, demo button and sequence is
+16. setup files: mistakes are refused, Save as then Load gives the same setup, every setup and sequence is
     in order; the control window imports only the stdlib
 
 The checks are in checks/, one file per subject; this file runs them in order. A number (or several) runs just those

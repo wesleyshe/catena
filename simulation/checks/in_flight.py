@@ -13,7 +13,7 @@ from make_chain import PRESETS
 from sequence import LOG_DT
 from session import Session
 from spec import FLIGHT
-from checks.common import check, load, HERE
+from checks.common import CHECK_SETUPS, check, load, HERE
 
 
 def check_flight():
@@ -57,8 +57,8 @@ def check_flight():
 
 
 def check_flight_parabola():
-    print("15. a parabola in the flight box (8.5 cm modules, setups/1a_turn.toml, 1.8 g phases shortened to 7 s)")
-    setup = setup_file.load(os.path.join(setup_file.SETUP_DIR, "1a_turn.toml"))
+    print("15. a parabola in the flight box (8.5 cm modules, checks/setups/1a_turn.toml, 1.8 g phases shortened to 7 s)")
+    setup = setup_file.load(os.path.join(CHECK_SETUPS, "1a_turn.toml"))
     m, d = load(**setup_file.build_args(setup))
     s = Session(m, d, None, setup)
     start = s.box_com()
@@ -99,7 +99,7 @@ def check_flight_parabola():
     check(turned is not None and s.landing is not None, f"with the jitter and the turn sequence, it flies and lands")
     print(f"  info  ... and turns {turned:+.1f} deg about the box's vertical by the sequence's end (-30.3 in perfect zero g, "
           f"let go at rest); {s.flight_result()}")
-    setup = setup_file.load(os.path.join(setup_file.SETUP_DIR, "4a_walk.toml"))
+    setup = setup_file.load(os.path.join(CHECK_SETUPS, "4a_walk.toml"))
     m, d = load(**setup_file.build_args(setup))
     s = Session(m, d, None, setup)
     s.fly(setup["sequence"], setup["move_s"], setup["hold_s"], hyper_s=7, jitter=False)
@@ -107,7 +107,7 @@ def check_flight_parabola():
         while s.keys is None or s.seq_t < s.duration() - 1e-9:
             s.advance()
     walked = -(s.box_com() - s.com0_box)[1]
-    check(walked > 0.6 and all(e.pops == 0 for e in s.ends.values()), f"setups/4a_walk: standing on the deck through 1.8 g as "
+    check(walked > 0.6 and all(e.pops == 0 for e in s.ends.values()), f"checks/setups/4a_walk: standing on the deck through 1.8 g as "
           f"the box pitches, then walking in zero g on the turning deck: {walked * 1000:.0f} mm, no cup popped")
     p = Play_parabola(7, False, 1, 0.38)
     check(abs(-p.at(p.t0 + 5)[1][2] - 0.38) < 1e-9 and abs(math.degrees(p.top) - math.degrees(math.atan(0.62))) < 1e-9,

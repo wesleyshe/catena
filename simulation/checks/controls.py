@@ -9,7 +9,7 @@ import setup_file
 from flight import Parabola
 from sequence import read_sequence
 from viewer import Commands
-from checks.common import FOLD_SEQ, HERE, check, load
+from checks.common import CHECK_SETUPS, FOLD_SEQ, HERE, check, load
 
 
 def check_countdown():
@@ -33,7 +33,7 @@ def check_countdown():
 
 
 def check_setup_files():
-    print("16. setup files: what they refuse, Save as then Load, every setup, demo button and sequence; the window's imports")
+    print("16. setup files: what they refuse, Save as then Load, every setup and sequence; the window's imports")
     with tempfile.TemporaryDirectory() as tmp:  # a sequence for the setups below to name
         seq = os.path.join(tmp, "twist.csv")
         with open(seq, "w") as f:
@@ -82,7 +82,7 @@ def check_setup_files():
     check(one([0, 0, 0.5]) == (0.5, "z", "") and two[:2] == (2.0, "y") and "z" in two[2] and one([0, 0, 0]) == (0.0, "z", ""),
           "a setup's spin, for the control window's one-axis Spin box: the largest axis, with a warning if others are dropped")
 
-    names, bad = sorted(glob.glob(os.path.join(setup_file.SETUP_DIR, "*.toml"))), []
+    names, bad = sorted(glob.glob(os.path.join(setup_file.SETUP_DIR, "*.toml")) + glob.glob(os.path.join(CHECK_SETUPS, "*.toml"))), []
     for path in names:
         try:
             setup = setup_file.load(path)
@@ -92,17 +92,12 @@ def check_setup_files():
             assert setup_file.summary(setup)
         except Exception as e:
             bad.append(f"{os.path.basename(path)}: {e}")
-    check(names and not bad, f"all {len(names)} setups in setups/ load, build, read their sequence and say what they show"
+    check(names and not bad, f"all {len(names)} setups in setups/ and checks/setups/ load, build, read their sequence and "
+          "say what they show"
           + (f": {'; '.join(bad)}" if bad else ""))
-    missing = [name for _, name in setup_file.DEMOS if not os.path.isfile(os.path.join(setup_file.SETUP_DIR, name + ".toml"))]
-    check(setup_file.DEMOS and not missing, f"each of the control window's {len(setup_file.DEMOS)} demo buttons has its setup"
-          + (f" (missing: {', '.join(missing)})" if missing else ""))
     csvs = sorted(glob.glob(os.path.join(setup_file.SEQ_DIR, "*.csv")))
     silent = [os.path.basename(p) for p in csvs if not setup_file.about(p)]
-    pole = setup_file.summary(setup_file.load(os.path.join(setup_file.SETUP_DIR, "5a_pole_climb.toml")))
-    check(not silent and setup_file.users(os.path.join(setup_file.SEQ_DIR, "pole_climb.csv")) == ["5a_pole_climb"]
-          and "rod" in pole and "wrapped" in pole, f"all {len(csvs)} sequences say what they do in their first line, and a "
-          "sequence knows the setups that use it (pole_climb.csv: 5a_pole_climb, whose pole is in the setup, not the CSV)"
+    check(not silent, f"all {len(csvs)} sequences say what they do in their first line"
           + (f"; no first line: {', '.join(silent)}" if silent else ""))
 
     ramps = Parabola.UP_S + Parabola.DOWN_S

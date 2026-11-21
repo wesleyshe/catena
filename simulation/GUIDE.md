@@ -38,12 +38,14 @@ Double-click **`Chain Sim.command`** in the `simulation` folder.
 - Then two windows appear:
   - the **Chain Sim** control window, which stays on top of other windows;
   - the **viewer**, a 3D view of the chain. At first it shows the bare 14 cm chain floating straight above a grey floor,
-    with no box. The demo buttons change that.
+    with no box. A setup with the flight box (section 4) changes that.
 
 To quit, close the control window: the viewer closes with it.
 
-## 3. The demo buttons
-The top row of the control window has one button per class simulation. **One click** loads that simulation, reopens
+## 3. The demo buttons (on branch `sim/demos-14cm`)
+The class demos aren't on `main`: they're on branch `sim/demos-14cm`, with the model they were recorded on. Switch
+to that branch (GitHub Desktop: **Current Branch**), double-click `Chain Sim.command` again, and the top row of the
+control window has one button per class simulation. **One click** loads that simulation, reopens
 the viewer with it, and flies it: a whole parabola with its sequence, about 55 seconds. Press **Play** for another take;
 every take of the same setup comes out the same.
 
@@ -58,7 +60,7 @@ every take of the same setup comes out the same.
 | **6 Skater** | Let go spinning: folding speeds the spin up, straightening slows it down, like a skater pulling their arms in. |
 
 The other versions of each simulation (more spin at release, the chain turned across the cabin, the Moon and Mars
-parabolas, other shapes) are in the **Setup** list; see section 4.
+parabolas, other shapes) are in that branch's **Setup** list; see section 4.
 
 ### What the viewer shows
 - **The box:** clear acrylic walls with an aluminium frame, a door on the aisle side, and the net across it 300 mm above
@@ -101,7 +103,7 @@ A parabola in the setups takes 48 s of simulated time. In order:
 
 There are two ways to fly it.
 
-**Play (automatic).** With a setup loaded (or after a demo button), press **Play**. Everything above happens by itself.
+**Play (automatic).** With a setup loaded, press **Play**. Everything above happens by itself.
 Press **Play** again for a fresh take.
 
 **By hand.** You decide when the strings let go and when the moves start.
@@ -118,7 +120,7 @@ Let go and press Play within a second or two of T+0, so that a 20 s sequence sti
   computer can't keep up, the **playback** readout says so (for example `x2 (reaching x0.9)`); or
 - change **1.8 g phases, s** (in Flight). The setups use 10 s, so zero g begins 13 s after the countdown. 7, its
   smallest, starts zero g after 10 s. 23 is the real A310: zero g after 26 s, and 74 s for the whole parabola. It
-  applies at the next Play, with no Rebuild, and sets the pull-out too. A demo button or **Load** sets it back to the
+  applies at the next Play, with no Rebuild, and sets the pull-out too. **Load** sets it back to the
   setup's 10 s; **Save as...** keeps your value in a new setup.
 
 ## 6. Watching, readouts, logs and screenshots
@@ -185,18 +187,17 @@ just coils up in mid-air.
 4. For the flight, keep it to about 20 s (rows × (move + hold)); the readout warns you if it's longer.
 
 **A new setup:**
-1. Load the demo or setup closest to what you want.
+1. Load the setup closest to what you want.
 2. Change what you need: the Fold sequence (your CSV), Model, End effectors, Flight, Spin.
 3. If you changed Model, End effectors, the box or the strings, click **Rebuild + open viewer**. Then **Play**.
 4. When you like it, click **Save as...**, give it a name in `setups/` like `1f_my_turn`, and type one line saying what
    it shows. It joins the Setup list.
 
 A setup file only lists what differs from the defaults, so it's short. You can open it in a text editor too; every
-setting is described at the top of `setup_file.py`. Adding a demo button of your own needs a one-line code change
-(`DEMOS` in `setup_file.py`).
+setting is described at the top of `setup_file.py`.
 
 ## 8. When something goes wrong
-- **Nothing happens for 18 s after I click a demo or Play.** That's the countdown and the 1.8 g pull-up: the strings
+- **Nothing happens for 18 s after I click Play.** That's the countdown and the 1.8 g pull-up: the strings
   hold the chain still until zero g, 5 s + 13 s after the click. Watch the big text count down to zero g, or
   wait less (section 5): **Playback x** 2 or 3, or **1.8 g phases, s** at 7.
 - **I changed the code (or pulled new code) and nothing changed.** Close the control window and double-click

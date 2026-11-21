@@ -8,7 +8,7 @@ Current per servo = STALL_A x |actuator torque| / its limit (a DC motor's curren
 spikes shorter than the 10 ms step are left out. The wires are a resistor network: a tether from the supply into m1
 (and the last module with --both-ends), then CHAIN_WIRE_M of wire per module gap, + and GND both counted.
   .venv/bin/python power_check.py                       every setup, 12 modules, the cable defaults (~1 min)
-  .venv/bin/python power_check.py setups/4a_walk.toml --modules 8 --tether-awg 20 --chain-awg 22
+  .venv/bin/python power_check.py checks/setups/4a_walk.toml --modules 8 --tether-awg 20 --chain-awg 22
 Setups whose flight-box strings tie to m12 only build with 12 modules; with fewer they're skipped.
 """
 import argparse
@@ -81,14 +81,14 @@ def check(job):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("setups", nargs="*", help="setup files (default: every one in setups/)")
+    ap.add_argument("setups", nargs="*", help="setup files (default: every one in setups/ and checks/setups/)")
     ap.add_argument("--modules", type=int, default=12, help="chain modules (default 12)")
     ap.add_argument("--tether-awg", type=int, default=12, choices=OHM_PER_M, help="cable design's tether (default 12)")
     ap.add_argument("--chain-awg", type=int, default=18, choices=OHM_PER_M,
                     help="cable design's + and GND through the chain (default 18)")
     ap.add_argument("--both-ends", action="store_true", help="a second tether into the last module")
     a = ap.parse_args()
-    paths = a.setups or sorted(glob.glob(os.path.join(HERE, "setups", "*.toml")))
+    paths = a.setups or sorted(glob.glob(os.path.join(HERE, "setups", "*.toml")) + glob.glob(os.path.join(HERE, "checks", "setups", "*.toml")))
     print(f"{a.modules} modules. Cable: 6 V, {a.tether_awg} AWG tether, {a.chain_awg} AWG chain wire, fed at m1"
           f"{' and the far end' if a.both_ends else ''}. Converters: 12 V, {CONVERTER_AWG[0]} AWG tether, "
           f"{CONVERTER_AWG[1]} AWG chain wire. Peak current is at 6 V; voltages are the lowest over the whole flight.")
