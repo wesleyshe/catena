@@ -30,7 +30,8 @@ WEIGHED = [g / 1000 for g in MASS.get("module_g", [])]  # whole modules (base + 
 
 # original14 is the real chain: its servo, pitch and masses come from the spec. feetech85 is the flight build (STS3032,
 # Ø85 mm shells 0.5 mm apart, hardware/AGENTS.md), scaled from it until its CAD exists; the 7 cm presets are what-ifs.
-# Lengths of the meshes and primitives are for the 140 mm AX-12A module; other pitches scale them.
+# The meshes, R_SHELL and the mass boxes are the CAD module's, at the spec's pitch; other pitches scale them. The end
+# effectors' placeholder sizes (make_ends.py) are for the 140 mm module, so they scale from 140 mm.
 PRESETS = {
     "original14": dict(servo=SERVO["model"], torque=SERVO["stall_torque_Nm"], speed=SERVO["no_load_speed_rad_s"],
                        pitch=HW["pitch_mm"] / 1000, timestep=0.0005, base_mass=MASS["base_g"] / 1000,
@@ -65,6 +66,8 @@ ROLLING_RESISTANCE = 0.03  # floor rolling-resistance coefficient (torque = this
                            # Chosen so a dropped chain settles in ~10 s; below ~0.01 the off-centre modules keep rocking.
 
 R_SHELL = HW["shell_diameter_mm"] / 2000             # shell outer radius (m), from the spec
+CAD_PITCH = HW["pitch_mm"] / 1000                    # m: the pitch of the CAD module the meshes and boxes come from
+EE_PITCH = 0.140                                     # m: the module size make_ends.py's placeholders are for
 N_MODULES = HW["modules"]                            # default chain length, from the spec
 CORE_BOX = ((0, -0.00975, -0.00575), (0.019, 0.02875, 0.04425))  # bracket + servos: centre, half-size
 ARM_BOX = ((0, 0, 0.038), (0.032, 0.012, 0.050))                 # yoke + hub: centre, half-size
@@ -91,7 +94,8 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
     lead = leading_end(ends)
     spot = attach_point(ends[lead]["attach"], rod) if lead is not None else None
     p = PRESETS[preset]
-    s = p["pitch"] / 0.140                       # geometric scale
+    s = p["pitch"] / CAD_PITCH                   # geometric scale of the meshes, the shell and the mass boxes
+    s_ee = p["pitch"] / EE_PITCH                 # ... and of the end effectors' placeholders
     kp = p["torque"] / math.radians(KP_SATURATE)
     damping = p["torque"] / p["speed"]           # servo slows to its no-load speed at stall torque
     span = n + sum(e["type"] != "none" for e in ends)  # modules end to end, counting end effectors
@@ -201,7 +205,7 @@ def build(preset="original14", n=N_MODULES, slip_ring=False, gravity=0.0, air=Fa
         parent = arm
 
     # end effectors go in after the chain, so the chain's body ids don't move (m1 stays body 1)
-    ee_actuators = make_ends.bodies(root, world, ends, first, body, n, p["pitch"], R_SHELL, s, yaw_limits)
+    ee_actuators = make_ends.bodies(root, world, ends, first, body, n, p["pitch"], R_SHELL * s / s_ee, s_ee, yaw_limits)
     if flight:
         world.append(cabin)  # after the chain and its end effectors, so m1 stays body 1
 
