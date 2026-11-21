@@ -90,8 +90,6 @@ def layout():
 lines.insert(0, "startup")
 lines.append("layout")
 layout()
-for label, _ in setup_file.DEMOS:
-    press(label)
 for text in ("Play", "Restart", "Pause", "Resume", "Stop", "Straighten", "Reset pose", "Spin", "Stop spin"):
     press(text)
 press("⏸", prefix=True)

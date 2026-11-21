@@ -3,6 +3,13 @@
 Newest first. This file covers root files, `sequences/`, `experiments/` and `docs/`. Each area has its own `LOG.md`.
 The format is in the root `AGENTS.md`.
 
+## 2026-11-21 · Wesley (Claude Code)
+- **The class demos moved to branch `sim/demos-14cm`** (details in `simulation/LOG.md`). `sequences/`: removed the 8
+  sequences only the demos used (`arm_reach`, `arm_let_go`, `thrust_straight/U/Z/L`, `walk_let_go`, `rod_crawl`);
+  `stand_out`, `inchworm_walk` and `pole_climb` stay, since the stall sweep and `verify.py` use them. `sequences/README.md`,
+  `experiments/README.md`, `flight_space.md` and `findings.md` say the setups are on that branch; no numbers changed.
+- **Checked:** `simulation/verify.py` ALL CHECKS PASSED.
+
 ## 2026-11-07 · Wesley (Claude Code)
 - `experiments/findings.md`: new section "Servo power": the STS3032 chain's current in every setup and the voltage its
   farthest servo gets, for a 6 V cable design and a 12 V design with a converter in each module

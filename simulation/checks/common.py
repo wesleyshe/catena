@@ -11,6 +11,7 @@ from session import load_model
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # simulation/
 FOLD_SEQ = os.path.join(os.path.dirname(HERE), "sequences", "fold_sequence.csv")
+CHECK_SETUPS = os.path.join(HERE, "checks", "setups")  # the flights verify.py flies (the class demos: branch sim/demos-14cm)
 failures = []
 
 

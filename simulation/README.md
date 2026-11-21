@@ -3,8 +3,8 @@
 A free-floating MuJoCo model of the MIT Universal Self-Folding Chain Robot (Mutis et al., ACM SCF 2025).
 By default there is no gravity and no tether. You can drive it with sliders and the keyboard, or play folding
 sequences, and log how its centre of mass and angular momentum behave. On its own the chain floats horizontally about
-1 m above a floor; turn gravity on and it drops onto the floor. Every setup in `setups/` instead flies it as on the
-plane: in the flight box, held by strings through the 1.8 g pull-up, let go in zero g, and caught by the net (see
+1 m above a floor; turn gravity on and it drops onto the floor. A setup with a `[flight]` table instead flies it as on
+the plane: in the flight box, held by strings through the 1.8 g pull-up, let go in zero g, and caught by the net (see
 Flight below).
 
 **New to Chain Sim? Start with [GUIDE.md](GUIDE.md)**, a walk through the control window for clicking. This README is
@@ -35,18 +35,18 @@ with plain `.venv/bin/python`.
 
 Double-click **`Chain Sim.command`** in Finder. A Terminal window opens and must stay open, because it runs the app.
 The first time, macOS may ask whether Terminal can access the Desktop folder; allow it. Then the **Chain Sim**
-control window and the MuJoCo viewer open side by side. The quickest start is one of the demo buttons at the top.
+control window and the MuJoCo viewer open side by side. (The class demos' one-click buttons are on branch
+`sim/demos-14cm`.)
 
 | Section | What it does |
 |---|---|
-| The demos | One button per class simulation, each flown as it will be on the plane (see Flight): **1A Free float (held)** by the strings, **1B Free float (from the net)**, **2 Anchored**, **3 Thrusters**, **4 Suction walk**, **5 Pole climb**, **6 Skater**. One click opens it in the viewer and flies it, sequence and all; press **Play** for another take. The other versions of each (an extra spin at release, the pitch axes across the cabin, the Moon and Mars parabolas, the U / Z / L shapes, the rail crawl) are in the Setup list. |
 | Setup | Pick a whole run from `setups/` (see [Setups](#setups-setups)); the lines under it say what the run shows and what's in it (its world, chain and end effectors, and how it starts). **Load** fills in every setting below and opens the viewer; then press **Play**. **Save as...** saves the current settings as a new setup, with a line saying what it shows. |
 | Model | Pick the preset (`feetech85` is the 8.5 cm flight build), number of modules and slip ring, and tick **Air drag** (cabin air on the shells) for flight-like runs. |
 | End effectors | An extra module on either end: none, **anchor** (a clamp), **suction** cup or **thruster** (five nozzles). The one past m1 sits on module 1's twist servo (`m1_yaw`). Picking a type shows its settings: an anchor or cup can **start** floating, on a surface (x, y, z and the way the surface faces) or on the rod (how far along), with a roll; a cup has its pull limit, diameter and friction; a thruster its push per nozzle. While running: **Hold** / **Let go** (an anchor or cup told to hold grabs whatever fixed thing it touches), or the nozzle tick boxes n0 (out of the end) to n4 (sideways). If ee1 starts attached, it sets where the chain starts, and the other end's placement greys out. **Rod to grab** (in Model) adds the setup's rod. Then click **Rebuild + open viewer**, which applies Model and End effectors and restarts the viewer. |
 | Fold sequence | Pick a CSV from `../sequences/` (or **Browse...**); the lines under it say what it does and which setups use it. A sequence is only the moves, so one written for a setup (the pole climb, the walk) needs that setup loaded. Set move/hold seconds and speed, then **Play / Pause / Resume / Restart / Stop**. **Speed x** makes the moves themselves faster (so the physics changes); **Playback x** only shows the simulation faster than real time, e.g. ×2 to watch a 20 s clip in 10 s (the readout says if the computer can't keep up). **Play** a second time, or **Restart**, starts a fresh take from the start pose, so every take is the same. **Countdown s** (5 to start with): Play and Restart first show T-5 … T-1 big in the viewer, with the chain held still, so a recording starts clean; 0 starts at once, and Pause, Stop or Reset pose during it calls the take off. **Pause** and **Stop** also turn the nozzles off. |
 | World | **Gravity** on/off and its strength, **Straighten** (all joints to 0), **Reset pose** (back to the start: the setup's start pose, or floating straight, at rest), and **Pause physics / Resume physics**, which freezes the whole simulation (time, motion, sequence, log) so you can look around. |
 | Spin | Set a rate in deg/s, pick an axis (vertical, along the chain, across) and press **Spin**. The whole chain starts spinning about that axis through its centre of mass, keeping its shape and any spin about the other axes. **Stop spin** brings it to rest. A small rate (0.5–5 deg/s) stands in for the leftover spin when the chain is let go in flight. This is a push from outside: it gives the chain angular momentum, which then stays constant. Fold while spinning and it speeds up, like a skater pulling their arms in. Tick **Also spin like this when Play starts** to give the chain this spin as the sequence starts: the spin at release. |
-| Flight | The box on the plane and one parabola (Novespace A310, `../experiments/flight_space.md`). Every setup in `setups/` has a `[flight]` table, so it opens in the box with **In the flight box** ticked and the strings tied on (or, with **or starts on the net**, lying on the net with no strings). Set the box's size (along the chain, across, high), which modules the **strings** hold (four strings each, to the box's top and bottom edges), how long the **1.8 g phases** last, **g-jitter** (the leftover g in zero g), when the strings **let go at T+** and when the sequence starts **at T+** (T+0 when zero g begins). The box and strings need **Rebuild**; the times apply at Play. **Play** flies the whole parabola by itself after the countdown: 1 g, the 1.8 g pull-up (held while the plane pitches up), zero g (let go, then the sequence, about 20 s of it), and the pull-out, which drops the chain onto the net. **By hand:** **✈ Start the parabola** flies it with no sequence and the strings holding; **✂ Let go of the strings** lets go whenever you click; **Play** then plays the sequence at once, or drive the chain with the keys, Spin, Hold / Let go and the nozzles. **Camera turns with the plane** (ticked) watches from the cabin, so the box looks still; unticked, the camera stays fixed in space and you see the box pitch. The viewer's big text counts down to zero g, then shows T; by hand it also says what to do next (Let go, then Play), as does the readouts' **by hand** line. The readouts show the plane's pitch, the gap to the box, the first thing touched, the lift-off from the net and the landing. Untick **In the flight box** and Rebuild for the same setup in perfect zero g. |
+| Flight | The box on the plane and one parabola (Novespace A310, `../experiments/flight_space.md`). A setup with a `[flight]` table opens in the box with **In the flight box** ticked and the strings tied on (or, with **or starts on the net**, lying on the net with no strings). Set the box's size (along the chain, across, high), which modules the **strings** hold (four strings each, to the box's top and bottom edges), how long the **1.8 g phases** last, **g-jitter** (the leftover g in zero g), when the strings **let go at T+** and when the sequence starts **at T+** (T+0 when zero g begins). The box and strings need **Rebuild**; the times apply at Play. **Play** flies the whole parabola by itself after the countdown: 1 g, the 1.8 g pull-up (held while the plane pitches up), zero g (let go, then the sequence, about 20 s of it), and the pull-out, which drops the chain onto the net. **By hand:** **✈ Start the parabola** flies it with no sequence and the strings holding; **✂ Let go of the strings** lets go whenever you click; **Play** then plays the sequence at once, or drive the chain with the keys, Spin, Hold / Let go and the nozzles. **Camera turns with the plane** (ticked) watches from the cabin, so the box looks still; unticked, the camera stays fixed in space and you see the box pitch. The viewer's big text counts down to zero g, then shows T; by hand it also says what to do next (Let go, then Play), as does the readouts' **by hand** line. The readouts show the plane's pitch, the gap to the box, the first thing touched, the lift-off from the net and the landing. Untick **In the flight box** and Rebuild for the same setup in perfect zero g. |
 | Record | **Log to logs/** writes `logs/run_<date>_<time>.csv` while ticked. **Screenshot** saves the viewer's view to `screenshots/`. **Open folder** opens this folder in Finder. |
 | Readouts | Time, sequence progress and length (flagged if it's longer than one ~20 s parabola), gravity, **spin** (the whole chain's spin rate about the vertical: angular momentum ÷ inertia), **turned** (how far the middle module has turned about the vertical since the last reset; twists about the chain's own axis don't count), **IMU turn** (how far the IMU's module has turned in 3D since the last reset, as the flight IMU will see it), centre-of-mass drift, total angular momentum, max servo torque, contacts and log file, the playback rate, and a line per end effector (holding / ready to grab / let go, with the clamp's force and torque, a cup's pull of its limit and pops, or the thrust). These are also drawn in the top-left of the viewer, and when a sequence finishes the viewer's Terminal prints a one-line summary. |
 
@@ -61,7 +61,8 @@ A run has two halves, kept in two files:
 | **Sequence**: the moves | Joint angles, one keyframe per row, plus optional grip and nozzle columns for the end effectors | A CSV in `../sequences/`, shared with the robot software |
 | **Setup**: everything else | The sequence and its timing; the world (gravity, a rod or pole, air drag, the flight box); the chain (preset, modules) and its end effectors; how it starts (attached to a surface or the rod, wrapped round the rod, spinning) | A TOML file in `setups/` |
 
-So the pole in the pole climb is a setting, not part of the moves. This is all of `setups/5a_pole_climb.toml`:
+So the pole in the pole climb is a setting, not part of the moves. This is all of the pole-climb demo's setup
+(`setups/5a_pole_climb.toml` on branch `sim/demos-14cm`):
 
 ```toml
 # On the flight: wrapped round a pole from the box's floor to its lid (Ø61 mm, scaled to the 8.5 cm modules), ...
@@ -104,9 +105,6 @@ setup and the chain just coils up in mid-air.
    `setup_file.py`. For the flight, keep the sequence to about 20 s: it starts at T+1.5 s and zero g ends at T+22 s.
 3. **Check it headless:** `.venv/bin/python play.py --setup setups/NAME.toml --headless` prints what's in the setup
    and how the run went. `verify.py` checks that every setup in `setups/` loads and builds.
-4. **A demo button** (optional): add `("7  Name", "NAME")` to `DEMOS` in `setup_file.py`.
-
-Setups are named `{demo}{version}_{what}`: the number is the class demo it belongs to (1–6), the letter the version.
 
 ## Commands
 
@@ -120,7 +118,7 @@ Setups are named `{demo}{version}_{what}`: the number is the class demo it belon
 | No viewer: run the sequence and log | `.venv/bin/python play.py --seq ../sequences/fold_sequence.csv --headless` |
 | Viewer with Earth gravity (drops to the floor) | `.venv/bin/mjpython play.py --gravity 9.81` |
 | Flight-like: 4× faster, let go with 1 deg/s of spin, cabin air | `.venv/bin/python play.py --seq ../sequences/reorient_loop.csv --headless --speed 4 --spin 0 0 1 --air` |
-| Run a whole setup and log: with `[flight]` (every setup in `setups/`), one whole parabola in the flight box, ~1 min | `.venv/bin/python play.py --setup setups/1a_turn.toml --headless` |
+| Run a whole setup and log: with `[flight]`, one whole parabola in the flight box, ~1 min | `.venv/bin/python play.py --setup checks/setups/1a_turn.toml --headless` |
 | Run all checks and renders | `.venv/bin/python verify.py` |
 | Run one section of the checks (or several) | `.venv/bin/python verify.py 15` |
 | Before and after a refactor: is everything the same? | `.venv/bin/python checks/same_as_before.py save DIR`, then `... compare DIR` |
@@ -139,36 +137,10 @@ A setup file holds everything about a run that the sequence CSV doesn't (see [Ho
 Its first line says what it shows. The format is in `setup_file.py`; the files are plain text, so you can also edit
 them by hand.
 
-The six class simulations, each flown in the 2.0 × 1.3 × 1.9 m box on the 8.5 cm flight build (`feetech85`): held
-through the 1.8 g pull-up, let go at T+1 s, the sequence from T+1.5 s, the pull-out onto the net. The setups' 1.8 g
-phases are 10 s (`hyper_s = 10.0`), shorter than the A310's 23 s so there's less waiting; the results below are flown
-with the A310's 23 s (set **1.8 g phases** to 23, or pass `hyper_s=23` to `fly`). With 10 s, what the chain does in zero g
-is the same within 2 mm and 0.5° for 4a, 5a, 5b and 6a; 1a turns +4.8° in the box instead of +2.5°, 2c −78° instead
-of −86°, 1b leaves the net as zero g begins instead of at T+2.4 s, and the clamps take more in the faster pitch-up
-(2a, 2c 41 N instead of 24 N; 5b 36 N instead of 9 N). See `../experiments/findings.md`, "The flight box". The demo buttons fly
-`1a_turn`, `1b_from_net`, `2a_arm`, `3a_U`, `4a_walk`, `5a_pole_climb` and `6a_skater`; the others are in the Setup list. Results are
-headless flights with the leftover g (seed 1), at the sequence's end and counted from the release; "box" is what the
-cabin's camera sees, "space" what the IMU sees. In perfect zero g on the 14 cm chain they're in
-`../experiments/findings.md`, "The class simulations".
-
-| Simulation | Setup | What it shows | On the flight |
-|---|---|---|---|
-| 1. Free float | `1a_turn` | The 30° falling-cat turn (4 fold loops) | let go with the plane's −2.8°/s, it rolls instead: +2.5° in the box; touches an end wall at T+20.9 s |
-| | `1b_from_net` | The same, starting on the net instead of held by strings | the leftover g pulls it off the net at T+2.4 s (210 mm/s) into the lid at T+6.0 s; without it, it drifts into an end wall by T+9 s |
-| | `1c_spin_0.5`, `1c_spin_1` | The 1a turn with 0.5 or 1°/s more about the vertical at release | +34° and +25° in the box |
-| | `1d_roll` | Rolls about its own length (fold plus twist, twice), 2× speed | IMU turn 132° (the plane's spin on top) |
-| | `1e_turn_across` | The 1a turn with the pitch axes across the cabin | the plane's spin adds to the turn: −131.5° in space (−118° with no jitter, as predicted from the release spin) |
-| 2. One end anchored | `2a_arm` | Clamped to the box's end wall, an arm: curls, turns on ee1's twist servo, reaches | reaching sideways, the 1.1 m arm touches a side wall at T+7.6 s |
-| | `2b_stall_0g`, `_moon`, `_mars`, `_1g` | Hanging from the end wall, told to stand straight out, in 0 g, Moon and Mars parabolas and 1 g | stands level; lifts 28° / 15° / 5° |
-| | `2c_let_go` | Swings fast and lets go mid-swing | drifts off, touches the end wall at T+6.8 s |
-| 3. Thrusters | `3a_straight`, `_U`, `_Z`, `_L` | Folds, fires both end nozzles briefly (0.025 N each), coasts | the glides reach a wall at T+16–18 s; the Z spins 223° in place |
-| 4. Suction cups | `4a_walk` | Stands on a deck over the net through 1.8 g, then walks on two cups (80 mm, 60 N) | 682 mm, no cup pops, touches nothing |
-| | `4b_walk_let_go` | The same, letting go too early | floats off, touches an end wall at T+12.1 s |
-| 5. Pole climb | `5a_pole_climb` | Wrapped round a Ø61 mm pole from the box's floor to its lid, it climbs by squeezing | 273 mm up, touches nothing |
-| | `5b_rod_crawl` | Clamps on both ends crawl along a Ø25 mm rail across the box | 595 mm along it, no slips |
-| 6. Skater | `6a_skater` | Let go with 20°/s more about the vertical: faster folded, slower straight | turns 315° in the box; touches the lid at T+19.5 s, near the end of zero g |
-
-Every landing at the pull-out is 0.1–2.5 m/s and sinks at most 90 mm of the 300 mm under the net.
+The class demos (the six class simulations as 21 setups, flown on the 8.5 cm build, with one-click buttons in the
+control window) are on branch `sim/demos-14cm`; their results stay in `../experiments/findings.md`, "The flight
+box". `verify.py` flies two of them itself, from `checks/setups/`: `1a_turn` (held by strings, the falling-cat turn)
+and `4a_walk` (suction cups on a deck over the net). Setups you save go in `setups/`.
 
 `stall_sweep.py` gives experiment A's number (the 14 cm chain in steady gravity), the longest chain that stands out level at each
 gravity (about a minute). Results and what they mean are in `../experiments/findings.md`, "The class simulations".
@@ -236,7 +208,7 @@ the top of `make_chain.py`. Run `verify.py` again after changing either.
 | `meshes/SOURCE.txt` | Which CAD file the meshes were exported from; `verify.py` fails if the CAD has changed since. |
 | `Chain Sim.command` | Double-click launcher for the control window. |
 | `panel.py` | Control window: buttons that build the model and drive the viewer. |
-| `setup_file.py`, `setups/` | Reads and writes setup files, and lists the demo buttons (`DEMOS`); `setups/` holds the example runs. |
+| `setup_file.py`, `setups/` | Reads and writes setup files; `setups/` holds the runs you save, `checks/setups/` the two that `verify.py` flies. |
 | `panel_setup.toml` | What the control window last opened the viewer with (it starts `play.py --setup` with it). Not in git. |
 | `stall_sweep.py` | The stall length at Earth, Mars, Moon and zero g, on the 14 cm chain in steady gravity (it builds its own setups; the 2b setups fly the same in parabolas). |
 | `pole_climb_design.py` | Designs the pole climb (pole size, squeeze, stretch) and writes `../sequences/pole_climb.csv`. |
@@ -339,7 +311,7 @@ columns per end follow: `ee{k}_held` (0/1), `ee{k}_load_N` (clamp force or cup p
 - Weighed module masses add up.
 - Air drag slows a 20 deg/s spin to 18.6 deg/s in 10 s.
 - In the flight box with 0.01 g left over, the chain falls from where the strings hold it onto the net in the time a
-  free fall takes. Through a parabola (`setups/1a_turn`), the strings hold it within 0.4 mm in the box as the plane
+  free fall takes. Through a parabola (`checks/setups/1a_turn`), the strings hold it within 0.4 mm in the box as the plane
   pitches up, it leaves turning with the plane and moving with the box where it was held, and the pull-out lands it on
   the net without reaching the box floor. `4a_walk` stands on the deck through 1.8 g and walks 0.67 m on the turning
   deck with no cup popping; a Mars parabola holds 0.38 g and pitches over less. A free chain let go at 0.5°/s about the
@@ -347,7 +319,7 @@ columns per end follow: `ee{k}_held` (0/1), `ee{k}_load_N` (clamp force or cup p
 - End effectors: every type at either end compiles and leaves the 12 modules exactly as they were; `m1_yaw` twists
   about the chain axis; with both ends fitted the centre of mass still moves ≤ 0.006 mm in 12 s of random motion.
 - Setup files refuse misspelt keys and missing sequences, and Save as then Load gives the same setup back. Every
-  setup loads, every demo button has its setup, and every sequence says what it does in its first line. The shortest
+  setup loads, and every sequence says what it does in its first line. The shortest
   1.8 g phase a setup may ask for matches the parabola's ramps, and the control window imports only the stdlib.
 - **What it doesn't check:** anything against the real chain. These are consistency checks, not validation.
 

@@ -51,8 +51,7 @@ All the keys:
 facing is the surface's outward normal (up = the floor; down, +x, -x, +y, -y), and the chain leaves the surface along
 it. On a rod it's the side of the rod the chain is on. If both ends are attached, ee1 sets where the chain starts.
 
-play.py --setup FILE runs one; the control window's Setup box loads and saves them, and its demo buttons (DEMOS) play
-one each. Stdlib only, like panel.py.
+play.py --setup FILE runs one; the control window's Setup box loads and saves them. Stdlib only, like panel.py.
 """
 import copy
 import glob
@@ -76,9 +75,6 @@ FLIGHT_DEFAULTS = dict(box_m=[x / 1000 for x in FLIGHT["box_mm"]], strings=None,
 RAMPS_S = 7.0  # the 1 -> 1.8 g and 1.8 -> 0 g ramps (flight.Parabola): a 1.8 g phase can't be shorter
 SETTINGS = dict(none=(), anchor=("attach",), suction=("attach", "pull_N", "cup_mm", "friction"), thruster=("thrust_N",))
 ALWAYS = ("sequence", "move_s", "hold_s")  # save() writes these; the other keys only where they differ from DEFAULTS
-DEMOS = [("1A  Free float (held)", "1a_turn"), ("1B  Free float (from the net)", "1b_from_net"),  # the control window's
-         ("2  Anchored", "2a_arm"), ("3  Thrusters", "3a_U"), ("4  Suction walk", "4a_walk"),  # buttons: label, setup
-         ("5  Pole climb", "5a_pole_climb"), ("6  Skater", "6a_skater")]
 KINDS = dict(anchor="anchor (clamp)", suction="suction cup", thruster="thruster")
 
 

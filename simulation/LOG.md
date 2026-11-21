@@ -2,6 +2,18 @@
 
 Newest first. The format is in the root `AGENTS.md`.
 
+## 2026-11-21 · Wesley (Claude Code)
+- **The class demos are off `main`, kept on branch `sim/demos-14cm`** (Wesley: the demos stay a branch while `main`
+  moves to the 7 cm model). Gone from `main`: the 21 setups in `setups/`, the control window's demo row (`DEMOS`,
+  `section_demos`, `demo`, `autoplay`), and the 8 sequences only they used. Kept as sim features: the end effectors,
+  the flight box, `stall_sweep.py`, `pole_climb_design.py`.
+- `checks/setups/`, new: `1a_turn.toml` and `4a_walk.toml`, moved from `setups/` unchanged, so verify section 15 flies
+  the same flights. `power_check.py` now defaults to `setups/` plus `checks/setups/`. Section 16 lost the demo-button
+  and `pole_climb.csv` users checks; `setups/README.md` says where the demos went.
+- Docs: `AGENTS.md`, `README.md`, `GUIDE.md` (section 3 says how to get the demo buttons back by switching branch).
+- **Checked:** `verify.py` ALL CHECKS PASSED; `checks/window_recorder.py` built the window (Setup is its first box)
+  and pressed every button.
+
 ## 2026-11-07 · Wesley (Claude Code)
 - New `power_check.py`: flies every setup headless and reports the servos' peak current and the lowest servo voltage
   for the STS3032 build's 6 V cable design (tether and chain wire gauges, a second feed as flags) and its 12 V converter

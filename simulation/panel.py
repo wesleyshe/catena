@@ -15,7 +15,7 @@ from tkinter import filedialog, simpledialog, ttk
 import setup_file
 from make_chain import N_MODULES, PRESETS
 from make_ends import EE_DEFAULTS, EE_TYPES, FACINGS
-from setup_file import DEMOS, FLIGHT_DEFAULTS, SEQ_DIR, SETUP_DIR, default_strings
+from setup_file import FLIGHT_DEFAULTS, SEQ_DIR, SETUP_DIR, default_strings
 from viewer_link import ViewerLink
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -137,14 +137,13 @@ class Panel:
         self.link, self.sim_running = ViewerLink(), True
         self.loaded = setup_file.new()  # the last setup loaded: it keeps whatever has no field here
         self.played = False  # a take has run since the viewer opened or Reset pose: the next Play starts from the start
-        self.autoplay = False  # a demo button was clicked: play as soon as the viewer connects
         self.loaded_flight = False  # the open viewer has the flight box: Play flies the parabola
         self.manual = False  # a parabola started by hand is flying: Play plays the sequence now (poll keeps this up to date)
 
         self.preset, self.modules, self.slip = tk.StringVar(value="original14"), tk.IntVar(value=N_MODULES), tk.BooleanVar()
         self.seq, self.move, self.hold = tk.StringVar(), tk.DoubleVar(value=3.0), tk.DoubleVar(value=1.0)
         self.speed, self.playback = tk.DoubleVar(value=1.0), tk.DoubleVar(value=1.0)
-        self.countdown = tk.IntVar(value=COUNTDOWN_S)  # not saved in setups: it stays put while you switch demos
+        self.countdown = tk.IntVar(value=COUNTDOWN_S)  # not saved in setups: it stays put while you switch setups
         self.gravity, self.g = tk.BooleanVar(), tk.DoubleVar(value=9.81)
         self.logging, self.status = tk.BooleanVar(), tk.StringVar(value="starting the viewer...")
         self.spin_rate, self.spin_axis = tk.DoubleVar(value=20.0), tk.StringVar(value=SPIN_AXES[0])
@@ -163,7 +162,6 @@ class Panel:
         left.grid(row=0, column=0, sticky="n")
         right.grid(row=0, column=1, sticky="n")
 
-        self.section_demos(left)
         self.section_setup(left)
         self.section_model(left)
         self.section_ends(left)
@@ -182,15 +180,6 @@ class Panel:
         f = ttk.LabelFrame(side, text=title, padding=6)
         f.pack(fill="x", padx=8, pady=4)
         return f
-
-    def section_demos(self, side):
-        """The demo buttons: one click loads a class simulation's setup and flies it."""
-        f = self.frame("The demos, each on the flight: one click opens it and flies it with its sequence (Play for another take)", side)
-        places = [(0, 0), (0, 1)] + [(1 + j // 3, j % 3) for j in range(len(DEMOS) - 2)]  # 1A and 1B side by side, then 2-6
-        for (label, name), (row, col) in zip(DEMOS, places):
-            ttk.Button(f, text=label, command=lambda name=name: self.demo(name)).grid(row=row, column=col, sticky="we")
-        for col in range(3):
-            f.columnconfigure(col, weight=1)
 
     def section_setup(self, side):
         """Setup: pick a whole run from setups/, Load it into every field below, or Save as a new one."""
@@ -395,11 +384,6 @@ class Panel:
                     on_net=self.on_net.get(), release_s=float(self.release.get()),
                     start_s=float(self.start.get()), hyper_s=float(self.hyper.get()), jitter=self.jitter.get())
 
-    def demo(self, name):
-        """One of the six demos: load its setup, and play it once the viewer is up."""
-        self.setup_name.set(name)
-        self.autoplay = self.load_setup()
-
     def load_setup(self):
         """Fill every field from the picked setup, then rebuild and open the viewer. False if it couldn't."""
         if not self.setup_name.get():
@@ -557,9 +541,6 @@ class Panel:
         if connected:
             self.send_playback()
             self.send_camera()
-            if self.autoplay:
-                self.autoplay = False
-                self.play()
         if info:
             self.status.set("\n".join(f"{k:<11}{v}" for k, v in info.items()))
             # by hand while the viewer says so: it has a "by hand" line only while a parabola started by hand is flying,

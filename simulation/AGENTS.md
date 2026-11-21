@@ -10,7 +10,7 @@ This folder is a MuJoCo model of the chain:
 `GUIDE.md` is the user guide (for clicking), `README.md` the reference. This file is for agents: status, map,
 contracts, decisions and open issues. History is in `LOG.md`.
 
-## Status (2026-11-03)
+## Status (2026-11-21)
 - **Internally consistent, not yet checked against the real chain.**
   - `verify.py` passes all 16 sections.
   - Predictions hold for the numbers in `../hardware/spec.toml`, and some of those are placeholders.
@@ -18,13 +18,14 @@ contracts, decisions and open issues. History is in `LOG.md`.
     in `../experiments/findings.md`.
 - **It models the AX-12A chain in the current Rhino file.** The STS3032 flight build's Rhino model is due in the coming
   weeks, and comes in through "Incorporating a new design" in `../hardware/AGENTS.md`.
-- **End effectors** (anchors, suction cups, thrusters; `../docs/design/2026-10-2*-end-effectors*.md`) and **21 setups**
-  for the six class simulations (1a–1e, 2a–2c, 3a ×4, 4a–4b, 5a–5b, 6a; results in `../experiments/findings.md`). The
-  window's seven demo buttons (1A, 1B, 2–6) fly one each.
+- **End effectors** (anchors, suction cups, thrusters; `../docs/design/2026-10-2*-end-effectors*.md`).
+- **The class demos are on branch `sim/demos-14cm`, not `main`** (since 2026-11-21): the 21 setups for the six class
+  simulations, their 8 demo-only sequences and the window's demo buttons. Their results stay in
+  `../experiments/findings.md`. `verify.py` flies two of them from `checks/setups/` (`1a_turn`, `4a_walk`).
 - **Every setup flies** (2026-11-03) on the 8.5 cm build (`feetech85`, scaled from the AX-12A chain until the STS3032
   CAD exists): in the A310 box (`../experiments/flight_space.md`), held by strings (or its anchor) through the 1.8 g
   pull-up (10 s in the setups, to wait less; findings use the A310's 23 s), let go at T+1 s, the sequence from T+1.5 s,
-  the pull-out onto the net; the box turns with the plane. Play, a demo button or a headless run flies it; the window
+  the pull-out onto the net; the box turns with the plane. Play or a headless run flies it; the window
   also flies it by hand. The perfect-zero-g 14 cm results stay in `findings.md` and in verify.py's own setups.
 - **Refactored** (2026-11-03, `../docs/design/2026-11-03-refactor-plan.md`) into files that each do one thing, with
   every result byte-identical to before.
@@ -40,7 +41,7 @@ uv venv --python 3.11 .venv && uv pip install --python .venv/bin/python -r requi
 .venv/bin/python make_chain.py [--preset feetech85] [-n 12] [--slip-ring] [--gravity 9.81] [--box]   # writes chain.xml
 .venv/bin/python play.py --seq ../sequences/fold_sequence.csv --headless                 # logs/run_log.csv
 .venv/bin/python play.py --seq ../sequences/reorient_loop.csv --headless --speed 4 --spin 0 0 1 --air   # flight-like
-.venv/bin/python play.py --setup setups/1a_turn.toml --headless   # a whole run from a setup: with [flight], a parabola
+.venv/bin/python play.py --setup checks/setups/1a_turn.toml --headless   # a whole run from a setup: with [flight], a parabola
 .venv/bin/mjpython play.py                                   # viewer only (macOS needs mjpython)
 .venv/bin/python panel.py                                    # control window + viewer (= double-click Chain Sim.command)
 .venv/bin/python export_meshes.py                            # rebuild meshes/ from ../hardware/cad/complete chain.3dm
@@ -57,7 +58,7 @@ Default paths are relative to this folder, so the scripts also work when run fro
 | `make_ends.py` | The end effectors in the model (`bodies`, `cup_pairs`), their placeholder numbers at the top, and where an end starts (`attach_point`, `leading_end`, `FACINGS`). |
 | `make_box.py` | The flight box in the model (`cabin`, `tie_ons`, `strings`, `held_height`), its numbers and look at the top. |
 | `spec.py` | Reads `../hardware/spec.toml` once (`SPEC`, `HW`, `SERVO`, `MASS`, `FLIGHT`); the folders (`SEQ_DIR`, `SETUP_DIR`); `v()`. |
-| `setup_file.py` | Setup files: `load` (refuses unknown keys), `save` (writes TOML by hand: `ALWAYS`, then only what differs from `DEFAULTS`), `about` (a file's first `#` line, setups and CSVs alike), `summary`, `users` (the setups that play a sequence), `build_args`, `single_axis_spin`; `DEMOS` (the demo buttons: label, setup). |
+| `setup_file.py` | Setup files: `load` (refuses unknown keys), `save` (writes TOML by hand: `ALWAYS`, then only what differs from `DEFAULTS`), `about` (a file's first `#` line, setups and CSVs alike), `summary`, `users` (the setups that play a sequence), `build_args`, `single_axis_spin`. |
 | **The run** (MuJoCo) | |
 | `play.py` | The command line only: headless, or the viewer. It re-exports `Session`, `Parabola`, `Commands`, `read_sequence`, `target`, `joint_servos`, `modules`, `LOG_DT`, so `from play import ...` still works. |
 | `session.py` | `Session` (state, start pose, sequence playback, spin and turn, commands, log columns, readouts, summary), `Logger`, `load_model()`. |
@@ -66,17 +67,18 @@ Default paths are relative to this folder, so the scripts also work when run fro
 | `sequence.py` | The fold-sequence format: `read_sequence`, `read_ee`, `target`, `EE_COLUMN`; `LOG_DT`; how actuators line up with the CSV (`actuator`, `modules`, `joint_servos`). |
 | `viewer.py` | The viewer window: `run_viewer` (the loop, keys, camera, big text, readouts to the panel), `Commands` (the countdown queue), screenshots; `KEYS` and `STEP_DEG` at the top. |
 | **The window** (stdlib only) | |
-| `panel.py` | The Tk control window, a separate process that drives `play.py` over a localhost socket. One `section_*` method per box; `start_take()` is how every take starts. Its top row is the demo buttons. |
+| `panel.py` | The Tk control window, a separate process that drives `play.py` over a localhost socket. One `section_*` method per box; `start_take()` is how every take starts. |
 | `viewer_link.py` | The panel's link to the viewer: starts `play.py --setup FILE --panel PORT` under mjpython, sends commands, reads readouts. |
 | `Chain Sim.command` | Finder double-click launcher for `panel.py`. A Terminal window stays open while it runs. |
 | **Checks and tools** | |
 | `verify.py`, `checks/` | `verify.py` runs the 16 sections in `checks/` (one file per subject); see "Verification". `checks/same_as_before.py` (with `window_recorder.py`) is for refactors: verify's printout, the fold log, every setup flown headless, the XML of 47 models, every button's commands and the window's layout, the stdlib check. |
 | `stall_sweep.py` | Experiment A's stall length: the longest 14 cm chain that stands out level from a wall at Earth, Mars, Moon and zero g, in steady gravity (~1 min; its setups are built in the script). |
 | `pole_climb_design.py` | Writes `../sequences/pole_climb.csv` for the 14 cm chain on a Ø100 mm pole; the angles fit any size with the pole scaled (5a: Ø61 mm). |
-| `power_check.py` | The STS3032 build's power: flies every setup headless and reports the servos' peak current and the lowest servo voltage for the 6 V cable design and the 12 V converter design (`../hardware/electronics.md`). Its STS3032 and wire constants are at the top; setups with flight-box strings only build at 12 modules. |
+| `power_check.py` | The STS3032 build's power: flies every setup in `setups/` and `checks/setups/` headless and reports the servos' peak current and the lowest servo voltage for the 6 V cable design and the 12 V converter design (`../hardware/electronics.md`). Its STS3032 and wire constants are at the top; setups with flight-box strings only build at 12 modules. |
 | `export_meshes.py`, `inspect_3dm.py` | 3dm → `meshes/` (one STL per rigid body, module frame, metres, under 20k triangles); a 3dm's summary (units, layers, objects, tight mesh boxes). |
 | **Data and output** | |
-| `setups/` | The class simulations as flights, named `{demo}{version}_{what}` (e.g. `5a_pole_climb`). `verify.py` checks each loads and builds, and that every `DEMOS` setup exists. |
+| `setups/` | Setups saved from the control window (empty on `main`; the class demos are on branch `sim/demos-14cm`). `verify.py` checks each loads and builds. |
+| `checks/setups/` | The two flights `verify.py` flies (`1a_turn`, `4a_walk`, copied from the class demos), and `power_check.py`'s default. |
 | `meshes/` | `base_first.stl` (module 1), `base_mid.stl` (2–11), `base_last.stl` (12), `arm.stl` (1–11). Generated, but committed. `SOURCE.txt` records the CAD file name and SHA-256 they came from. |
 | Git-ignored | `chain.xml` (nothing reads it: `play.py` builds the model fresh); `panel_setup.toml` (**the panel writes its settings, laid over the loaded setup, here every time it opens the viewer**, and starts `play.py --setup` with it); `renders/` (verify.py's PNGs); `logs/` (`run_log.csv` from the shell, `run_<stamp>.csv` from the panel), `screenshots/`; `.venv/`. |
 
@@ -249,4 +251,4 @@ built as they are (read before changing any of them), and how `spin`, the readou
 files. The sections are in `checks/`, one file per subject (`model`, `physics`, `in_flight`, `renders`,
 `end_effectors`, `controls`, with helpers in `common`); `verify.py` runs them in order, and `verify.py 15` (or
 `verify.py 9 10`) runs just those. Its perfect-zero-g checks build their own setups in code (13, the pole climb) rather
-than reading `setups/`, which fly. Its docstring says what each checks, and the key numbers are under Contracts.
+than reading setup files; its flights (15) read `checks/setups/`. Its docstring says what each checks, and the key numbers are under Contracts.

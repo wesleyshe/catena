@@ -32,8 +32,8 @@ Measured sim results so far are in `findings.md`.
   - Cabin air drag (`--air`), and a flag when a sequence is longer than one parabola (`--speed` to fit).
   - **The flight box and a whole parabola:** a setup with a `[flight]` table puts the chain in the acrylic box (sized
     from the A310 cabin, `flight_space.md`) with a net across it, held by strings that let go at zero g. Play runs 1.8 g,
-    zero g with the leftover g, 1.8 g, with the box turning with the plane's pitch. Every class simulation in
-    `../simulation/setups/` flies this way now; results in `findings.md`, "The flight box": the plane's pitch rate at
+    zero g with the leftover g, 1.8 g, with the box turning with the plane's pitch. Every class simulation (on branch
+    `sim/demos-14cm`, with its setups) flies this way; results in `findings.md`, "The flight box": the plane's pitch rate at
     release spoils the 30° turn unless the chain's pitch axes lie across the cabin (`1e_turn_across`); started on the
     net instead of held by strings (`1b_from_net`), it gets far less clean free-float time.
   - `reorient_loop.csv` turns the chain about 7.4° per loop with zero angular momentum, about the vertical only.
