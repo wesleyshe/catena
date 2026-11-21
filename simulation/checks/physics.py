@@ -77,9 +77,11 @@ def check_spin():
 
 
 def check_pole_climb():
-    print("13. wrapped around a pole: the start pose, the squeeze grip, the climb (14 cm chain, Ø100 mm pole, zero g)")
+    k = PRESETS["original14"]["pitch"] / 0.140  # pole_climb.csv is for a Ø100 mm pole on 14 cm modules; scale the pole
+    print(f"13. wrapped around a pole: the start pose, the squeeze grip, the climb ({k * 14:g} cm chain, Ø{100 * k:g} mm pole, "
+          "zero g)")
     setup = setup_file.new(sequence=os.path.join(setup_file.SEQ_DIR, "pole_climb.csv"), move_s=0.7, hold_s=0.3,
-                           rod={"from": [0.0, 0.0, 0.15], "to": [0.0, 0.0, 2.6], "diameter_mm": 100.0, "wrap_m": 0.35})
+                           rod={"from": [0.0, 0.0, 0.15], "to": [0.0, 0.0, 2.6], "diameter_mm": 100.0 * k, "wrap_m": 0.35})
     m, d = load(**setup_file.build_args(setup))
     s = Session(m, d, None, setup)
     a, b = np.array(setup["rod"]["from"]), np.array(setup["rod"]["to"])
@@ -96,5 +98,5 @@ def check_pole_climb():
     while s.seq_t < s.duration() - 1e-9:
         s.advance()
     climbed, r1 = (d.subtree_com[1] - a) @ u - z0, from_axis()
-    check(climbed > 0.3 and r1.max() < want + 0.05, f"the wrap-and-inch climb: {climbed * 1000:.0f} mm up the pole in "
+    check(climbed > 0.3 * k and r1.max() < want + 0.05 * k, f"the wrap-and-inch climb: {climbed * 1000:.0f} mm up the pole in "
           f"{s.duration():.1f} s, still wrapped (modules {r1.min() * 1000:.0f}-{r1.max() * 1000:.0f} mm from its axis)")

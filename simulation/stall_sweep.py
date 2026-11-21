@@ -2,7 +2,7 @@
 
   .venv/bin/python stall_sweep.py        # about a minute; prints a table
 
-Experiment A's number. Each run is the 14 cm chain anchored to a wall by ee1 (pitch axes level), hanging from m1_pitch at
+Experiment A's number. Each run is the chain in the spec (original14) anchored to a wall by ee1 (pitch axes level), hanging from m1_pitch at
 -90 deg, then told to stand straight out (../sequences/stand_out.csv), at each chain length and steady gravity. (The 2b
 setups fly the same in parabolas, on the 8.5 cm chain.) A chain "stands" if,
 at the end, its last module is within LEVEL_DEG of level as seen from m1. The hand estimate is the longest N with

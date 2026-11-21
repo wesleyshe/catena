@@ -1,6 +1,6 @@
 """Print a summary of a .3dm file: units, layers, objects, colours, geometry types, bounding boxes.
 Bounding boxes come from the stored render meshes (tight); Rhino's own quick boxes can be much larger.
-Usage: .venv/bin/python inspect_3dm.py ["../hardware/cad/Single module existing.3dm"]
+Usage: .venv/bin/python inspect_3dm.py ["../hardware/cad/7cm module.3dm"]
 """
 import os
 import sys
@@ -9,7 +9,7 @@ import rhino3dm as r3
 
 from export_meshes import SRC, render_mesh
 
-path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(SRC), "Single module existing.3dm")
+path = sys.argv[1] if len(sys.argv) > 1 else SRC
 m = r3.File3dm.Read(path)
 print(f"File: {path}")
 print(f"Units: {m.Settings.ModelUnitSystem}  abs tol: {m.Settings.ModelAbsoluteTolerance}")

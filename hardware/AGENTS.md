@@ -3,38 +3,33 @@
 Read the root `AGENTS.md` first. This folder holds the physical design of the chain: CAD, measurements, kinematics and
 BOM decisions. History is in `LOG.md`.
 
-## Status (2026-11-07)
-- The 12-module chain with AX-12A servos exists and has been published (Mutis et al., SCF 2025).
+## Status (2026-11-21)
+- The 12-module chain with AX-12A servos exists and has been published (Mutis et al., SCF 2025). Its CAD is archived.
 - Per the proposal, flight still needs the soft damping membrane, an IMU and onboard data logging.
-- **The flight build will use STS3032 servos** (decided 2026-10-22). From the BOM:
-  - Shell Ø85 mm with 0.5 mm between modules (Wesley, 2026-11-03), so the chain is about 1.03 m long. The sim models
-    it as preset `feetech85`, the AX-12A module scaled down, until this CAD exists.
-  - Pitch servo: STS3032-C036 (double shaft, 32 × 12 × 27.5 mm). Yaw servo: STS3032-C001 (23.2 × 12.1 × 28.5 mm).
-  - Stall torque 0.44 N·m, stall current 1.2 A, 12-bit encoder over 360°, yaw ±180°.
-  - **Electronics and power: `electronics.md`.** One Feetech FE-URT-1 drives the bus from a laptop. Each servo has a
-    single lead, so each module splices its servos onto the three chain wires (power, GND, DATA).
-  - **Power isn't decided:** a 12 → 6 V converter in every module, or 6 V straight down a 12 AWG tether and 18–20 AWG
-    chain wire with no converters. Both hold every simulated experiment (`simulation/power_check.py`); the choice
-    waits on a cable-stiffness test of one joint and on whether the converter fits the CAD.
-  - **First build ordered 2026-11-07 (Wesley):** 7 × C036, 9 × C001 and the URT, for 8 modules plus `ee1` on its
-    twist servo (15 servos, one spare).
-  - The battery isn't chosen yet.
-  - Its Rhino model is due in the coming weeks. Until then the spec and the sim stay on the AX-12A chain; when it
-    arrives, follow "Incorporating a new design".
+- **The build is the 7 cm module with SCS0009 servos** (Wesley, 2026-11-21; CAD `cad/7cm module.3dm`):
+  - Shell Ø70 mm, modules 70 mm centre to centre, so 13 shells are about 0.91 m end to end.
+  - **13 modules:** m1–m11 full (a yaw and a pitch servo each), m12 with its yaw servo only, and a module with no
+    servos past m1 (`ee1`, on m1's yaw servo). 23 joints.
+  - **Servos ordered (Wesley):** 11 double-shaft SCS0009 for pitch, 12 single-shaft for yaw.
+  - Stall torque 0.226 N·m (2.3 kg·cm), no-load 10.5 rad/s (0.1 s/60°): the figures used in the 2026-11-07 comparison.
+    Check them against Feetech's datasheet at the voltage you run.
+  - The pitch servo's horn faces −X (the AX-12A's faced +X), so for the same joint angle it turns the other way.
+    Record it under the servo directions in `spec.toml` once they're measured.
+  - The U2D2 / power hub and the battery aren't in the CAD yet.
+- **Superseded: the Ø85 mm STS3032 build** (decided 2026-10-22; 7 × C036, 9 × C001 and a URT ordered 2026-11-07).
+  `electronics.md` and `simulation/power_check.py` were worked out for it and need redoing for the SCS0009. The sim
+  keeps it as preset `feetech85`.
 - Owner: (add your name)
 
 ## Files
 | Path | What it is |
 |---|---|
-| `cad/complete chain.3dm` | The current design: the whole 12-module chain (Rhino 8, mm). The source for every sim mesh. **Never modify.** |
-| `cad/Single module existing.3dm` | One module of the current design. **Never modify.** |
-| `cad/archive/` | Designs that have been replaced, kept for reference (create it when the first one is retired). |
-| `electronics.md` | The STS3032 build's electronics: controller, servo IDs, the two power designs with the sim's numbers, parts lists, wiring rules, what to check on the test servos. |
+| `cad/7cm module.3dm` | The current design: one 7 cm module (Rhino 8, mm). The source for every sim mesh: the chain repeats it every 70 mm. **Never modify.** |
+| `cad/archive/` | Designs that have been replaced, kept for reference: `2026-11-21 complete chain.3dm` and `2026-11-21 Single module existing.3dm`, the 14 cm AX-12A chain. |
+| `electronics.md` | The STS3032 build's electronics (superseded, see Status): controller, servo IDs, the two power designs with the sim's numbers, parts lists, wiring rules, what to check on the test servos. |
 | `spec.toml` | The chain's numbers (module count, spacing, shell, ranges, servo, masses), plus the IMU's module and the flight environment (the A310's g profile and leftover g, the experiment box and its net, cabin air). **The sim and the robot software read this file**, so it's the one place to change a number. |
 
-- The single-module file matches module 2 of the chain to within 0.000 mm.
-- It adds a Ø8.4 × 3 mm plug in the hub hole; ignore the plug.
-- The CAD tools live in `simulation/`: `inspect_3dm.py` summarises a .3dm, and `export_meshes.py` turns the chain into
+- The CAD tools live in `simulation/`: `inspect_3dm.py` summarises a .3dm, and `export_meshes.py` turns the module into
   sim meshes. See `simulation/AGENTS.md`.
 
 ## Incorporating a new design
@@ -57,46 +52,52 @@ New designs usually arrive as a Rhino file that someone has already made, with a
    module count), also log it in the root `LOG.md`.
 
 ## Reading the CAD
-- In `complete chain.3dm` the modules lie along +Z at x = −400.70, y = −399.53, with centres at z = 52 + 140·k (mm).
-- Every Brep, Extrusion and Mesh has a stored render mesh, so Rhino isn't needed to read the files. Curves and points
-  are reference geometry: axis lines and Ref Geom points.
-- rhino3dm's `GetBoundingBox()` is loose because it's built from control points, so use mesh bounds instead. For
-  example, the shell measures 137.5 mm in Y, not 162.
+- `7cm module.3dm` holds one module, joints at zero, chain along +Z. Its centre, where the two lines in `V6::axis` (yaw
+  along Z, pitch along X) cross, is at x = −443.682, y = −504.497, z = −10.72; the shell sphere's centre is within
+  0.003 mm of it. `export_meshes.py` reads the centre from those lines.
+- Layers: `V6::shell`, `V6::C-handle` (the arm), `V6::servos` (both servos, 9 parts each), `V6::body` (the two plates
+  joining the servos), `V6::axis`. `Layer 01` is empty.
+- Every object has a stored render mesh, so Rhino isn't needed to read the file. rhino3dm's `GetBoundingBox()` is
+  loose (it's built from control points), so measure with mesh bounds instead.
 
 ## Measurements
-All in the module frame: the origin is where the yaw and pitch axes cross, which is the sphere centre.
-- **Shell:** outer Ø139.0 mm, 2.0 mm wall, split into ±X halves at x = 0.
-  - A 20 mm slot runs over the top in the Y–Z plane and closes 130° from +Z.
-  - The hub shaft hits the end of the slot at about 124°, which sets the ±124° pitch limit.
-  - The bottom opening is Ø40 mm.
-- **Servos (AX-12A):** 32 × 50 × 38 mm. The often-quoted 40 mm includes the horn, which isn't modelled.
-  - Yaw servo: z −50…−12, horn facing −Z on the axis.
-  - Pitch servo: z −11.5…+38.5, horn facing +X at x = +19.
-- **Bracket:** one solid holding both servos. Pins lock it to both shell halves.
-- **Arm (yoke):** 64 mm wide, with Ø24 mm side discs at x = ±21.
-  - The hub flange's top is at +88 mm.
-  - The flange and discs have the AX-12A horn's 16 mm bolt circle.
-- **Pitch (module spacing): 140 mm**, confirmed by Wesley and the chain file. It's 88 mm to the hub top plus 52 mm to
-  the next yaw horn face. Neighbouring shells are 1 mm apart. The original "15 cm" figure was wrong.
-- **Mass from CAD (solid PLA):** base about 0.28 kg with servos; arm 24 g.
+All in the module frame: the origin is where the yaw and pitch axes cross, which is the sphere centre. From the CAD
+(mesh bounds and ray tests, 2026-11-21).
+- **Shell:** outer Ø70.0 mm, 2.5 mm wall, one piece.
+  - A 13 mm slot runs over the top in the Y–Z plane and closes 128.2° from +Z on both sides.
+  - The bottom opening is Ø15 mm.
+- **Servos (SCS0009):** bodies 12.1 × 23.25 mm, 25.5 mm tall without the spline; 32.6 mm across the mounting ears.
+  - Yaw servo: z −31.6…−6.1, spline (Ø4 mm, 3.25 mm long) facing −Z on the axis, its end at z = −34.55.
+  - Pitch servo: lies along X, x −12.9…+16.6, spline facing −X on the axis, its end at x = −15.85.
+- **Body:** two 12.1 × 3.7 × 29 mm plates on the servos' ears (y −21.9…−18.2 and +7.1…+10.7). Nothing in the CAD yet
+  fixes them to the shell.
+- **Fit to check:** the yaw servo's two ear corners on the −Y side (x ±5.7, y −21.8, z −24.4) reach 33.2 mm from the
+  centre, 0.76 mm into the shell wall (its inside face is at 32.47 mm there). The −Y plate clears it by 0.22 mm.
+- **Arm (C-handle):** 40 mm wide (pitch pivots at x = ±20), its stem 10 × 10 mm where it passes the shell slot, the hub
+  top at +38.3 mm.
+- **Pitch (module spacing): 70 mm** (Wesley). The next module's yaw spline then sits 2.85 mm into the hub, and its
+  servo case clears the hub top by 0.1 mm. Neighbouring shells meet only on the chain axis, where the slot and the
+  bottom opening are.
+- **Pitch range:** the stem hits the end of the slot at 119.6°; shells two modules apart would touch at 120.0°.
+- **Volumes from CAD:** shell 30.7 cm³ (38 g in PLA), body plates 2.4 cm³ (3 g), C-handle 4.3 cm³ (5 g; its mesh isn't
+  closed, so roughly).
 
 ## Kinematics (confirmed by Wesley)
 - **Two rigid bodies per module:**
-  - The base: shell, bracket and both servos.
-  - The arm: yoke and hub.
-  - There's no separate yaw stage.
+  - The base: shell, body and both servos.
+  - The arm: the C-handle.
 - **Joints:**
   - `m{i}_pitch`: base i → arm i, about the module's +X axis through its centre.
-  - `m{i+1}_yaw`: arm i → base i+1, about +Z. The hub bolts to the next module's downward-facing yaw horn.
-- **End modules:**
-  - Module 1 has a pitch servo but no yaw servo.
-  - Module 12 has a yaw servo but no pitch servo and no arm.
-  - Both carry the U2D2 and power hub.
+  - `m{i+1}_yaw`: arm i → base i+1, about +Z. The hub takes the next module's yaw spline.
+- **End modules (2026-11-21):**
+  - m1 is a full module. Its yaw servo turns `ee1`, a module with no servos (shell and a fixed C-handle) past it.
+  - m12 has a yaw servo but no pitch servo and no C-handle.
+  - Where the U2D2 and power hub go isn't drawn yet.
 
 ## Numbers the sim still guesses (please measure)
 - **Masses** (in `spec.toml`):
-  - The spec says 200 g per base and 30 g per arm, while the CAD suggests about 280 g and 24 g. End modules are assumed
-    to weigh the same as middle ones.
+  - The spec says 90 g per base and 6 g per arm (2026-11-21 placeholders: Wesley expects about 100 g a module; the
+    printed parts are about 46 g in PLA, see Measurements). End modules are assumed to weigh the same as middle ones.
   - Weigh each whole module in flight configuration, battery included, and list them in `module_g`. Weigh one arm on
     its own for `arm_g`.
   - It's where the weight sits that changes the predicted turn (a battery at the ends: 9%), not the total.
@@ -104,7 +105,7 @@ All in the module frame: the origin is where the yaw and pitch axes cross, which
   (`box_mm`, 2.0 × 1.3 × 1.9 m: fits one side of the A310 cabin with the aisle clear, built on board from parts,
   `../experiments/flight_space.md`), the net's height and sag, and the plane's pitch (`pitch_deg`) (`[flight]`).
 - **Gearbox behaviour** (in `simulation/make_chain.py`): friction (7% of stall torque), motor inertia and braking are
-  tuned estimates. There are no measured AX-12A values.
+  tuned estimates. There are no measured SCS0009 values.
 
 ## Miniaturisation (decided 2026-10-17)
 - **Goals:**
@@ -116,8 +117,9 @@ All in the module frame: the origin is where the yaw and pitch axes cross, which
 - **Estimated smallest shells:** SCS0009 about 73 mm, STS3032 about 79 mm, XL330/XC330 about 96 mm.
   - So 5.5 cm modules can't fit two servos, and the 7 cm sim presets (`dyna7`, `feetech7`) are optimistic what-ifs.
   - These estimates come from reseller dimensions plus assumed shaft offsets. No STEP files were checked.
-- **Outcome (2026-10-22):** the STS3032 build at about 80 mm, matching the 79 mm estimate above. Since 2026-11-03 it's
-  Ø85 mm shells 0.5 mm apart (see Status).
+- **Outcome:** the STS3032 build at about 80 mm (2026-10-22), Ø85 mm from 2026-11-03; then the 7 cm SCS0009 module
+  (2026-11-21, `cad/7cm module.3dm`), 3 mm under the 73 mm estimate above with no clearance left: the yaw servo's
+  ears reach into the wall (Measurements).
 - **Before sizing a mini module:**
   - Confirm the servo choice, and whether about 7.3–8 cm is acceptable.
   - Going smaller needs a layout change, so ask first.

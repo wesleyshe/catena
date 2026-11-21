@@ -3,23 +3,27 @@
 # (see "When a change crosses areas" in the root AGENTS.md). Units are in the key names.
 
 [chain]
-modules = 12                  # m1 ... m12
-pitch_mm = 140                # module centre to centre: 88 mm to the hub top + 52 mm to the next yaw horn face
-shell_diameter_mm = 139       # outer; neighbouring shells are 1 mm apart
+modules = 12                  # m1 ... m12; the build also has ee1, a module with no servos past m1 (hardware/AGENTS.md)
+pitch_mm = 70                 # module centre to centre (Wesley): the C-handle's hub top is 38.3 mm up, and the next
+                              # module's yaw spline sits 2.85 mm into it
+shell_diameter_mm = 70        # outer, 2.5 mm wall; neighbouring shells meet only on the chain axis, at the slot and the
+                              # bottom opening
 
 [joints]
-pitch_range_deg = 124         # ±; the hub hits the end of the shell slot at about 124°
-yaw_range_deg = 150           # ±; servo range (the AX-12A turns 300° in total)
+pitch_range_deg = 119         # ±; the C-handle's stem hits the end of the shell slot at 119.6°, and shells two modules
+                              # apart would touch at 120.0°
+yaw_range_deg = 150           # ±; kept from the AX-12A chain (Wesley, 2026-11-21); no slip ring, so cable twist limits it
 
 [servo]
-model = "AX-12A"
-stall_torque_Nm = 1.5
-no_load_speed_rad_s = 6.18    # 59 rpm at 12 V
+model = "SCS0009"
+stall_torque_Nm = 0.226       # 2.3 kg·cm; with the speed, the figures used in the 2026-11-07 comparison: check them
+no_load_speed_rad_s = 10.5    # 0.1 s/60°; against Feetech's datasheet at the voltage the chain runs on
 
-[mass]                        # placeholders until a module is weighed; the CAD suggests base ~280 g, arm 24 g
-base_g = 200                  # a middle module without its arm: shell, bracket, both servos
-end_g = 200                   # modules 1 and 12: one servo fewer, plus the U2D2 and power hub
-arm_g = 30                    # yoke + hub
+[mass]                        # placeholders until a module is weighed (2026-11-21): Wesley expects ~100 g a module; the
+                              # CAD's printed parts are ~46 g in PLA (shell 38 g, body plates 3 g, C-handle 5 g)
+base_g = 90                   # a middle module without its arm: shell, body, both servos, wiring
+end_g = 90                    # modules 1 and 12 (m1 is a full module in this build; m12 has no pitch servo)
+arm_g = 6                     # the C-handle and its screws
 # Once the modules are weighed, list each whole module here (base + arm, everything inside it, battery included),
 # m1 first; module 12 has no arm. With all 12 filled in, these replace base_g / end_g, and arm_g splits each one.
 # module_g = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
